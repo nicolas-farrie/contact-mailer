@@ -5,10 +5,6 @@ from models import db, Contact, Liste, User
 from config import Config
 import csv
 import io
-import sys
-
-# Accès au convertisseur vCard existant
-sys.path.insert(0, '/home/nicolas/Documents/Developpements/LePont/vcard2csv')
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
 
 app = Flask(__name__)
