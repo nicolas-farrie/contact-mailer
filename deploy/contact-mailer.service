@@ -1,0 +1,17 @@
+[Unit]
+Description=Contact Mailer - Gestion contacts et mailing
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/contact-mailer
+Environment=PATH=/opt/contact-mailer/venv/bin
+EnvironmentFile=/opt/contact-mailer/.env
+ExecStart=/opt/contact-mailer/venv/bin/gunicorn --bind 127.0.0.1:8100 --workers 2 --timeout 300 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
