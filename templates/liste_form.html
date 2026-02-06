@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if liste else 'Nouvelle' }} liste - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'Modifier la liste' if liste else 'Nouvelle liste' }}</h1>
+</div>
+
+<form method="POST" class="form-card">
+    <div class="form-group">
+        <label for="nom">Nom de la liste *</label>
+        <input type="text" id="nom" name="nom" value="{{ liste.nom if liste else '' }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" name="description" rows="3">{{ liste.description if liste else '' }}</textarea>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ 'Modifier' if liste else 'Créer' }}</button>
+        <a href="{{ url_for('listes') }}" class="btn btn-secondary">Annuler</a>
+    </div>
+</form>
+{% endblock %}

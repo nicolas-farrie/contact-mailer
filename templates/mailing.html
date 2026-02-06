@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Mailing - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Nouveau mailing</h1>
+    <a href="{{ url_for('mailing_queue') }}" class="btn">Voir la file d'attente</a>
+</div>
+
+{% if not smtp_configured %}
+<div class="alert alert-error">
+    <strong>SMTP non configuré.</strong> Ajoutez les variables SMTP_HOST, SMTP_USER, etc. dans votre fichier .env
+</div>
+{% endif %}
+
+<div class="mailing-container">
+    <form method="POST" action="{{ url_for('mailing_send') }}" class="form-card mailing-form">
+        <div class="form-group">
+            <label for="liste_id">Liste de destinataires *</label>
+            <select id="liste_id" name="liste_id" required>
+                <option value="">-- Sélectionner une liste --</option>
+                {% for liste in listes %}
+                <option value="{{ liste.id }}">{{ liste.nom }} ({{ liste.count }} contacts)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="subject">Sujet *</label>
+            <input type="text" id="subject" name="subject" required
+                   placeholder="Ex: Invitation à notre réunion du {prenom}">
+            <p class="hint">Variables disponibles : {prenom}, {nom}, {email}, {organisation}</p>
+        </div>
+
+        <div class="form-group">
+            <label>Format</label>
+            <div class="format-toggle">
+                <label class="checkbox-label">
+                    <input type="radio" name="format" value="text" checked onchange="toggleFormat()"> Texte brut
+                </label>
+                <label class="checkbox-label">
+                    <input type="radio" name="format" value="html" onchange="toggleFormat()"> HTML
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="body">Message *</label>
+            <textarea id="body" name="body" rows="12" required
+                      placeholder="Bonjour {prenom},&#10;&#10;Nous vous invitons à...&#10;&#10;Cordialement,&#10;L'équipe"></textarea>
+            <p class="hint" id="html-hint" style="display:none">
+                Utilisez du HTML : &lt;b&gt;gras&lt;/b&gt;, &lt;a href="..."&gt;lien&lt;/a&gt;, &lt;br&gt; pour saut de ligne
+            </p>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn" onclick="previewMail()">Prévisualiser</button>
+            <button type="submit" class="btn btn-primary" {% if not smtp_configured %}disabled{% endif %}>
+                Préparer l'envoi
+            </button>
+        </div>
+    </form>
+
+    <div class="preview-panel" id="preview-panel" style="display:none;">
+        <h3>Prévisualisation</h3>
+        <p class="hint" id="preview-contact"></p>
+        <div class="preview-subject" id="preview-subject"></div>
+        <div class="preview-body" id="preview-body"></div>
+    </div>
+</div>
+
+<div class="info-box">
+    <h3>Variables de personnalisation</h3>
+    <p>Utilisez ces variables dans le sujet et le message, elles seront remplacées pour chaque contact :</p>
+    <ul>
+        <li><code>{prenom}</code> - Prénom du contact</li>
+        <li><code>{nom}</code> - Nom du contact</li>
+        <li><code>{email}</code> - Adresse email</li>
+        <li><code>{organisation}</code> - Organisation</li>
+        <li><code>{telephone}</code> - Téléphone</li>
+    </ul>
+</div>
+
+<script>
+function toggleFormat() {
+    const isHtml = document.querySelector('input[name="format"][value="html"]').checked;
+    document.getElementById('html-hint').style.display = isHtml ? 'block' : 'none';
+}
+
+function previewMail() {
+    const form = document.querySelector('.mailing-form');
+    const formData = new FormData(form);
+
+    fetch('{{ url_for("mailing_preview") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        const isHtml = document.querySelector('input[name="format"][value="html"]').checked;
+        document.getElementById('preview-contact').textContent = 'Aperçu pour : ' + data.contact;
+        document.getElementById('preview-subject').textContent = data.subject;
+
+        const previewBody = document.getElementById('preview-body');
+        if (isHtml) {
+            previewBody.innerHTML = data.body;
+        } else {
+            previewBody.textContent = data.body;
+        }
+        document.getElementById('preview-panel').style.display = 'block';
+    })
+    .catch(err => alert('Erreur : ' + err));
+}
+</script>
+
+<style>
+.mailing-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+.mailing-form {
+    max-width: none;
+}
+.preview-panel {
+    background: white;
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.preview-panel h3 {
+    margin-bottom: 0.5rem;
+}
+.preview-subject {
+    font-weight: bold;
+    padding: 0.5rem;
+    background: var(--gray-100);
+    border-radius: var(--radius);
+    margin: 0.5rem 0;
+}
+.preview-body {
+    white-space: pre-wrap;
+    padding: 0.75rem;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    font-family: inherit;
+    min-height: 200px;
+}
+@media (max-width: 900px) {
+    .mailing-container {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

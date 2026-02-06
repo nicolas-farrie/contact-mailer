@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if contact else 'Nouveau' }} contact - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'Modifier le contact' if contact else 'Nouveau contact' }}</h1>
+</div>
+
+<form method="POST" class="form-card">
+    <div class="form-row">
+        <div class="form-group">
+            <label for="nom">Nom *</label>
+            <input type="text" id="nom" name="nom" value="{{ contact.nom if contact else '' }}" required>
+        </div>
+        <div class="form-group">
+            <label for="prenom">Prénom *</label>
+            <input type="text" id="prenom" name="prenom" value="{{ contact.prenom if contact else '' }}" required>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="email">Email *</label>
+            <input type="email" id="email" name="email" value="{{ contact.email if contact else '' }}" required>
+        </div>
+        <div class="form-group">
+            <label for="telephone">Téléphone</label>
+            <input type="tel" id="telephone" name="telephone" value="{{ contact.telephone if contact else '' }}">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="organisation">Organisation</label>
+        <input type="text" id="organisation" name="organisation" value="{{ contact.organisation if contact else '' }}">
+    </div>
+
+    <div class="form-group">
+        <label for="notes">Notes</label>
+        <textarea id="notes" name="notes" rows="3">{{ contact.notes if contact else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+        <label>Listes</label>
+        <div class="checkbox-group">
+            {% for liste in listes %}
+            <label class="checkbox-label">
+                <input type="checkbox" name="listes" value="{{ liste.id }}"
+                       {% if contact and liste in contact.listes %}checked{% endif %}>
+                {{ liste.nom }}
+            </label>
+            {% endfor %}
+        </div>
+        {% if not listes %}
+        <p class="hint">Aucune liste créée. <a href="{{ url_for('liste_new') }}">Créer une liste</a></p>
+        {% endif %}
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ 'Modifier' if contact else 'Créer' }}</button>
+        <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Annuler</a>
+    </div>
+</form>
+{% endblock %}

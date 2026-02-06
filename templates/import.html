@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Import - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Importer des contacts</h1>
+</div>
+
+<div class="form-card">
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="file">Fichier contacts (vCard, TSV ou CSV)</label>
+            <input type="file" id="file" name="file" accept=".vcf,.vcard,.tsv,.csv,.txt" required>
+            <p class="hint">Formats acceptés : vCard (.vcf), TSV (tabulations), CSV (virgules)</p>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="update_existing" checked>
+                Mettre à jour les contacts existants et fusionner les listes
+            </label>
+            <p class="hint">Si coché : les contacts existants (même email) sont mis à jour et leurs listes fusionnées.
+                Si décoché : les doublons sont ignorés.</p>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Importer</button>
+            <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+
+    <div class="info-box">
+        <h3>Formats supportés</h3>
+
+        <p><strong>vCard (.vcf)</strong></p>
+        <p>Import direct de fichiers vCard 2.1, 3.0 et 4.0. Les catégories vCard sont converties en listes.</p>
+
+        <p><strong>TSV / CSV</strong></p>
+        <p>Le fichier doit contenir au minimum une colonne <code>Email</code>.</p>
+        <p>Colonnes reconnues :</p>
+        <ul>
+            <li><code>Nom, Prénom</code> ou <code>Nom</code> + <code>Prenom</code> ou <code>Nom Complet</code></li>
+            <li><code>Email</code>, <code>Email_Home</code>, <code>Email_Work</code></li>
+            <li><code>Tel_Cell</code>, <code>Tel_Home</code>, <code>Tel_Work</code></li>
+            <li><code>Organisation</code></li>
+            <li><code>Note</code></li>
+            <li><code>Catégories</code> (pour créer/assigner les listes automatiquement)</li>
+        </ul>
+
+        <h3>Comportement des doublons</h3>
+        <p>La détection se fait sur l'<strong>adresse email</strong>. Avec la mise à jour activée :</p>
+        <ul>
+            <li>Les champs non vides du fichier importé écrasent ceux en base</li>
+            <li>Les listes/catégories sont <strong>fusionnées</strong> (les listes existantes sont conservées, les nouvelles sont ajoutées)</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}File d'attente - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>File d'attente {% if campaign %}- {{ campaign }}{% endif %}</h1>
+    <a href="{{ url_for('mailing') }}" class="btn btn-primary">+ Nouveau mailing</a>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total }}</div>
+        <div class="stat-label">Total</div>
+    </div>
+    <div class="stat-card stat-pending">
+        <div class="stat-value">{{ stats.pending }}</div>
+        <div class="stat-label">En attente</div>
+    </div>
+    <div class="stat-card stat-sent">
+        <div class="stat-value">{{ stats.sent }}</div>
+        <div class="stat-label">Envoyés</div>
+    </div>
+    <div class="stat-card stat-error">
+        <div class="stat-value">{{ stats.error }}</div>
+        <div class="stat-label">Erreurs</div>
+    </div>
+</div>
+
+{% if template %}
+<div class="template-recap">
+    <h3>Message à envoyer</h3>
+    <p><strong>Sujet :</strong> {{ template.subject }}</p>
+    <pre class="template-body">{{ template.body }}</pre>
+</div>
+{% endif %}
+
+{% if stats.pending > 0 %}
+<div class="process-section">
+    <form method="POST" action="{{ url_for('mailing_process') }}">
+        <input type="hidden" name="campaign" value="{{ campaign }}">
+        <button type="submit" class="btn btn-primary btn-large"
+                onclick="return confirm('Lancer l\'envoi de {{ stats.pending }} emails ?')">
+            Envoyer {{ stats.pending }} emails maintenant
+        </button>
+        <span class="hint" style="margin-left:1rem;">Rate-limit : {{ config.MAIL_RATE_PER_MINUTE if config else 20 }} emails/minute</span>
+    </form>
+</div>
+{% endif %}
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Contact</th>
+            <th>Email</th>
+            <th>Statut</th>
+            <th>Envoyé le</th>
+            <th>Erreur</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.id }}</td>
+            <td>{{ item.contact.prenom }} {{ item.contact.nom }}</td>
+            <td>{{ item.contact.email }}</td>
+            <td>
+                {% if item.status == 'pending' %}
+                <span class="status status-pending">En attente</span>
+                {% elif item.status == 'sent' %}
+                <span class="status status-sent">Envoyé</span>
+                {% else %}
+                <span class="status status-error">Erreur</span>
+                {% endif %}
+            </td>
+            <td>{{ item.sent_at or '-' }}</td>
+            <td>{{ item.error or '-' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="6" class="empty">File d'attente vide</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<style>
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.stat-card {
+    background: white;
+    padding: 1rem;
+    border-radius: var(--radius);
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+}
+.stat-label {
+    color: var(--gray-500);
+    font-size: 0.875rem;
+}
+.stat-pending .stat-value { color: #f59e0b; }
+.stat-sent .stat-value { color: #10b981; }
+.stat-error .stat-value { color: #ef4444; }
+
+.template-recap {
+    background: white;
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+}
+.template-recap h3 {
+    margin-bottom: 0.5rem;
+}
+.template-body {
+    background: var(--gray-50);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--gray-200);
+    white-space: pre-wrap;
+    font-family: inherit;
+}
+
+.process-section {
+    margin-bottom: 1.5rem;
+}
+.btn-large {
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+}
+
+.status {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+}
+.status-pending { background: #fef3c7; color: #92400e; }
+.status-sent { background: #d1fae5; color: #065f46; }
+.status-error { background: #fee2e2; color: #991b1b; }
+
+@media (max-width: 640px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+{% endblock %}
