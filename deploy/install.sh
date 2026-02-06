@@ -72,8 +72,8 @@ nginx -t && systemctl reload nginx
 
 echo ""
 echo "=== Installation terminée ==="
-echo "→ Application : http://groupes.aubaygues.fr"
+echo "→ Application : http://listes.aubaygues.fr"
 echo "→ Service : systemctl status contact-mailer"
 echo "→ Logs : journalctl -u contact-mailer -f"
 echo ""
-echo "Pour HTTPS : sudo certbot --nginx -d groupes.aubaygues.fr"
+echo "Pour HTTPS : sudo certbot --nginx -d listes.aubaygues.fr"
