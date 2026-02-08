@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Historique campagnes - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Historique des campagnes</h1>
+    <a href="{{ url_for('mailing') }}" class="btn btn-primary">+ Nouveau mailing</a>
+</div>
+
+{% if campaigns %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Campagne</th>
+            <th>Sujet</th>
+            <th>Format</th>
+            <th>Envoyés</th>
+            <th>Erreurs</th>
+            <th>En attente</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for c in campaigns %}
+        <tr>
+            <td>{{ c.date or '-' }}</td>
+            <td>{{ c.id }}</td>
+            <td class="campaign-subject">{{ c.template.subject if c.template else '-' }}</td>
+            <td>{{ c.template.format|default('text', true) if c.template else '-' }}</td>
+            <td><span class="badge badge-sent">{{ c.stats.sent }}</span></td>
+            <td>
+                {% if c.stats.error > 0 %}
+                <span class="badge badge-error">{{ c.stats.error }}</span>
+                {% else %}
+                0
+                {% endif %}
+            </td>
+            <td>
+                {% if c.stats.pending > 0 %}
+                <span class="badge badge-pending">{{ c.stats.pending }}</span>
+                {% else %}
+                0
+                {% endif %}
+            </td>
+            <td class="actions-cell">
+                {% if c.template %}
+                <a href="{{ url_for('mailing', subject=c.template.subject, body=c.template.body, format=c.template.format|default('text', true)) }}"
+                   class="btn btn-sm" title="Réutiliser ce message">Réutiliser</a>
+                {% endif %}
+                {% if c.stats.pending > 0 %}
+                <a href="{{ url_for('mailing_queue', campaign=c.id) }}"
+                   class="btn btn-sm btn-primary" title="Voir la file d'attente">File</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <p>Aucune campagne envoyée pour le moment.</p>
+    <a href="{{ url_for('mailing') }}" class="btn btn-primary">Créer un mailing</a>
+</div>
+{% endif %}
+
+<style>
+.campaign-subject {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.badge-sent { background: #d1fae5; color: #065f46; }
+.badge-error { background: #fee2e2; color: #991b1b; }
+.badge-pending { background: #fef3c7; color: #92400e; }
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+.actions-cell {
+    white-space: nowrap;
+}
+.actions-cell .btn {
+    margin-right: 0.25rem;
+}
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--gray-500);
+}
+.empty-state p {
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}

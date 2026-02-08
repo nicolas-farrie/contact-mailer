@@ -13,7 +13,7 @@
         <div class="nav-links">
             <a href="{{ url_for('contacts') }}" {% if request.endpoint == 'contacts' %}class="active"{% endif %}>Contacts</a>
             <a href="{{ url_for('listes') }}" {% if request.endpoint == 'listes' %}class="active"{% endif %}>Listes</a>
-            <a href="{{ url_for('mailing') }}" {% if request.endpoint in ['mailing', 'mailing_queue'] %}class="active"{% endif %}>Mailing</a>
+            <a href="{{ url_for('mailing') }}" {% if request.endpoint in ['mailing', 'mailing_queue', 'mailing_history'] %}class="active"{% endif %}>Mailing</a>
             <a href="{{ url_for('import_contacts') }}" {% if request.endpoint == 'import_contacts' %}class="active"{% endif %}>Import</a>
             <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
         </div>

@@ -4,7 +4,10 @@
 {% block content %}
 <div class="page-header">
     <h1>Nouveau mailing</h1>
-    <a href="{{ url_for('mailing_queue') }}" class="btn">Voir la file d'attente</a>
+    <div>
+        <a href="{{ url_for('mailing_history') }}" class="btn">Historique</a>
+        <a href="{{ url_for('mailing_queue') }}" class="btn">File d'attente</a>
+    </div>
 </div>
 
 {% if not smtp_configured %}
@@ -28,6 +31,7 @@
         <div class="form-group">
             <label for="subject">Sujet *</label>
             <input type="text" id="subject" name="subject" required
+                   value="{{ prefill.subject }}"
                    placeholder="Ex: Invitation à notre réunion du {prenom}">
             <p class="hint">Variables disponibles : {prenom}, {nom}, {email}, {organisation}</p>
         </div>
@@ -36,10 +40,10 @@
             <label>Format</label>
             <div class="format-toggle">
                 <label class="checkbox-label">
-                    <input type="radio" name="format" value="text" checked onchange="toggleFormat()"> Texte brut
+                    <input type="radio" name="format" value="text" {{ 'checked' if prefill.format != 'html' }} onchange="toggleFormat()"> Texte brut
                 </label>
                 <label class="checkbox-label">
-                    <input type="radio" name="format" value="html" onchange="toggleFormat()"> HTML
+                    <input type="radio" name="format" value="html" {{ 'checked' if prefill.format == 'html' }} onchange="toggleFormat()"> HTML
                 </label>
             </div>
         </div>
@@ -47,8 +51,8 @@
         <div class="form-group">
             <label for="body">Message *</label>
             <textarea id="body" name="body" rows="12" required
-                      placeholder="Bonjour {prenom},&#10;&#10;Nous vous invitons à...&#10;&#10;Cordialement,&#10;L'équipe"></textarea>
-            <p class="hint" id="html-hint" style="display:none">
+                      placeholder="Bonjour {prenom},&#10;&#10;Nous vous invitons à...&#10;&#10;Cordialement,&#10;L'équipe">{{ prefill.body }}</textarea>
+            <p class="hint" id="html-hint" style="display:{{ 'block' if prefill.format == 'html' else 'none' }}"
                 Utilisez du HTML : &lt;b&gt;gras&lt;/b&gt;, &lt;a href="..."&gt;lien&lt;/a&gt;, &lt;br&gt; pour saut de ligne
             </p>
         </div>

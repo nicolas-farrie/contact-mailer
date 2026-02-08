@@ -276,8 +276,8 @@ def contacts_bulk_action():
 
 # === IMPORT / EXPORT ===
 
-def _parse_categories(raw):
-    """Parse les catégories depuis différents formats possibles."""
+def _parse_liste_names(raw):
+    """Parse les noms de listes depuis une chaîne (vCard: 'Catégories', TSV: 'Listes')."""
     if not raw:
         return []
     raw = raw.strip().replace('[', '').replace(']', '').replace("'", '')
@@ -288,7 +288,11 @@ def _parse_categories(raw):
 
 
 def _extract_fields_from_row(row):
-    """Extrait les champs normalisés depuis un dict (TSV ou vCard)."""
+    """Extrait les champs normalisés depuis un dict (TSV ou vCard).
+
+    Accepte les colonnes 'Listes', 'Catégories' ou 'Categories' pour les listes
+    (rétrocompatibilité vCard et TSV).
+    """
     # Email
     email_val = (
         row.get('Email', '') or
@@ -334,8 +338,13 @@ def _extract_fields_from_row(row):
     if MULTI_VALUE_SEP.strip() in telephone:
         telephone = telephone.split(MULTI_VALUE_SEP.strip())[0].strip()
 
-    # Catégories
-    categories = _parse_categories(row.get('Catégories', row.get('Categories', '')))
+    # Listes (accepte 'Listes', 'Catégories', 'Categories' pour rétrocompatibilité)
+    listes_raw = (
+        row.get('Listes', '') or
+        row.get('Catégories', '') or
+        row.get('Categories', '')
+    )
+    listes = _parse_liste_names(listes_raw)
 
     return {
         'email': email_val,
@@ -344,17 +353,17 @@ def _extract_fields_from_row(row):
         'telephone': telephone,
         'organisation': row.get('Organisation', row.get('organisation', '')).strip(),
         'notes': row.get('Note', row.get('Notes', row.get('notes', ''))).strip(),
-        'categories': categories,
+        'listes': listes,
     }
 
 
-def _get_or_create_listes(cat_names):
+def _get_or_create_listes(noms):
     """Retourne les objets Liste pour une liste de noms, en créant ceux qui n'existent pas."""
     listes = []
-    for cat_name in cat_names:
-        liste = Liste.query.filter_by(nom=cat_name).first()
+    for nom in noms:
+        liste = Liste.query.filter_by(nom=nom).first()
         if not liste:
-            liste = Liste(nom=cat_name)
+            liste = Liste(nom=nom)
             db.session.add(liste)
         listes.append(liste)
     return listes
@@ -389,8 +398,8 @@ def _import_contact_from_row(row, update_existing=False):
             existing.notes = fields['notes']
 
         # Remplacement des listes par celles de l'import
-        if fields['categories']:
-            existing.listes = _get_or_create_listes(fields['categories'])
+        if fields['listes']:
+            existing.listes = _get_or_create_listes(fields['listes'])
 
         return existing, 'updated'
 
@@ -403,7 +412,7 @@ def _import_contact_from_row(row, update_existing=False):
         organisation=fields['organisation'],
         notes=fields['notes']
     )
-    contact.listes = _get_or_create_listes(fields['categories'])
+    contact.listes = _get_or_create_listes(fields['listes'])
 
     return contact, 'created'
 
@@ -522,7 +531,27 @@ def export_contacts():
 def mailing():
     listes = Liste.query.order_by(Liste.nom).all()
     smtp_configured = bool(Config.SMTP_HOST and Config.SMTP_USER)
-    return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured)
+
+    # Pré-remplissage depuis l'historique (réutilisation)
+    prefill = {
+        'subject': request.args.get('subject', ''),
+        'body': request.args.get('body', ''),
+        'format': request.args.get('format', 'text'),
+    }
+
+    return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill)
+
+
+@app.route('/mailing/history')
+@login_required
+def mailing_history():
+    """Affiche l'historique des campagnes envoyées"""
+    from mailer import MailQueue
+
+    queue = MailQueue()
+    campaigns = queue.get_campaigns_list()
+
+    return render_template('mailing_history.html', campaigns=campaigns)
 
 
 @app.route('/mailing/preview', methods=['POST'])

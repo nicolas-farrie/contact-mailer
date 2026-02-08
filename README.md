@@ -15,17 +15,18 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 - Création/suppression de listes, ajout/retrait de contacts
 
 ### Import / Export
-- **Import vCard** (.vcf) : versions 2.1, 3.0 et 4.0 (via [vcard_converter](https://github.com/nicolas-farrie/contact-mailer))
+- **Import vCard** (.vcf) : versions 2.1, 3.0 et 4.0 (via vcard_converter.py)
 - **Import TSV / CSV** : détection automatique du séparateur
 - **Export TSV** : global ou par liste
-- Les catégories vCard sont automatiquement converties en listes
-- Mise à jour des contacts existants à l'import (détection par email)
+- Les listes vCard (catégories) sont automatiquement converties en listes
+- Mise à jour des contacts existants à l'import (détection par email, remplacement des listes)
 
 ### Mailing
 - Envoi d'emails personnalisés par liste de contacts
 - Variables de personnalisation : `{prenom}`, `{nom}`, `{email}`, `{organisation}`
 - Support **texte brut** et **HTML**
 - File d'attente avec suivi (envoyé / en attente / erreur)
+- **Historique des campagnes** avec réutilisation du message pour un nouvel envoi
 - **Rate-limiting** configurable (emails/minute)
 - Envoi via SMTP existant (pas de serveur mail à configurer)
 
@@ -42,6 +43,15 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 - **Envoi** : SMTP (compatible tout fournisseur)
 - **Déploiement** : Gunicorn + Nginx + systemd
 
+## Scripts d'administration (tools/)
+
+| Script | Usage |
+|--------|-------|
+| `tools/devserver.sh` | Lance le serveur de développement local |
+| `tools/setadmin.py` | Créer/modifier le compte admin |
+| `tools/resetdb.py` | Réinitialiser la base de données |
+| `tools/testsmtp.py` | Tester la connexion SMTP |
+
 ## Installation rapide (développement)
 
 ```bash
@@ -52,7 +62,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 # Éditer .env (SMTP, mot de passe admin)
-python app.py
+bash tools/devserver.sh
 ```
 
 Accès : http://localhost:5000 (admin / changeme)
@@ -67,7 +77,7 @@ sudo systemctl restart contact-mailer
 
 Puis pour HTTPS :
 ```bash
-sudo certbot --nginx -d groupes.aubaygues.fr
+sudo certbot --nginx -d yoursundomain.yourdomain.ext
 ```
 
 ## Configuration SMTP

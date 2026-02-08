@@ -14,20 +14,24 @@
 - [x] Support HTML dans les mails
 - [x] Mise à jour contacts existants à l'import (remplacement listes)
 - [x] Authentification admin simple
+- [x] Configuration Nginx (reverse proxy Dell-9010 → MSI-01)
+- [x] Sécurisation : SECRET_KEY, mot de passe admin, HTTPS (Let's Encrypt)
+- [x] Service systemd pour l'exécution en production (gunicorn)
+- [x] Scripts d'administration (tools/ : setadmin, resetdb, testsmtp)
+
+## Correction Bug ou pb interface - Prioritaire
+- [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
+- [x] Liste des messages déjà envoyés, réutilisation pour nouvel envoi
 
 ## A faire - Prioritaire
 - [ ] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
+- [ ] Gestion minimale des utilisateurs CRUD - rôle admin / user
 - [ ] Gestion des désabonnements (obligatoire légalement : lien de désinscription dans chaque mail)
 - [ ] Support templates .eml (brouillons Thunderbird) - format standard RFC 5322
 
-## A faire - Déploiement
-- [ ] Configuration Nginx (reverse proxy)
-- [ ] Sécurisation : SECRET_KEY, mot de passe admin, HTTPS
-- [ ] Service systemd pour l'exécution en production (gunicorn)
-
 ## A faire - Améliorations
 - [ ] Export vCard (réutiliser vcard_converter.py en sens inverse)
-- [ ] Historique des campagnes envoyées
+- [~] Historique des campagnes envoyées (historique messages, envois // reste à faire : historique par contact)
 - [ ] Envoi asynchrone (ne pas bloquer l'interface pendant l'envoi)
 - [ ] Pagination de la liste des contacts
 - [ ] Recherche avancée (filtres multiples)

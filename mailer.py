@@ -198,6 +198,33 @@ class MailQueue:
             'error': len([i for i in items if i['status'] == 'error'])
         }
 
+    def get_campaigns_list(self):
+        """Retourne la liste des campagnes avec stats et template, triées par date décroissante."""
+        campaign_ids = set(item['campaign_id'] for item in self.queue)
+        campaigns = []
+        for cid in campaign_ids:
+            stats = self.get_stats(cid)
+            template = self.get_campaign_template(cid)
+            # Extraire la date depuis le campaign_id (format: nom_YYYYMMDD_HHMMSS)
+            parts = cid.rsplit('_', 2)
+            date_str = ''
+            if len(parts) >= 3:
+                try:
+                    date_str = datetime.strptime(
+                        f"{parts[-2]}_{parts[-1]}", '%Y%m%d_%H%M%S'
+                    ).strftime('%d/%m/%Y %H:%M')
+                except ValueError:
+                    date_str = ''
+            campaigns.append({
+                'id': cid,
+                'date': date_str,
+                'stats': stats,
+                'template': template,
+            })
+        # Trier par ID décroissant (les plus récentes en premier)
+        campaigns.sort(key=lambda c: c['id'], reverse=True)
+        return campaigns
+
     def clear(self, campaign_id: str = None):
         if campaign_id:
             self.queue = [i for i in self.queue if i['campaign_id'] != campaign_id]
