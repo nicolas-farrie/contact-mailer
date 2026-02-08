@@ -19,3 +19,4 @@ data/*.json
 
 # Test files
 test_*
+.github-token.txt
