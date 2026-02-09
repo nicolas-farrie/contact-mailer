@@ -227,6 +227,20 @@ select:focus {
     gap: 1rem;
 }
 
+.form-fieldset {
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.form-fieldset legend {
+    font-weight: 500;
+    color: var(--gray-500);
+    font-size: 0.9rem;
+    padding: 0 0.5rem;
+}
+
 .form-actions {
     display: flex;
     gap: 0.5rem;

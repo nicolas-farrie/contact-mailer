@@ -69,6 +69,7 @@ def logout():
 @login_required
 def contacts():
     liste_filter = request.args.get('liste', type=int)
+    source_filter = request.args.get('source', '').strip()
     search = request.args.get('q', '').strip()
 
     query = Contact.query
@@ -78,6 +79,9 @@ def contacts():
         if liste:
             query = query.filter(Contact.listes.contains(liste))
 
+    if source_filter:
+        query = query.filter(Contact.source == source_filter)
+
     if search:
         search_pattern = f'%{search}%'
         query = query.filter(
@@ -85,17 +89,23 @@ def contacts():
                 Contact.nom.ilike(search_pattern),
                 Contact.prenom.ilike(search_pattern),
                 Contact.email.ilike(search_pattern),
-                Contact.organisation.ilike(search_pattern)
+                Contact.organisation.ilike(search_pattern),
+                Contact.adresse_ville.ilike(search_pattern)
             )
         )
 
     contacts_list = query.order_by(Contact.nom, Contact.prenom).all()
     listes = Liste.query.order_by(Liste.nom).all()
+    # Sources distinctes pour le filtre
+    sources = db.session.query(Contact.source).distinct().order_by(Contact.source).all()
+    sources = [s[0] for s in sources if s[0]]
 
     return render_template('contacts.html',
                            contacts=contacts_list,
                            listes=listes,
+                           sources=sources,
                            liste_filter=liste_filter,
+                           source_filter=source_filter,
                            search=search)
 
 
@@ -109,7 +119,14 @@ def contact_new():
             email=request.form.get('email', '').strip(),
             telephone=request.form.get('telephone', '').strip(),
             organisation=request.form.get('organisation', '').strip(),
-            notes=request.form.get('notes', '').strip()
+            adresse_rue=request.form.get('adresse_rue', '').strip(),
+            adresse_complement=request.form.get('adresse_complement', '').strip(),
+            adresse_ville=request.form.get('adresse_ville', '').strip(),
+            adresse_cp=request.form.get('adresse_cp', '').strip(),
+            adresse_region=request.form.get('adresse_region', '').strip(),
+            adresse_pays=request.form.get('adresse_pays', '').strip(),
+            notes=request.form.get('notes', '').strip(),
+            source='Manuel'
         )
 
         # Ajouter aux listes sélectionnées
@@ -143,6 +160,12 @@ def contact_edit(id):
         contact.email = request.form.get('email', '').strip()
         contact.telephone = request.form.get('telephone', '').strip()
         contact.organisation = request.form.get('organisation', '').strip()
+        contact.adresse_rue = request.form.get('adresse_rue', '').strip()
+        contact.adresse_complement = request.form.get('adresse_complement', '').strip()
+        contact.adresse_ville = request.form.get('adresse_ville', '').strip()
+        contact.adresse_cp = request.form.get('adresse_cp', '').strip()
+        contact.adresse_region = request.form.get('adresse_region', '').strip()
+        contact.adresse_pays = request.form.get('adresse_pays', '').strip()
         contact.notes = request.form.get('notes', '').strip()
 
         # Mettre à jour les listes
@@ -347,11 +370,19 @@ def _extract_fields_from_row(row):
     listes = _parse_liste_names(listes_raw)
 
     return {
+        'uid': row.get('UID', row.get('uid', '')).strip(),
         'email': email_val,
         'nom': nom,
         'prenom': prenom,
         'telephone': telephone,
         'organisation': row.get('Organisation', row.get('organisation', '')).strip(),
+        'adresse_rue': row.get('Rue', row.get('adresse_rue', '')).strip(),
+        'adresse_complement': row.get('Complement', row.get('adresse_complement', '')).strip(),
+        'adresse_ville': row.get('Ville', row.get('adresse_ville', '')).strip(),
+        'adresse_cp': row.get('CP', row.get('adresse_cp', '')).strip(),
+        'adresse_region': row.get('Region', row.get('adresse_region', '')).strip(),
+        'adresse_pays': row.get('Pays', row.get('adresse_pays', '')).strip(),
+        'source': row.get('Source', row.get('source', '')).strip(),
         'notes': row.get('Note', row.get('Notes', row.get('notes', ''))).strip(),
         'listes': listes,
     }
@@ -369,9 +400,41 @@ def _get_or_create_listes(noms):
     return listes
 
 
-def _import_contact_from_row(row, update_existing=False):
+def _detect_vcard_source(content):
+    """Détecte la source d'un fichier vCard depuis son contenu (PRODID, format UID)."""
+    content_lower = content.lower()
+    if 'prodid' in content_lower:
+        if 'roundcube' in content_lower:
+            return 'Roundcube'
+        if 'infomaniak' in content_lower:
+            return 'Infomaniak'
+        if 'proton' in content_lower:
+            return 'Proton'
+        if 'thunderbird' in content_lower or 'cardbook' in content_lower:
+            return 'Thunderbird'
+        if 'apple' in content_lower or 'addressbook' in content_lower:
+            return 'Apple'
+        if 'google' in content_lower:
+            return 'Google'
+    # Heuristiques sur le format UID
+    if 'uid:proton-' in content_lower:
+        return 'Proton'
+    # UID Roundcube/SOGo : 32hex-16hex (pas de PRODID)
+    import re
+    if re.search(r'UID:[0-9A-F]{32}-[0-9A-F]{16}', content):
+        return 'Roundcube'
+    return 'vCard'
+
+
+def _import_contact_from_row(row, update_existing=False, source='Import'):
     """
     Importe un contact depuis un dict (TSV ou vCard).
+
+    Détection des doublons :
+      1. Par UID (identité exacte, si présent dans le fichier importé)
+      2. Par composite email + nom + prénom (même personne probable)
+      3. Sinon → nouveau contact créé (même si l'email existe déjà)
+
     Retourne (contact, action) où action = 'created', 'updated', 'no_email' ou 'skipped'.
     """
     fields = _extract_fields_from_row(row)
@@ -379,7 +442,19 @@ def _import_contact_from_row(row, update_existing=False):
     if not fields['email']:
         return None, 'no_email'
 
-    existing = Contact.query.filter_by(email=fields['email']).first()
+    existing = None
+
+    # Priorité 1 : correspondance par UID
+    if fields['uid']:
+        existing = Contact.query.filter_by(uid=fields['uid']).first()
+
+    # Priorité 2 : correspondance composite email + nom + prénom
+    if not existing and fields['nom'] and fields['prenom']:
+        existing = Contact.query.filter_by(
+            email=fields['email'],
+            nom=fields['nom'],
+            prenom=fields['prenom']
+        ).first()
 
     if existing and not update_existing:
         return None, 'skipped'
@@ -394,6 +469,18 @@ def _import_contact_from_row(row, update_existing=False):
             existing.telephone = fields['telephone']
         if fields['organisation']:
             existing.organisation = fields['organisation']
+        if fields['adresse_rue']:
+            existing.adresse_rue = fields['adresse_rue']
+        if fields['adresse_complement']:
+            existing.adresse_complement = fields['adresse_complement']
+        if fields['adresse_ville']:
+            existing.adresse_ville = fields['adresse_ville']
+        if fields['adresse_cp']:
+            existing.adresse_cp = fields['adresse_cp']
+        if fields['adresse_region']:
+            existing.adresse_region = fields['adresse_region']
+        if fields['adresse_pays']:
+            existing.adresse_pays = fields['adresse_pays']
         if fields['notes']:
             existing.notes = fields['notes']
 
@@ -403,15 +490,26 @@ def _import_contact_from_row(row, update_existing=False):
 
         return existing, 'updated'
 
-    # Nouveau contact
-    contact = Contact(
+    # Nouveau contact (même si l'email existe déjà chez un autre contact)
+    kwargs = dict(
         nom=fields['nom'],
         prenom=fields['prenom'],
         email=fields['email'],
         telephone=fields['telephone'],
         organisation=fields['organisation'],
-        notes=fields['notes']
+        adresse_rue=fields['adresse_rue'],
+        adresse_complement=fields['adresse_complement'],
+        adresse_ville=fields['adresse_ville'],
+        adresse_cp=fields['adresse_cp'],
+        adresse_region=fields['adresse_region'],
+        adresse_pays=fields['adresse_pays'],
+        notes=fields['notes'],
+        source=fields.get('source') or source
     )
+    # Préserver le UID d'origine (Roundcube, Proton, etc.) s'il est fourni
+    if fields['uid']:
+        kwargs['uid'] = fields['uid']
+    contact = Contact(**kwargs)
     contact.listes = _get_or_create_listes(fields['listes'])
 
     return contact, 'created'
@@ -435,6 +533,7 @@ def import_contacts():
 
         try:
             rows = []
+            source = 'Import'
 
             if filename.endswith('.vcf') or filename.endswith('.vcard'):
                 # === IMPORT VCARD ===
@@ -450,6 +549,9 @@ def import_contacts():
                 import os
                 os.unlink(tmp.name)
 
+                # Auto-détection de la source depuis le contenu vCard
+                source = _detect_vcard_source(content.decode('utf-8', errors='replace'))
+
             else:
                 # === IMPORT TSV/CSV ===
                 content = file.read().decode('utf-8')
@@ -457,9 +559,10 @@ def import_contacts():
                 delimiter = '\t' if '\t' in first_line else ','
                 reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
                 rows = list(reader)
+                source = 'TSV' if delimiter == '\t' else 'CSV'
 
             for row in rows:
-                contact, action = _import_contact_from_row(row, update_existing=update_existing)
+                contact, action = _import_contact_from_row(row, update_existing=update_existing, source=source)
                 if action == 'created':
                     db.session.add(contact)
                     created += 1
@@ -507,12 +610,19 @@ def export_contacts():
 
     output = io.StringIO()
     writer = csv.writer(output, delimiter='\t')
-    writer.writerow(['Nom', 'Prenom', 'Email', 'Telephone', 'Organisation', 'Notes', 'Listes'])
+    writer.writerow(['UID', 'Nom', 'Prenom', 'Email', 'Telephone', 'Organisation',
+                      'Rue', 'Complement', 'Ville', 'CP', 'Region', 'Pays',
+                      'Source', 'Notes', 'Listes'])
 
     for c in contacts:
         writer.writerow([
-            c.nom, c.prenom, c.email, c.telephone or '',
-            c.organisation or '', c.notes or '',
+            c.uid, c.nom, c.prenom, c.email, c.telephone or '',
+            c.organisation or '',
+            c.adresse_rue or '', c.adresse_complement or '',
+            c.adresse_ville or '', c.adresse_cp or '',
+            c.adresse_region or '', c.adresse_pays or '',
+            c.source or '',
+            c.notes or '',
             ','.join([l.nom for l in c.listes])
         ])
 
@@ -611,6 +721,16 @@ def mailing_send():
     if not liste.contacts:
         flash('Liste vide', 'error')
         return redirect(url_for('mailing'))
+
+    # Détecter les emails partagés par plusieurs contacts
+    email_counts = {}
+    for c in liste.contacts:
+        email_counts[c.email] = email_counts.get(c.email, 0) + 1
+    shared_emails = {e: n for e, n in email_counts.items() if n > 1}
+    if shared_emails:
+        nb = len(shared_emails)
+        flash(f'Attention : {nb} adresse{"s" if nb > 1 else ""} partagée{"s" if nb > 1 else ""} '
+              f'par plusieurs contacts. Chaque contact recevra son email personnalisé.', 'warning')
 
     # Préparer les contacts
     contacts = [c.to_dict() for c in liste.contacts]

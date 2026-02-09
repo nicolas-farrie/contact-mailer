@@ -36,7 +36,7 @@
             <input type="text" id="subject" name="subject" required
                    value="{{ prefill.subject }}"
                    placeholder="Ex: Invitation à notre réunion du {prenom}">
-            <p class="hint">Variables disponibles : {prenom}, {nom}, {email}, {organisation}</p>
+            <p class="hint">Variables disponibles : {prenom}, {nom}, {email}, {organisation}, {uid}</p>
         </div>
 
         <div class="form-group">
@@ -61,7 +61,7 @@
             <div id="editor-container" style="display:none;">
                 <div id="editor"></div>
             </div>
-            <p class="hint">Variables : {prenom}, {nom}, {email}, {organisation}, {telephone}</p>
+            <p class="hint">Variables : {prenom}, {nom}, {email}, {organisation}, {telephone}, {uid}</p>
         </div>
 
         <div class="form-actions">
@@ -89,6 +89,8 @@
         <li><code>{email}</code> - Adresse email</li>
         <li><code>{organisation}</code> - Organisation</li>
         <li><code>{telephone}</code> - Téléphone</li>
+        <li><code>{adresse_rue}</code>, <code>{adresse_complement}</code>, <code>{adresse_ville}</code>, <code>{adresse_cp}</code>, <code>{adresse_region}</code>, <code>{adresse_pays}</code> - Adresse</li>
+        <li><code>{uid}</code> - Identifiant unique du contact</li>
     </ul>
 </div>
 

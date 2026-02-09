@@ -8,8 +8,8 @@ venv/
 .env
 
 # Data
-data/*.db
-data/*.json
+data/
+*.eml
 
 # IDE
 .vscode/

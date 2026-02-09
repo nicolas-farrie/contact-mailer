@@ -18,8 +18,14 @@
             </option>
             {% endfor %}
         </select>
+        <select name="source" onchange="this.form.submit()">
+            <option value="">Toutes les sources</option>
+            {% for src in sources %}
+            <option value="{{ src }}" {% if src == source_filter %}selected{% endif %}>{{ src }}</option>
+            {% endfor %}
+        </select>
         <button type="submit" class="btn">Filtrer</button>
-        {% if search or liste_filter %}
+        {% if search or liste_filter or source_filter %}
         <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Effacer</a>
         {% endif %}
     </form>

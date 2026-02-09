@@ -7,6 +7,21 @@
 </div>
 
 <form method="POST" class="form-card">
+    {% if contact %}
+    <div class="form-row">
+        <div class="form-group">
+            <label for="uid">UID</label>
+            <input type="text" id="uid" value="{{ contact.uid }}" readonly disabled
+                   style="font-family: monospace; font-size: 0.8rem; color: var(--gray-500); background: var(--gray-100);">
+        </div>
+        <div class="form-group">
+            <label for="source">Source</label>
+            <input type="text" id="source" value="{{ contact.source or '' }}" readonly disabled
+                   style="color: var(--gray-500); background: var(--gray-100);">
+        </div>
+    </div>
+    {% endif %}
+
     <div class="form-row">
         <div class="form-group">
             <label for="nom">Nom *</label>
@@ -33,6 +48,43 @@
         <label for="organisation">Organisation</label>
         <input type="text" id="organisation" name="organisation" value="{{ contact.organisation if contact else '' }}">
     </div>
+
+    <fieldset class="form-fieldset">
+        <legend>Adresse</legend>
+        <div class="form-group">
+            <label for="adresse_rue">Rue</label>
+            <input type="text" id="adresse_rue" name="adresse_rue" value="{{ contact.adresse_rue if contact else '' }}"
+                   placeholder="12, rue de la Paix">
+        </div>
+        <div class="form-group">
+            <label for="adresse_complement">Complément</label>
+            <input type="text" id="adresse_complement" name="adresse_complement" value="{{ contact.adresse_complement if contact else '' }}"
+                   placeholder="Bât. B, Appt 42">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="adresse_cp">Code postal</label>
+                <input type="text" id="adresse_cp" name="adresse_cp" value="{{ contact.adresse_cp if contact else '' }}"
+                       placeholder="34000" style="max-width: 8rem;">
+            </div>
+            <div class="form-group">
+                <label for="adresse_ville">Ville</label>
+                <input type="text" id="adresse_ville" name="adresse_ville" value="{{ contact.adresse_ville if contact else '' }}"
+                       placeholder="Montpellier">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="adresse_region">Région</label>
+                <input type="text" id="adresse_region" name="adresse_region" value="{{ contact.adresse_region if contact else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="adresse_pays">Pays</label>
+                <input type="text" id="adresse_pays" name="adresse_pays" value="{{ contact.adresse_pays if contact else '' }}"
+                       placeholder="France">
+            </div>
+        </div>
+    </fieldset>
 
     <div class="form-group">
         <label for="notes">Notes</label>

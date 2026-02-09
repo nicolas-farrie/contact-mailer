@@ -19,8 +19,8 @@
                 <input type="checkbox" name="update_existing" checked>
                 Mettre à jour les contacts existants et fusionner les listes
             </label>
-            <p class="hint">Si coché : les contacts existants (même email) sont mis à jour et leurs listes fusionnées.
-                Si décoché : les doublons sont ignorés.</p>
+            <p class="hint">Si coché : les contacts existants (même UID, ou même email+nom+prénom) sont mis à jour.
+                Si décoché : les doublons détectés sont ignorés.</p>
         </div>
 
         <div class="form-actions">
@@ -39,16 +39,25 @@
         <p>Le fichier doit contenir au minimum une colonne <code>Email</code>.</p>
         <p>Colonnes reconnues :</p>
         <ul>
+            <li><code>UID</code> (identifiant unique du contact, pour correspondance exacte)</li>
             <li><code>Nom, Prénom</code> ou <code>Nom</code> + <code>Prenom</code> ou <code>Nom Complet</code></li>
             <li><code>Email</code>, <code>Email_Home</code>, <code>Email_Work</code></li>
             <li><code>Tel_Cell</code>, <code>Tel_Home</code>, <code>Tel_Work</code></li>
             <li><code>Organisation</code></li>
+            <li><code>Rue</code>, <code>Complement</code>, <code>Ville</code>, <code>CP</code>, <code>Region</code>, <code>Pays</code> (adresse postale)</li>
+            <li><code>Source</code> (provenance : Roundcube, Proton, etc.)</li>
             <li><code>Note</code></li>
             <li><code>Listes</code> ou <code>Catégories</code> (pour créer/assigner les listes automatiquement)</li>
         </ul>
 
         <h3>Comportement des doublons</h3>
-        <p>La détection se fait sur l'<strong>adresse email</strong>. Avec la mise à jour activée :</p>
+        <p>La détection se fait par ordre de priorité :</p>
+        <ol>
+            <li><strong>UID</strong> : correspondance exacte (si présent dans le fichier)</li>
+            <li><strong>Email + Nom + Prénom</strong> : même personne probable</li>
+            <li>Sinon : nouveau contact créé (même si l'email existe déjà)</li>
+        </ol>
+        <p>Avec la mise à jour activée :</p>
         <ul>
             <li>Les champs non vides du fichier importé écrasent ceux en base</li>
             <li>Les listes sont <strong>remplacées</strong> par celles du fichier importé</li>
