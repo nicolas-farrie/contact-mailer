@@ -2,6 +2,9 @@
 {% block title %}Mailing - Contact Mailer{% endblock %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+
 <div class="page-header">
     <h1>Nouveau mailing</h1>
     <div>
@@ -17,7 +20,7 @@
 {% endif %}
 
 <div class="mailing-container">
-    <form method="POST" action="{{ url_for('mailing_send') }}" class="form-card mailing-form">
+    <form method="POST" action="{{ url_for('mailing_send') }}" class="form-card mailing-form" id="mailing-form">
         <div class="form-group">
             <label for="liste_id">Liste de destinataires *</label>
             <select id="liste_id" name="liste_id" required>
@@ -49,12 +52,16 @@
         </div>
 
         <div class="form-group">
-            <label for="body">Message *</label>
-            <textarea id="body" name="body" rows="12" required
-                      placeholder="Bonjour {prenom},&#10;&#10;Nous vous invitons à...&#10;&#10;Cordialement,&#10;L'équipe">{{ prefill.body }}</textarea>
-            <p class="hint" id="html-hint" style="display:{{ 'block' if prefill.format == 'html' else 'none' }}"
-                Utilisez du HTML : &lt;b&gt;gras&lt;/b&gt;, &lt;a href="..."&gt;lien&lt;/a&gt;, &lt;br&gt; pour saut de ligne
-            </p>
+            <label>Message *</label>
+            <!-- Textarea pour le mode texte -->
+            <textarea id="body" name="body" rows="12"
+                      placeholder="Bonjour {prenom},&#10;&#10;Nous vous invitons à...&#10;&#10;Cordialement,&#10;L'équipe"
+                      >{{ prefill.body }}</textarea>
+            <!-- Editeur Quill pour le mode HTML -->
+            <div id="editor-container" style="display:none;">
+                <div id="editor"></div>
+            </div>
+            <p class="hint">Variables : {prenom}, {nom}, {email}, {organisation}, {telephone}</p>
         </div>
 
         <div class="form-actions">
@@ -86,13 +93,80 @@
 </div>
 
 <script>
-function toggleFormat() {
-    const isHtml = document.querySelector('input[name="format"][value="html"]').checked;
-    document.getElementById('html-hint').style.display = isHtml ? 'block' : 'none';
+// === Quill ===
+const quill = new Quill('#editor', {
+    theme: 'snow',
+    modules: {
+        toolbar: [
+            [{ header: [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            ['link'],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            ['blockquote'],
+            [{ color: [] }],
+            ['clean']
+        ]
+    },
+    placeholder: 'Rédigez votre message HTML...'
+});
+
+const bodyTextarea = document.getElementById('body');
+const editorContainer = document.getElementById('editor-container');
+
+function isHtmlMode() {
+    return document.querySelector('input[name="format"][value="html"]').checked;
 }
 
+function toggleFormat() {
+    if (isHtmlMode()) {
+        // Texte → HTML : transférer le contenu du textarea vers Quill
+        const text = bodyTextarea.value;
+        if (text && quill.getText().trim() === '') {
+            // Convertir les sauts de ligne en <p> pour Quill
+            const html = text.split('\n').map(l => '<p>' + (l || '<br>') + '</p>').join('');
+            quill.root.innerHTML = html;
+        }
+        bodyTextarea.style.display = 'none';
+        editorContainer.style.display = 'block';
+    } else {
+        // HTML → Texte : transférer le contenu de Quill vers le textarea
+        const quillText = quill.getText().trim();
+        if (quillText && !bodyTextarea.value.trim()) {
+            bodyTextarea.value = quillText;
+        }
+        editorContainer.style.display = 'none';
+        bodyTextarea.style.display = 'block';
+    }
+}
+
+// Sync Quill → textarea au submit
+document.getElementById('mailing-form').addEventListener('submit', function() {
+    if (isHtmlMode()) {
+        bodyTextarea.value = quill.root.innerHTML;
+    }
+});
+
+// Sync Quill → textarea pour la preview aussi
+function syncBody() {
+    if (isHtmlMode()) {
+        bodyTextarea.value = quill.root.innerHTML;
+    }
+}
+
+// Init : si mode HTML pré-sélectionné (réutilisation), afficher Quill
+if (isHtmlMode()) {
+    const prefillBody = bodyTextarea.value;
+    bodyTextarea.style.display = 'none';
+    editorContainer.style.display = 'block';
+    if (prefillBody) {
+        quill.root.innerHTML = prefillBody;
+    }
+}
+
+// === Preview ===
 function previewMail() {
-    const form = document.querySelector('.mailing-form');
+    syncBody();
+    const form = document.getElementById('mailing-form');
     const formData = new FormData(form);
 
     fetch('{{ url_for("mailing_preview") }}', {
@@ -105,12 +179,11 @@ function previewMail() {
             alert(data.error);
             return;
         }
-        const isHtml = document.querySelector('input[name="format"][value="html"]').checked;
         document.getElementById('preview-contact').textContent = 'Aperçu pour : ' + data.contact;
         document.getElementById('preview-subject').textContent = data.subject;
 
         const previewBody = document.getElementById('preview-body');
-        if (isHtml) {
+        if (isHtmlMode()) {
             previewBody.innerHTML = data.body;
         } else {
             previewBody.textContent = data.body;
@@ -155,6 +228,18 @@ function previewMail() {
     border-radius: var(--radius);
     font-family: inherit;
     min-height: 200px;
+}
+/* Quill editor */
+#editor-container {
+    border-radius: var(--radius);
+}
+#editor {
+    min-height: 250px;
+    background: white;
+}
+#editor .ql-editor {
+    font-family: inherit;
+    font-size: 0.95rem;
 }
 @media (max-width: 900px) {
     .mailing-container {
