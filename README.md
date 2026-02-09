@@ -6,8 +6,12 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 
 ### Gestion des contacts
 - Création, modification, suppression de contacts
-- Recherche et filtrage
+- **UID unique** par contact (compatible vCard : Roundcube, Proton, Thunderbird)
+- **Adresse postale** structurée (rue, complément, ville, CP, région, pays)
+- **Source** auto-détectée à l'import (Roundcube, Proton, Infomaniak, etc.)
+- Recherche, filtrage par liste et par source
 - Actions en masse (sélection multiple)
+- Emails non uniques : deux contacts peuvent partager la même adresse
 
 ### Gestion des listes
 - Listes de contacts (relation many-to-many)
@@ -17,13 +21,14 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 ### Import / Export
 - **Import vCard** (.vcf) : versions 2.1, 3.0 et 4.0 (via vcard_converter.py)
 - **Import TSV / CSV** : détection automatique du séparateur
-- **Export TSV** : global ou par liste
+- **Export TSV** : global ou par liste (avec UID, adresse, source)
 - Les listes vCard (catégories) sont automatiquement converties en listes
-- Mise à jour des contacts existants à l'import (détection par email, remplacement des listes)
+- Détection de doublons : par UID (priorité), puis email+nom+prénom
+- **Migration** : script avec backup automatique et `--dry-run`
 
 ### Mailing
 - Envoi d'emails personnalisés par liste de contacts
-- Variables de personnalisation : `{prenom}`, `{nom}`, `{email}`, `{organisation}`
+- Variables de personnalisation : `{prenom}`, `{nom}`, `{email}`, `{organisation}`, `{adresse_*}`, `{uid}`, etc.
 - Support **texte brut** et **HTML**
 - File d'attente avec suivi (envoyé / en attente / erreur)
 - **Historique des campagnes** avec réutilisation du message pour un nouvel envoi
@@ -51,6 +56,7 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 | `tools/setadmin.py` | Créer/modifier le compte admin |
 | `tools/resetdb.py` | Réinitialiser la base de données |
 | `tools/testsmtp.py` | Tester la connexion SMTP |
+| `tools/migrate_add_uid.py` | Migration : ajout UID, adresse, source (`--dry-run` disponible) |
 
 ## Installation rapide (développement)
 
