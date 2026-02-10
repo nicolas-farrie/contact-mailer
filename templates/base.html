@@ -15,6 +15,11 @@
             <a href="{{ url_for('listes') }}" {% if request.endpoint == 'listes' %}class="active"{% endif %}>Listes</a>
             <a href="{{ url_for('mailing') }}" {% if request.endpoint in ['mailing', 'mailing_queue', 'mailing_history'] %}class="active"{% endif %}>Mailing</a>
             <a href="{{ url_for('import_contacts') }}" {% if request.endpoint == 'import_contacts' %}class="active"{% endif %}>Import</a>
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('users') }}" {% if request.endpoint in ['users', 'user_new', 'user_edit'] %}class="active"{% endif %}>Utilisateurs</a>
+            {% endif %}
+            <span class="nav-separator"></span>
+            <a href="{{ url_for('profile') }}" class="nav-user" {% if request.endpoint == 'profile' %}style="color:white"{% endif %}>{{ current_user.display_name }}{% if current_user.is_admin %} <span class="role-badge">admin</span>{% endif %}</a>
             <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
         </div>
     </nav>

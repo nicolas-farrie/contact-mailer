@@ -31,7 +31,7 @@
 - [x] Liste des messages déjà envoyés, réutilisation pour nouvel envoi
 
 ## A faire - Prioritaire
-- [ ] Gestion multi-utilisateurs : CRUD users, rôles admin/user, qui a fait quoi
+- [x] Gestion multi-utilisateurs : CRUD users, rôles admin/user, qui a fait quoi
 - [ ] Gestion des désabonnements (obligatoire légalement : lien de désinscription dans chaque mail)
 - [ ] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
 - [ ] Support templates .eml (brouillons Thunderbird) - format standard RFC 5322
@@ -44,5 +44,4 @@
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
 - [ ] Améliorer l'interface
-### Nouveau mailing
-- [ ] importer un template .eml
+

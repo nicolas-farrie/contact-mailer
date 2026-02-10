@@ -1,3 +1,4 @@
+from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -18,7 +19,21 @@ login_manager.login_message = 'Veuillez vous connecter.'
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    user = User.query.get(int(user_id))
+    if user and not user.is_active:
+        return None
+    return user
+
+
+def admin_required(f):
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if not current_user.is_admin:
+            flash('Accès réservé aux administrateurs', 'error')
+            return redirect(url_for('contacts'))
+        return f(*args, **kwargs)
+    return decorated
 
 
 def init_db():
@@ -28,7 +43,9 @@ def init_db():
         if not User.query.filter_by(username=Config.ADMIN_USERNAME).first():
             admin = User(
                 username=Config.ADMIN_USERNAME,
-                password_hash=generate_password_hash(Config.ADMIN_PASSWORD)
+                password_hash=generate_password_hash(Config.ADMIN_PASSWORD),
+                role='admin',
+                is_active=True
             )
             db.session.add(admin)
             db.session.commit()
@@ -47,6 +64,9 @@ def login():
         user = User.query.filter_by(username=username).first()
 
         if user and check_password_hash(user.password_hash, password):
+            if not user.is_active:
+                flash('Ce compte a été désactivé. Contactez un administrateur.', 'error')
+                return render_template('login.html')
             login_user(user)
             next_page = request.args.get('next')
             return redirect(next_page or url_for('contacts'))
@@ -126,7 +146,8 @@ def contact_new():
             adresse_region=request.form.get('adresse_region', '').strip(),
             adresse_pays=request.form.get('adresse_pays', '').strip(),
             notes=request.form.get('notes', '').strip(),
-            source='Manuel'
+            source='Manuel',
+            created_by_id=current_user.id
         )
 
         # Ajouter aux listes sélectionnées
@@ -167,6 +188,7 @@ def contact_edit(id):
         contact.adresse_region = request.form.get('adresse_region', '').strip()
         contact.adresse_pays = request.form.get('adresse_pays', '').strip()
         contact.notes = request.form.get('notes', '').strip()
+        contact.updated_by_id = current_user.id
 
         # Mettre à jour les listes
         contact.listes.clear()
@@ -564,6 +586,7 @@ def import_contacts():
             for row in rows:
                 contact, action = _import_contact_from_row(row, update_existing=update_existing, source=source)
                 if action == 'created':
+                    contact.created_by_id = current_user.id
                     db.session.add(contact)
                     created += 1
                 elif action == 'updated':
@@ -740,7 +763,7 @@ def mailing_send():
 
     # Ajouter à la file d'attente et sauvegarder le template
     queue = MailQueue()
-    queue.set_campaign_template(campaign_id, subject, body, mail_format)
+    queue.set_campaign_template(campaign_id, subject, body, mail_format, sent_by=current_user.username)
     for contact in contacts:
         queue.add(contact, campaign_id)
 
@@ -853,6 +876,165 @@ def mailing_test_smtp():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+# === GESTION DES UTILISATEURS (admin only) ===
+
+@app.route('/users')
+@admin_required
+def users():
+    users_list = User.query.order_by(User.username).all()
+    return render_template('users.html', users=users_list)
+
+
+@app.route('/users/new', methods=['GET', 'POST'])
+@admin_required
+def user_new():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        nom = request.form.get('nom', '').strip()
+        prenom = request.form.get('prenom', '').strip()
+        email = request.form.get('email', '').strip()
+        role = request.form.get('role', 'user')
+
+        if not username or not password:
+            flash('Identifiant et mot de passe requis', 'error')
+            return render_template('user_form.html', user=None)
+
+        if User.query.filter_by(username=username).first():
+            flash(f'L\'identifiant "{username}" existe déjà', 'error')
+            return render_template('user_form.html', user=None)
+
+        if role not in ('admin', 'user'):
+            role = 'user'
+
+        user = User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            nom=nom,
+            prenom=prenom,
+            email=email or None,
+            role=role,
+            is_active=True
+        )
+        db.session.add(user)
+        try:
+            db.session.commit()
+            flash(f'Utilisateur "{username}" créé', 'success')
+            return redirect(url_for('users'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erreur: {e}', 'error')
+
+    return render_template('user_form.html', user=None)
+
+
+@app.route('/users/<int:id>/edit', methods=['GET', 'POST'])
+@admin_required
+def user_edit(id):
+    user = User.query.get_or_404(id)
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        nom = request.form.get('nom', '').strip()
+        prenom = request.form.get('prenom', '').strip()
+        email = request.form.get('email', '').strip()
+        role = request.form.get('role', 'user')
+        password = request.form.get('password', '').strip()
+
+        if not username:
+            flash('Identifiant requis', 'error')
+            return render_template('user_form.html', user=user)
+
+        # Vérifier unicité du username si changé
+        if username != user.username:
+            if User.query.filter_by(username=username).first():
+                flash(f'L\'identifiant "{username}" existe déjà', 'error')
+                return render_template('user_form.html', user=user)
+
+        if role not in ('admin', 'user'):
+            role = 'user'
+
+        user.username = username
+        user.nom = nom
+        user.prenom = prenom
+        user.email = email or None
+        user.role = role
+
+        if password:
+            user.password_hash = generate_password_hash(password)
+
+        try:
+            db.session.commit()
+            flash(f'Utilisateur "{username}" mis à jour', 'success')
+            return redirect(url_for('users'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erreur: {e}', 'error')
+
+    return render_template('user_form.html', user=user)
+
+
+@app.route('/users/<int:id>/delete', methods=['POST'])
+@admin_required
+def user_delete(id):
+    user = User.query.get_or_404(id)
+
+    if user.id == current_user.id:
+        flash('Vous ne pouvez pas supprimer votre propre compte', 'error')
+        return redirect(url_for('users'))
+
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    flash(f'Utilisateur "{username}" supprimé', 'success')
+    return redirect(url_for('users'))
+
+
+@app.route('/users/<int:id>/toggle-active', methods=['POST'])
+@admin_required
+def user_toggle_active(id):
+    user = User.query.get_or_404(id)
+
+    if user.id == current_user.id:
+        flash('Vous ne pouvez pas désactiver votre propre compte', 'error')
+        return redirect(url_for('users'))
+
+    user.is_active = not user.is_active
+    db.session.commit()
+    status = 'activé' if user.is_active else 'désactivé'
+    flash(f'Compte "{user.username}" {status}', 'success')
+    return redirect(url_for('users'))
+
+
+# === PROFIL ===
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    if request.method == 'POST':
+        current_user.nom = request.form.get('nom', '').strip()
+        current_user.prenom = request.form.get('prenom', '').strip()
+        current_user.email = request.form.get('email', '').strip() or None
+
+        password = request.form.get('password', '').strip()
+        password_confirm = request.form.get('password_confirm', '').strip()
+
+        if password:
+            if password != password_confirm:
+                flash('Les mots de passe ne correspondent pas', 'error')
+                return render_template('profile.html')
+            current_user.password_hash = generate_password_hash(password)
+
+        try:
+            db.session.commit()
+            flash('Profil mis à jour', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erreur: {e}', 'error')
+
+    return render_template('profile.html')
 
 
 if __name__ == '__main__':

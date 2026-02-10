@@ -134,9 +134,12 @@ class MailQueue:
                 'campaigns': self.campaigns
             }, f, indent=2, default=str)
 
-    def set_campaign_template(self, campaign_id: str, subject: str, body: str, format: str = 'text'):
+    def set_campaign_template(self, campaign_id: str, subject: str, body: str, format: str = 'text', sent_by: str = None):
         """Stocke le sujet, corps et format du mail pour une campagne"""
-        self.campaigns[campaign_id] = {'subject': subject, 'body': body, 'format': format}
+        data = {'subject': subject, 'body': body, 'format': format}
+        if sent_by:
+            data['sent_by'] = sent_by
+        self.campaigns[campaign_id] = data
         self.save()
 
     def get_campaign_template(self, campaign_id: str) -> dict:

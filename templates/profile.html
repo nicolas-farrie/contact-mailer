@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Mon profil - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Mon profil</h1>
+</div>
+
+<form method="POST" class="form-card">
+    <div class="form-group">
+        <label for="username">Identifiant</label>
+        <input type="text" id="username" value="{{ current_user.username }}" readonly disabled
+               style="color: var(--gray-500); background: var(--gray-100);">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="prenom">Prénom</label>
+            <input type="text" id="prenom" name="prenom" value="{{ current_user.prenom or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="nom">Nom</label>
+            <input type="text" id="nom" name="nom" value="{{ current_user.nom or '' }}">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" value="{{ current_user.email or '' }}">
+    </div>
+
+    <fieldset class="form-fieldset">
+        <legend>Changer le mot de passe</legend>
+        <div class="form-group">
+            <label for="password">Nouveau mot de passe</label>
+            <input type="password" id="password" name="password" placeholder="Laisser vide pour ne pas changer">
+        </div>
+        <div class="form-group">
+            <label for="password_confirm">Confirmer le mot de passe</label>
+            <input type="password" id="password_confirm" name="password_confirm">
+        </div>
+    </fieldset>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Annuler</a>
+    </div>
+</form>
+{% endblock %}

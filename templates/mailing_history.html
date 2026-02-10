@@ -15,6 +15,7 @@
             <th>Campagne</th>
             <th>Sujet</th>
             <th>Format</th>
+            <th>Envoyé par</th>
             <th>Envoyés</th>
             <th>Erreurs</th>
             <th>En attente</th>
@@ -28,6 +29,7 @@
             <td>{{ c.id }}</td>
             <td class="campaign-subject">{{ c.template.subject if c.template else '-' }}</td>
             <td>{{ c.template.format|default('text', true) if c.template else '-' }}</td>
+            <td>{{ c.template.sent_by|default('-', true) if c.template else '-' }}</td>
             <td><span class="badge badge-sent">{{ c.stats.sent }}</span></td>
             <td>
                 {% if c.stats.error > 0 %}

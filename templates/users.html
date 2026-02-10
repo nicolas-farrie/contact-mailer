@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Utilisateurs - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Utilisateurs <span class="count">({{ users|length }})</span></h1>
+    <a href="{{ url_for('user_new') }}" class="btn btn-primary">+ Nouvel utilisateur</a>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Identifiant</th>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Rôle</th>
+            <th>Actif</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr{% if not user.is_active %} style="opacity: 0.5"{% endif %}>
+            <td>{{ user.username }}</td>
+            <td>{{ user.display_name }}</td>
+            <td>{{ user.email or '-' }}</td>
+            <td>
+                {% if user.is_admin %}
+                <span class="role-badge">admin</span>
+                {% else %}
+                <span class="tag">user</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if user.is_active %}
+                <span style="color: var(--success);">Oui</span>
+                {% else %}
+                <span style="color: var(--danger);">Non</span>
+                {% endif %}
+            </td>
+            <td class="actions">
+                <a href="{{ url_for('user_edit', id=user.id) }}" class="btn btn-small">Modifier</a>
+                {% if user.id != current_user.id %}
+                <form method="POST" action="{{ url_for('user_toggle_active', id=user.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-small">
+                        {{ 'Désactiver' if user.is_active else 'Activer' }}
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('user_delete', id=user.id) }}" style="display:inline"
+                      onsubmit="return confirm('Supprimer l\'utilisateur {{ user.username }} ?')">
+                    <button type="submit" class="btn btn-small btn-danger">Supprimer</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<style>
+.role-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #dbeafe;
+    color: #1e40af;
+}
+</style>
+{% endblock %}

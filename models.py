@@ -32,6 +32,12 @@ class Contact(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Traçabilité
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    updated_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
+    updated_by = db.relationship('User', foreign_keys=[updated_by_id])
+
     # Relation many-to-many avec les listes
     listes = db.relationship('Liste', secondary=contact_liste, back_populates='contacts')
 
@@ -77,7 +83,23 @@ class Liste(db.Model):
 
 
 class User(UserMixin, db.Model):
-    """Utilisateur pour l'authentification simple"""
+    """Utilisateur avec rôles (admin/user)"""
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    nom = db.Column(db.String(100))
+    prenom = db.Column(db.String(100))
+    email = db.Column(db.String(200))
+    role = db.Column(db.String(20), default='user')
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
+
+    @property
+    def display_name(self):
+        if self.prenom and self.nom:
+            return f"{self.prenom} {self.nom}"
+        return self.username
