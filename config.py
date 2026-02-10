@@ -27,3 +27,6 @@ class Config:
 
     # Rate limiting (emails par minute)
     MAIL_RATE_PER_MINUTE = int(os.environ.get('MAIL_RATE_PER_MINUTE', 20))
+
+    # URL publique (pour les liens de désabonnement)
+    BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')

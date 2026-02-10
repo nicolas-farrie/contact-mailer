@@ -28,7 +28,12 @@
             <td>{{ c.date or '-' }}</td>
             <td>{{ c.id }}</td>
             <td class="campaign-subject">{{ c.template.subject if c.template else '-' }}</td>
-            <td>{{ c.template.format|default('text', true) if c.template else '-' }}</td>
+            <td>
+                {{ c.template.format|default('text', true) if c.template else '-' }}
+                {% if c.template and c.template.get('include_unsubscribe') %}
+                <span class="badge badge-unsub" title="Lien de désabonnement inclus">unsub</span>
+                {% endif %}
+            </td>
             <td>{{ c.template.sent_by|default('-', true) if c.template else '-' }}</td>
             <td><span class="badge badge-sent">{{ c.stats.sent }}</span></td>
             <td>
@@ -83,6 +88,7 @@
 .badge-sent { background: #d1fae5; color: #065f46; }
 .badge-error { background: #fee2e2; color: #991b1b; }
 .badge-pending { background: #fef3c7; color: #92400e; }
+.badge-unsub { background: #dbeafe; color: #1e40af; }
 .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;

@@ -64,7 +64,10 @@
             {% for contact in contacts %}
             <tr>
                 <td><input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox"></td>
-                <td><strong>{{ contact.nom }}</strong> {{ contact.prenom }}</td>
+                <td>
+                    <strong>{{ contact.nom }}</strong> {{ contact.prenom }}
+                    {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}
+                </td>
                 <td><a href="mailto:{{ contact.email }}">{{ contact.email }}</a></td>
                 <td>{{ contact.telephone or '-' }}</td>
                 <td>{{ contact.organisation or '-' }}</td>
@@ -105,4 +108,16 @@ document.getElementById('select-all').addEventListener('change', function() {
     document.querySelectorAll('.contact-checkbox').forEach(cb => cb.checked = this.checked);
 });
 </script>
+
+<style>
+.tag-unsub {
+    background: #fee2e2;
+    color: #991b1b;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 99px;
+    font-weight: 600;
+    margin-left: 0.25rem;
+}
+</style>
 {% endblock %}

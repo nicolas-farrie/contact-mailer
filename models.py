@@ -29,6 +29,8 @@ class Contact(db.Model):
     adresse_pays = db.Column(db.String(100))
     source = db.Column(db.String(100), default='Manuel')
     notes = db.Column(db.Text)
+    is_unsubscribed = db.Column(db.Boolean, default=False)
+    unsubscribed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -694,6 +694,8 @@ def mailing_preview():
     liste_id = request.form.get('liste_id', type=int)
     subject = request.form.get('subject', '').strip()
     body = request.form.get('body', '').strip()
+    mail_format = request.form.get('format', 'text')
+    include_unsubscribe = request.form.get('include_unsubscribe') == 'on'
 
     if not liste_id:
         return jsonify({'error': 'Sélectionnez une liste'}), 400
@@ -712,6 +714,17 @@ def mailing_preview():
     for key, value in contact_dict.items():
         preview_subject = preview_subject.replace(f'{{{key}}}', str(value or ''))
         preview_body = preview_body.replace(f'{{{key}}}', str(value or ''))
+
+    # Ajouter le footer de désabonnement dans la preview
+    if include_unsubscribe:
+        unsub_url = f"{Config.BASE_URL}/unsubscribe/{contact.uid}"
+        if mail_format == 'html':
+            preview_body += (
+                '<hr><p style="font-size:12px;color:#999;">'
+                f'Pour vous désabonner : <a href="{unsub_url}">cliquer ici</a></p>'
+            )
+        else:
+            preview_body += f'\n\n---\nPour vous désabonner : {unsub_url}'
 
     return jsonify({
         'subject': preview_subject,
@@ -745,9 +758,21 @@ def mailing_send():
         flash('Liste vide', 'error')
         return redirect(url_for('mailing'))
 
+    include_unsubscribe = request.form.get('include_unsubscribe') == 'on'
+
+    # Filtrer les contacts désabonnés
+    active_contacts = [c for c in liste.contacts if not c.is_unsubscribed]
+    excluded = len(liste.contacts) - len(active_contacts)
+    if excluded:
+        flash(f'{excluded} contact{"s" if excluded > 1 else ""} désabonné{"s" if excluded > 1 else ""} exclu{"s" if excluded > 1 else ""} de l\'envoi', 'info')
+
+    if not active_contacts:
+        flash('Aucun contact actif dans cette liste (tous désabonnés)', 'error')
+        return redirect(url_for('mailing'))
+
     # Détecter les emails partagés par plusieurs contacts
     email_counts = {}
-    for c in liste.contacts:
+    for c in active_contacts:
         email_counts[c.email] = email_counts.get(c.email, 0) + 1
     shared_emails = {e: n for e, n in email_counts.items() if n > 1}
     if shared_emails:
@@ -756,14 +781,16 @@ def mailing_send():
               f'par plusieurs contacts. Chaque contact recevra son email personnalisé.', 'warning')
 
     # Préparer les contacts
-    contacts = [c.to_dict() for c in liste.contacts]
+    contacts = [c.to_dict() for c in active_contacts]
 
     # Générer un ID de campagne
     campaign_id = f"{liste.nom}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Ajouter à la file d'attente et sauvegarder le template
     queue = MailQueue()
-    queue.set_campaign_template(campaign_id, subject, body, mail_format, sent_by=current_user.username)
+    queue.set_campaign_template(campaign_id, subject, body, mail_format,
+                                sent_by=current_user.username,
+                                include_unsubscribe=include_unsubscribe)
     for contact in contacts:
         queue.add(contact, campaign_id)
 
@@ -828,6 +855,8 @@ def mailing_process():
     )
 
     mail_format = tpl.get('format', 'text')
+    include_unsubscribe = tpl.get('include_unsubscribe', False)
+
     if mail_format == 'html':
         template = EmailTemplate(subject=tpl['subject'], body_text='', body_html=tpl['body'])
     else:
@@ -840,9 +869,16 @@ def mailing_process():
     import time
     for item in pending:
         contact = item['contact']
+
+        # Construire l'URL de désabonnement par contact
+        unsub_url = None
+        if include_unsubscribe and contact.get('uid'):
+            unsub_url = f"{Config.BASE_URL}/unsubscribe/{contact['uid']}"
+
         try:
-            subj, body_text, body_html = template.render(contact)
-            mailer.send_single(contact['email'], subj, body_text, body_html)
+            subj, body_text, body_html = template.render(contact, unsubscribe_url=unsub_url)
+            mailer.send_single(contact['email'], subj, body_text, body_html,
+                               unsubscribe_url=unsub_url)
             queue.mark_sent(item['id'])
             sent += 1
         except Exception as e:
@@ -1035,6 +1071,39 @@ def profile():
             flash(f'Erreur: {e}', 'error')
 
     return render_template('profile.html')
+
+
+# === DESABONNEMENT ===
+
+@app.route('/unsubscribe/<uid>')
+def unsubscribe(uid):
+    """Page publique de désabonnement (pas de login_required)"""
+    from datetime import datetime
+
+    contact = Contact.query.filter_by(uid=uid).first()
+
+    if not contact:
+        return render_template('unsubscribe.html', success=False, already=False)
+
+    if contact.is_unsubscribed:
+        return render_template('unsubscribe.html', success=True, already=True)
+
+    contact.is_unsubscribed = True
+    contact.unsubscribed_at = datetime.utcnow()
+    db.session.commit()
+    return render_template('unsubscribe.html', success=True, already=False)
+
+
+@app.route('/contacts/<int:id>/resubscribe', methods=['POST'])
+@login_required
+def contact_resubscribe(id):
+    """Réabonner un contact (admin)"""
+    contact = Contact.query.get_or_404(id)
+    contact.is_unsubscribed = False
+    contact.unsubscribed_at = None
+    db.session.commit()
+    flash(f'{contact.prenom} {contact.nom} a été réabonné', 'success')
+    return redirect(url_for('contact_edit', id=contact.id))
 
 
 if __name__ == '__main__':

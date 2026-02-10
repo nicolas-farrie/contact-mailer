@@ -32,6 +32,14 @@
                    style="color: var(--gray-500); background: var(--gray-100);">
         </div>
     </div>
+    {% if contact.is_unsubscribed %}
+    <div class="unsub-banner">
+        <span class="unsub-status">Désabonné le {{ contact.unsubscribed_at.strftime('%d/%m/%Y') if contact.unsubscribed_at else '?' }}</span>
+        <form method="POST" action="{{ url_for('contact_resubscribe', id=contact.id) }}" style="display:inline">
+            <button type="submit" class="btn btn-small" onclick="return confirm('Réabonner ce contact ?')">Réabonner</button>
+        </form>
+    </div>
+    {% endif %}
     {% endif %}
 
     <div class="form-row">
@@ -124,4 +132,21 @@
         <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Annuler</a>
     </div>
 </form>
+
+<style>
+.unsub-banner {
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+.unsub-status {
+    font-weight: 600;
+}
+</style>
 {% endblock %}

@@ -64,6 +64,14 @@
             <p class="hint">Variables : {prenom}, {nom}, {email}, {organisation}, {telephone}, {uid}</p>
         </div>
 
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="include_unsubscribe" checked>
+                Inclure un lien de désabonnement (recommandé)
+            </label>
+            <p class="hint">Ajoute un lien de désabonnement en bas de chaque email et le header List-Unsubscribe.</p>
+        </div>
+
         <div class="form-actions">
             <button type="button" class="btn" onclick="previewMail()">Prévisualiser</button>
             <button type="submit" class="btn btn-primary" {% if not smtp_configured %}disabled{% endif %}>

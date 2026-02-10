@@ -84,7 +84,7 @@ class EmailTemplate:
 
         return cls(subject=subject, body_text="", body_html=content)
 
-    def render(self, contact: dict) -> tuple:
+    def render(self, contact: dict, unsubscribe_url: str = None) -> tuple:
         """
         Rend le template avec les données du contact.
         Retourne (subject, body_text, body_html)
@@ -98,11 +98,21 @@ class EmailTemplate:
                 result = result.replace(f'{{{{ {key} }}}}', str(value or ''))
             return result
 
-        return (
-            replace_vars(self.subject, contact),
-            replace_vars(self.body_text, contact),
-            replace_vars(self.body_html, contact) if self.body_html else None
-        )
+        subject = replace_vars(self.subject, contact)
+        body_text = replace_vars(self.body_text, contact)
+        body_html = replace_vars(self.body_html, contact) if self.body_html else None
+
+        # Ajouter le footer de désabonnement
+        if unsubscribe_url:
+            if body_text:
+                body_text += f'\n\n---\nPour vous désabonner : {unsubscribe_url}'
+            if body_html:
+                body_html += (
+                    '<hr><p style="font-size:12px;color:#999;">'
+                    f'Pour vous désabonner : <a href="{unsubscribe_url}">cliquer ici</a></p>'
+                )
+
+        return (subject, body_text, body_html)
 
 
 class MailQueue:
@@ -134,9 +144,11 @@ class MailQueue:
                 'campaigns': self.campaigns
             }, f, indent=2, default=str)
 
-    def set_campaign_template(self, campaign_id: str, subject: str, body: str, format: str = 'text', sent_by: str = None):
+    def set_campaign_template(self, campaign_id: str, subject: str, body: str, format: str = 'text',
+                              sent_by: str = None, include_unsubscribe: bool = False):
         """Stocke le sujet, corps et format du mail pour une campagne"""
-        data = {'subject': subject, 'body': body, 'format': format}
+        data = {'subject': subject, 'body': body, 'format': format,
+                'include_unsubscribe': include_unsubscribe}
         if sent_by:
             data['sent_by'] = sent_by
         self.campaigns[campaign_id] = data
@@ -249,7 +261,8 @@ class Mailer:
         self.sender_name = sender_name
         self.use_tls = use_tls
 
-    def send_single(self, to_email: str, subject: str, body_text: str, body_html: str = None) -> bool:
+    def send_single(self, to_email: str, subject: str, body_text: str, body_html: str = None,
+                     unsubscribe_url: str = None) -> bool:
         """Envoie un email unique. Retourne True si succès."""
         from email.utils import formatdate, make_msgid
 
@@ -262,6 +275,10 @@ class Mailer:
             msg['Date'] = formatdate(localtime=True)
             msg['Message-ID'] = make_msgid(domain=self.sender_email.split('@')[1])
             msg['Content-Language'] = 'fr'
+
+            if unsubscribe_url:
+                msg['List-Unsubscribe'] = f'<{unsubscribe_url}>'
+                msg['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
 
             if body_html:
                 msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
