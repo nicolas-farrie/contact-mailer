@@ -720,7 +720,7 @@ def mailing_preview():
         unsub_url = f"{Config.BASE_URL}/unsubscribe/{contact.uid}"
         if mail_format == 'html':
             preview_body += (
-                '<hr><p style="font-size:12px;color:#999;">'
+                '<hr><p style="font-size:14px;color:#999;">'
                 f'Pour vous désabonner : <a href="{unsub_url}">cliquer ici</a></p>'
             )
         else:
@@ -885,6 +885,16 @@ def mailing_process():
             queue.mark_error(item['id'], str(e))
             errors += 1
         time.sleep(delay)
+
+    # Envoyer une copie à l'expéditeur (trace de la campagne)
+    if sent > 0:
+        try:
+            first_contact = pending[0]['contact']
+            subj, body_text, body_html = template.render(first_contact)
+            copy_subject = f"[Campagne] {subj}"
+            mailer.send_single(Config.SMTP_SENDER_EMAIL, copy_subject, body_text, body_html)
+        except Exception:
+            pass  # Ne pas bloquer si la copie échoue
 
     flash(f'Envoi terminé : {sent} envoyés, {errors} erreurs', 'success' if errors == 0 else 'warning')
     return redirect(url_for('mailing_queue', campaign=campaign))
@@ -1075,7 +1085,7 @@ def profile():
 
 # === DESABONNEMENT ===
 
-@app.route('/unsubscribe/<uid>')
+@app.route('/unsubscribe/<uid>', methods=['GET', 'POST'])
 def unsubscribe(uid):
     """Page publique de désabonnement (pas de login_required)"""
     from datetime import datetime
@@ -1083,15 +1093,19 @@ def unsubscribe(uid):
     contact = Contact.query.filter_by(uid=uid).first()
 
     if not contact:
-        return render_template('unsubscribe.html', success=False, already=False)
+        return render_template('unsubscribe.html', state='invalid')
 
     if contact.is_unsubscribed:
-        return render_template('unsubscribe.html', success=True, already=True)
+        return render_template('unsubscribe.html', state='already')
 
-    contact.is_unsubscribed = True
-    contact.unsubscribed_at = datetime.utcnow()
-    db.session.commit()
-    return render_template('unsubscribe.html', success=True, already=False)
+    if request.method == 'POST':
+        contact.is_unsubscribed = True
+        contact.unsubscribed_at = datetime.utcnow()
+        db.session.commit()
+        return render_template('unsubscribe.html', state='done')
+
+    # GET : page de confirmation avec bouton
+    return render_template('unsubscribe.html', state='confirm', uid=uid)
 
 
 @app.route('/contacts/<int:id>/resubscribe', methods=['POST'])

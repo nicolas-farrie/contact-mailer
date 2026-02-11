@@ -41,20 +41,52 @@
         }
         .success .icon { color: #059669; }
         .error .icon { color: #dc2626; }
+        .confirm .icon { color: #d97706; }
+        .btn-unsub {
+            display: inline-block;
+            margin-top: 1.5rem;
+            padding: 0.75rem 2rem;
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-unsub:hover { background: #b91c1c; }
+        .note {
+            margin-top: 1rem;
+            font-size: 1rem;
+            color: #999;
+        }
     </style>
 </head>
 <body>
     <div class="card">
         <div class="brand">Contact Mailer</div>
-        {% if success %}
+
+        {% if state == 'confirm' %}
+        <div class="confirm">
+            <div class="icon">&#9993;</div>
+            <p class="message">Souhaitez-vous vous désabonner de nos communications ?</p>
+            <form method="POST">
+                <button type="submit" class="btn-unsub">Confirmer le désabonnement</button>
+            </form>
+            <p class="note">Si vous ne souhaitez pas vous désabonner,<br>fermez tout simplement cette page.</p>
+        </div>
+
+        {% elif state == 'done' %}
         <div class="success">
             <div class="icon">&#10003;</div>
-            {% if already %}
-            <p class="message">Vous êtes déjà désabonné de nos communications.</p>
-            {% else %}
             <p class="message">Vous avez été désabonné avec succès.<br>Vous ne recevrez plus nos emails.</p>
-            {% endif %}
         </div>
+
+        {% elif state == 'already' %}
+        <div class="success">
+            <div class="icon">&#10003;</div>
+            <p class="message">Vous êtes déjà désabonné de nos communications.</p>
+        </div>
+
         {% else %}
         <div class="error">
             <div class="icon">&#10007;</div>

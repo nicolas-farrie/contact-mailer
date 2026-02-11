@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Mailing - Contact Mailer{% endblock %}
+{% block container_class %}container-wide{% endblock %}
 
 {% block content %}
 <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
@@ -43,10 +44,10 @@
             <label>Format</label>
             <div class="format-toggle">
                 <label class="checkbox-label">
-                    <input type="radio" name="format" value="text" {{ 'checked' if prefill.format != 'html' }} onchange="toggleFormat()"> Texte brut
+                    <input type="radio" name="format" value="text" {{ 'checked' if prefill.format == 'text' and prefill.subject }} onchange="toggleFormat()"> Texte brut
                 </label>
                 <label class="checkbox-label">
-                    <input type="radio" name="format" value="html" {{ 'checked' if prefill.format == 'html' }} onchange="toggleFormat()"> HTML
+                    <input type="radio" name="format" value="html" {{ 'checked' if prefill.format != 'text' or not prefill.subject }} onchange="toggleFormat()"> HTML
                 </label>
             </div>
         </div>
@@ -73,7 +74,7 @@
         </div>
 
         <div class="form-actions">
-            <button type="button" class="btn" onclick="previewMail()">Prévisualiser</button>
+            <button type="button" class="btn" id="preview-btn" onclick="togglePreview()">Prévisualiser</button>
             <button type="submit" class="btn btn-primary" {% if not smtp_configured %}disabled{% endif %}>
                 Préparer l'envoi
             </button>
@@ -122,6 +123,7 @@ const quill = new Quill('#editor', {
 
 const bodyTextarea = document.getElementById('body');
 const editorContainer = document.getElementById('editor-container');
+const DRAFT_KEY = 'mailing_draft';
 
 function isHtmlMode() {
     return document.querySelector('input[name="format"][value="html"]').checked;
@@ -129,17 +131,14 @@ function isHtmlMode() {
 
 function toggleFormat() {
     if (isHtmlMode()) {
-        // Texte → HTML : transférer le contenu du textarea vers Quill
         const text = bodyTextarea.value;
         if (text && quill.getText().trim() === '') {
-            // Convertir les sauts de ligne en <p> pour Quill
             const html = text.split('\n').map(l => '<p>' + (l || '<br>') + '</p>').join('');
             quill.root.innerHTML = html;
         }
         bodyTextarea.style.display = 'none';
         editorContainer.style.display = 'block';
     } else {
-        // HTML → Texte : transférer le contenu de Quill vers le textarea
         const quillText = quill.getText().trim();
         if (quillText && !bodyTextarea.value.trim()) {
             bodyTextarea.value = quillText;
@@ -147,6 +146,7 @@ function toggleFormat() {
         editorContainer.style.display = 'none';
         bodyTextarea.style.display = 'block';
     }
+    saveDraft();
 }
 
 // Sync Quill → textarea au submit
@@ -154,6 +154,8 @@ document.getElementById('mailing-form').addEventListener('submit', function() {
     if (isHtmlMode()) {
         bodyTextarea.value = quill.root.innerHTML;
     }
+    // Effacer le brouillon après envoi
+    localStorage.removeItem(DRAFT_KEY);
 });
 
 // Sync Quill → textarea pour la preview aussi
@@ -163,18 +165,87 @@ function syncBody() {
     }
 }
 
-// Init : si mode HTML pré-sélectionné (réutilisation), afficher Quill
+// === Brouillon (localStorage) ===
+function saveDraft() {
+    const draft = {
+        liste_id: document.getElementById('liste_id').value,
+        subject: document.getElementById('subject').value,
+        format: isHtmlMode() ? 'html' : 'text',
+        body_text: bodyTextarea.value,
+        body_html: quill.root.innerHTML,
+        include_unsubscribe: document.querySelector('input[name="include_unsubscribe"]').checked
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+}
+
+function restoreDraft() {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return false;
+    try {
+        const draft = JSON.parse(raw);
+        if (draft.liste_id) document.getElementById('liste_id').value = draft.liste_id;
+        if (draft.subject) document.getElementById('subject').value = draft.subject;
+        if (draft.format) {
+            document.querySelector(`input[name="format"][value="${draft.format}"]`).checked = true;
+        }
+        if (draft.format === 'html' && draft.body_html) {
+            quill.root.innerHTML = draft.body_html;
+            bodyTextarea.value = draft.body_html;
+        } else if (draft.body_text) {
+            bodyTextarea.value = draft.body_text;
+        }
+        if (draft.include_unsubscribe !== undefined) {
+            document.querySelector('input[name="include_unsubscribe"]').checked = draft.include_unsubscribe;
+        }
+        return true;
+    } catch(e) {
+        return false;
+    }
+}
+
+// Sauvegarder régulièrement
+document.getElementById('subject').addEventListener('input', saveDraft);
+bodyTextarea.addEventListener('input', saveDraft);
+quill.on('text-change', saveDraft);
+document.getElementById('liste_id').addEventListener('change', saveDraft);
+document.querySelector('input[name="include_unsubscribe"]').addEventListener('change', saveDraft);
+
+// === Init ===
+// Restaurer le brouillon seulement si pas de prefill (réutilisation)
+const hasPrefill = {{ 'true' if prefill.subject else 'false' }};
+if (!hasPrefill) {
+    restoreDraft();
+}
+
+// Afficher le bon éditeur selon le mode
 if (isHtmlMode()) {
-    const prefillBody = bodyTextarea.value;
+    const currentBody = bodyTextarea.value;
     bodyTextarea.style.display = 'none';
     editorContainer.style.display = 'block';
-    if (prefillBody) {
-        quill.root.innerHTML = prefillBody;
+    if (currentBody && quill.getText().trim() === '') {
+        quill.root.innerHTML = currentBody;
     }
 }
 
 // === Preview ===
-function previewMail() {
+let previewVisible = false;
+
+function togglePreview() {
+    const panel = document.getElementById('preview-panel');
+    const btn = document.getElementById('preview-btn');
+    const container = document.querySelector('.mailing-container');
+
+    if (previewVisible) {
+        // Masquer
+        panel.style.display = 'none';
+        container.classList.remove('with-preview');
+        btn.textContent = 'Prévisualiser';
+        btn.classList.remove('btn-preview-active');
+        previewVisible = false;
+        return;
+    }
+
+    // Charger et afficher
     syncBody();
     const form = document.getElementById('mailing-form');
     const formData = new FormData(form);
@@ -198,7 +269,11 @@ function previewMail() {
         } else {
             previewBody.textContent = data.body;
         }
-        document.getElementById('preview-panel').style.display = 'block';
+        panel.style.display = 'block';
+        container.classList.add('with-preview');
+        btn.textContent = 'Masquer';
+        btn.classList.add('btn-preview-active');
+        previewVisible = true;
     })
     .catch(err => alert('Erreur : ' + err));
 }
@@ -207,9 +282,12 @@ function previewMail() {
 <style>
 .mailing-container {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 1.5rem;
     align-items: start;
+}
+.mailing-container.with-preview {
+    grid-template-columns: 1fr 1fr;
 }
 .mailing-form {
     max-width: none;
@@ -250,6 +328,14 @@ function previewMail() {
 #editor .ql-editor {
     font-family: inherit;
     font-size: 0.95rem;
+}
+.btn-preview-active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+.btn-preview-active:hover {
+    background: var(--primary-dark);
 }
 @media (max-width: 900px) {
     .mailing-container {

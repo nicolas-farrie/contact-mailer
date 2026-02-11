@@ -91,7 +91,7 @@ class EmailTemplate:
         """
         def replace_vars(text: str, data: dict) -> str:
             if not text:
-                return text
+                return ''
             result = text
             for key, value in data.items():
                 result = result.replace(f'{{{key}}}', str(value or ''))
@@ -108,7 +108,7 @@ class EmailTemplate:
                 body_text += f'\n\n---\nPour vous désabonner : {unsubscribe_url}'
             if body_html:
                 body_html += (
-                    '<hr><p style="font-size:12px;color:#999;">'
+                    '<hr><p style="font-size:14px;color:#999;">'
                     f'Pour vous désabonner : <a href="{unsubscribe_url}">cliquer ici</a></p>'
                 )
 

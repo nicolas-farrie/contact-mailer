@@ -25,6 +25,7 @@
 - [x] Export TSV enrichi (UID, adresse, source)
 - [x] Filtre par source dans la vue contacts
 - [x] Migration automatique avec backup (tools/migrate_add_uid.py)
+- [x] Gestion des désabonnements RGPD : lien dans les emails, page publique, exclusion à l'envoi, réabonnement admin
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
@@ -32,7 +33,6 @@
 
 ## A faire - Prioritaire
 - [x] Gestion multi-utilisateurs : CRUD users, rôles admin/user, qui a fait quoi
-- [ ] Gestion des désabonnements (obligatoire légalement : lien de désinscription dans chaque mail)
 - [ ] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
 - [ ] Support templates .eml (brouillons Thunderbird) - format standard RFC 5322
 
@@ -44,4 +44,3 @@
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
 - [ ] Améliorer l'interface
-
