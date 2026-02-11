@@ -25,7 +25,12 @@
 - [x] Export TSV enrichi (UID, adresse, source)
 - [x] Filtre par source dans la vue contacts
 - [x] Migration automatique avec backup (tools/migrate_add_uid.py)
-- [x] Gestion des désabonnements RGPD : lien dans les emails, page publique, exclusion à l'envoi, réabonnement admin
+- [x] Gestion des désabonnements RGPD : lien dans les emails, page publique avec confirmation, exclusion à l'envoi, réabonnement admin
+- [x] Copie automatique de la campagne à l'expéditeur (trace dans sa boite mail)
+- [x] Import/export réservés aux administrateurs (@admin_required)
+- [x] Interface améliorée : layout pleine largeur (contacts, mailing), éditeur HTML par défaut
+- [x] Preview mailing : navigation entre contacts (boutons prev/next), toggle afficher/masquer
+- [x] Sauvegarde automatique du brouillon mailing (localStorage)
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
@@ -43,4 +48,3 @@
 - [ ] Pagination de la liste des contacts
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
-- [ ] Améliorer l'interface

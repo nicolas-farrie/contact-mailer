@@ -82,7 +82,14 @@
     </form>
 
     <div class="preview-panel" id="preview-panel" style="display:none;">
-        <h3>Prévisualisation</h3>
+        <div class="preview-header">
+            <h3>Prévisualisation</h3>
+            <div class="preview-nav">
+                <button type="button" class="btn btn-small" id="prev-btn" onclick="previewNav(-1)" disabled>&larr;</button>
+                <span id="preview-counter">1 / ?</span>
+                <button type="button" class="btn btn-small" id="next-btn" onclick="previewNav(1)">&rarr;</button>
+            </div>
+        </div>
         <p class="hint" id="preview-contact"></p>
         <div class="preview-subject" id="preview-subject"></div>
         <div class="preview-body" id="preview-body"></div>
@@ -229,6 +236,8 @@ if (isHtmlMode()) {
 
 // === Preview ===
 let previewVisible = false;
+let previewIndex = 0;
+let previewTotal = 0;
 
 function togglePreview() {
     const panel = document.getElementById('preview-panel');
@@ -236,7 +245,6 @@ function togglePreview() {
     const container = document.querySelector('.mailing-container');
 
     if (previewVisible) {
-        // Masquer
         panel.style.display = 'none';
         container.classList.remove('with-preview');
         btn.textContent = 'Prévisualiser';
@@ -245,10 +253,20 @@ function togglePreview() {
         return;
     }
 
-    // Charger et afficher
+    previewIndex = 0;
+    loadPreview();
+}
+
+function previewNav(delta) {
+    previewIndex += delta;
+    loadPreview();
+}
+
+function loadPreview() {
     syncBody();
     const form = document.getElementById('mailing-form');
     const formData = new FormData(form);
+    formData.set('contact_index', previewIndex);
 
     fetch('{{ url_for("mailing_preview") }}', {
         method: 'POST',
@@ -260,8 +278,15 @@ function togglePreview() {
             alert(data.error);
             return;
         }
+
+        previewIndex = data.index;
+        previewTotal = data.total;
+
         document.getElementById('preview-contact').textContent = 'Aperçu pour : ' + data.contact;
         document.getElementById('preview-subject').textContent = data.subject;
+        document.getElementById('preview-counter').textContent = (previewIndex + 1) + ' / ' + previewTotal;
+        document.getElementById('prev-btn').disabled = (previewIndex <= 0);
+        document.getElementById('next-btn').disabled = (previewIndex >= previewTotal - 1);
 
         const previewBody = document.getElementById('preview-body');
         if (isHtmlMode()) {
@@ -269,6 +294,10 @@ function togglePreview() {
         } else {
             previewBody.textContent = data.body;
         }
+
+        const panel = document.getElementById('preview-panel');
+        const btn = document.getElementById('preview-btn');
+        const container = document.querySelector('.mailing-container');
         panel.style.display = 'block';
         container.classList.add('with-preview');
         btn.textContent = 'Masquer';
@@ -298,8 +327,25 @@ function togglePreview() {
     border-radius: var(--radius);
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
-.preview-panel h3 {
+.preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 0.5rem;
+}
+.preview-header h3 {
+    margin: 0;
+}
+.preview-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+#preview-counter {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    min-width: 4rem;
+    text-align: center;
 }
 .preview-subject {
     font-weight: bold;

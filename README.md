@@ -29,14 +29,26 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 ### Mailing
 - Envoi d'emails personnalisés par liste de contacts
 - Variables de personnalisation : `{prenom}`, `{nom}`, `{email}`, `{organisation}`, `{adresse_*}`, `{uid}`, etc.
-- Support **texte brut** et **HTML**
+- Support **texte brut** et **HTML** (éditeur Quill WYSIWYG, HTML par défaut)
 - File d'attente avec suivi (envoyé / en attente / erreur)
 - **Historique des campagnes** avec réutilisation du message pour un nouvel envoi
+- **Prévisualisation** avec navigation entre les contacts de la liste
+- **Sauvegarde automatique** du brouillon (localStorage)
+- **Copie expéditeur** : une copie de chaque campagne est envoyée au sender
 - **Rate-limiting** configurable (emails/minute)
 - Envoi via SMTP existant (pas de serveur mail à configurer)
 
+### Désabonnement (RGPD)
+- Lien de désabonnement dans chaque email (activable par campagne)
+- Header `List-Unsubscribe` (RFC 2369) pour les clients mail compatibles
+- Page publique de confirmation avant désabonnement
+- Exclusion automatique des contacts désabonnés à l'envoi
+- Réabonnement possible par un administrateur
+- Badge "Désabonné" visible dans la liste des contacts
+
 ### Sécurité
 - Authentification par login/mot de passe
+- **Rôles** : admin (accès complet) et user (pas d'import/export)
 - Données stockées localement (SQLite)
 - Aucun service externe requis
 
@@ -57,6 +69,7 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 | `tools/resetdb.py` | Réinitialiser la base de données |
 | `tools/testsmtp.py` | Tester la connexion SMTP |
 | `tools/migrate_add_uid.py` | Migration : ajout UID, adresse, source (`--dry-run` disponible) |
+| `tools/migrate_add_unsubscribe.py` | Migration : ajout champs désabonnement (`--dry-run` disponible) |
 
 ## Installation rapide (développement)
 
@@ -99,6 +112,7 @@ SMTP_SENDER_EMAIL=user@example.com
 SMTP_SENDER_NAME=Mon Organisation
 SMTP_USE_TLS=false
 MAIL_RATE_PER_MINUTE=20
+BASE_URL=https://votre-domaine.com
 ```
 
 | Port | SMTP_USE_TLS | Protocole |

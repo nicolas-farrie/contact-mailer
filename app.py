@@ -538,7 +538,7 @@ def _import_contact_from_row(row, update_existing=False, source='Import'):
 
 
 @app.route('/import', methods=['GET', 'POST'])
-@login_required
+@admin_required
 def import_contacts():
     if request.method == 'POST':
         file = request.files.get('file')
@@ -619,7 +619,7 @@ def import_contacts():
 
 
 @app.route('/export')
-@login_required
+@admin_required
 def export_contacts():
     liste_id = request.args.get('liste', type=int)
 
@@ -690,12 +690,13 @@ def mailing_history():
 @app.route('/mailing/preview', methods=['POST'])
 @login_required
 def mailing_preview():
-    """Prévisualisation du mail avec le premier contact de la liste"""
+    """Prévisualisation du mail avec un contact de la liste"""
     liste_id = request.form.get('liste_id', type=int)
     subject = request.form.get('subject', '').strip()
     body = request.form.get('body', '').strip()
     mail_format = request.form.get('format', 'text')
     include_unsubscribe = request.form.get('include_unsubscribe') == 'on'
+    contact_index = request.form.get('contact_index', 0, type=int)
 
     if not liste_id:
         return jsonify({'error': 'Sélectionnez une liste'}), 400
@@ -704,8 +705,10 @@ def mailing_preview():
     if not liste.contacts:
         return jsonify({'error': 'Liste vide'}), 400
 
-    # Prendre le premier contact pour la preview
-    contact = liste.contacts[0]
+    # Sélectionner le contact par index (borné)
+    total = len(liste.contacts)
+    contact_index = max(0, min(contact_index, total - 1))
+    contact = liste.contacts[contact_index]
     contact_dict = contact.to_dict()
 
     # Remplacer les variables
@@ -729,7 +732,9 @@ def mailing_preview():
     return jsonify({
         'subject': preview_subject,
         'body': preview_body,
-        'contact': f"{contact.prenom} {contact.nom} <{contact.email}>"
+        'contact': f"{contact.prenom} {contact.nom} <{contact.email}>",
+        'index': contact_index,
+        'total': total
     })
 
 
