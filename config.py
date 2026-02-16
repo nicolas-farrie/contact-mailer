@@ -30,3 +30,6 @@ class Config:
 
     # URL publique (pour les liens de désabonnement)
     BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
+
+    # Nom de l'instance (multi-instance)
+    INSTANCE_NAME = os.environ.get('INSTANCE_NAME', '')

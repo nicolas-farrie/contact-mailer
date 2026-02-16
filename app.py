@@ -8,8 +8,25 @@ import csv
 import io
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
 
+
+class ReverseProxied:
+    """Middleware WSGI pour supporter un préfixe de chemin (reverse proxy par sous-répertoire).
+    Lit le header X-Script-Name posé par nginx et ajuste SCRIPT_NAME / PATH_INFO."""
+    def __init__(self, app):
+        self.app = app
+    def __call__(self, environ, start_response):
+        script_name = environ.get('HTTP_X_SCRIPT_NAME', '')
+        if script_name:
+            environ['SCRIPT_NAME'] = script_name
+            path_info = environ.get('PATH_INFO', '')
+            if path_info.startswith(script_name):
+                environ['PATH_INFO'] = path_info[len(script_name):]
+        return self.app(environ, start_response)
+
+
 app = Flask(__name__)
 app.config.from_object(Config)
+app.wsgi_app = ReverseProxied(app.wsgi_app)
 
 db.init_app(app)
 login_manager = LoginManager(app)
@@ -1123,6 +1140,55 @@ def contact_resubscribe(id):
     db.session.commit()
     flash(f'{contact.prenom} {contact.nom} a été réabonné', 'success')
     return redirect(url_for('contact_edit', id=contact.id))
+
+
+# === MOT DE PASSE OUBLIE ===
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Page publique : notifie l'admin qu'un utilisateur a oublié son mot de passe."""
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        if username:
+            instance_name = Config.INSTANCE_NAME or 'Contact Mailer'
+            # Envoyer un email de notification à l'admin
+            if Config.SMTP_HOST and Config.SMTP_SENDER_EMAIL:
+                try:
+                    import smtplib
+                    import ssl
+                    from email.mime.text import MIMEText
+                    from email.utils import formataddr, formatdate
+
+                    body = (
+                        f"L'utilisateur « {username} » a demandé une réinitialisation "
+                        f"de mot de passe pour l'instance « {instance_name} ».\n\n"
+                        f"Si cette demande est légitime, connectez-vous en tant qu'admin "
+                        f"et modifiez le mot de passe de cet utilisateur."
+                    )
+                    msg = MIMEText(body, 'plain', 'utf-8')
+                    msg['Subject'] = f"[{instance_name}] Mot de passe oublié — {username}"
+                    msg['From'] = formataddr((Config.SMTP_SENDER_NAME, Config.SMTP_SENDER_EMAIL))
+                    msg['To'] = Config.SMTP_SENDER_EMAIL
+                    msg['Date'] = formatdate(localtime=True)
+
+                    context = ssl.create_default_context()
+                    if Config.SMTP_USE_TLS:
+                        with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT) as server:
+                            server.starttls(context=context)
+                            server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
+                            server.sendmail(Config.SMTP_SENDER_EMAIL, Config.SMTP_SENDER_EMAIL, msg.as_string())
+                    else:
+                        with smtplib.SMTP_SSL(Config.SMTP_HOST, Config.SMTP_PORT, context=context) as server:
+                            server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
+                            server.sendmail(Config.SMTP_SENDER_EMAIL, Config.SMTP_SENDER_EMAIL, msg.as_string())
+                except Exception:
+                    pass  # Ne pas révéler si l'envoi a échoué
+
+        # Message identique que le user existe ou non (sécurité)
+        flash('Si ce compte existe, l\'administrateur a été notifié. Il vous contactera pour réinitialiser votre mot de passe.', 'success')
+        return redirect(url_for('forgot_password'))
+
+    return render_template('forgot_password.html')
 
 
 if __name__ == '__main__':

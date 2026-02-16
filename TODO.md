@@ -38,6 +38,8 @@
 
 ## A faire - Prioritaire
 - [x] Gestion multi-utilisateurs : CRUD users, rôles admin/user, qui a fait quoi
+- [x] Déploiement multi-instance : middleware ReverseProxied, templates systemd/nginx, script create_instance.sh, landing page
+- [x] Mot de passe oublié : notification admin par email (sans tokens)
 - [ ] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
 - [ ] Support templates .eml (brouillons Thunderbird) - format standard RFC 5322
 

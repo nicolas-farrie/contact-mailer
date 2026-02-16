@@ -46,6 +46,11 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 - Réabonnement possible par un administrateur
 - Badge "Désabonné" visible dans la liste des contacts
 
+### Mot de passe oublié
+- Page publique `/forgot-password`
+- Notification par email à l'administrateur (pas de tokens)
+- Message identique que le compte existe ou non (sécurité)
+
 ### Sécurité
 - Authentification par login/mot de passe
 - **Rôles** : admin (accès complet) et user (pas d'import/export)
@@ -68,6 +73,7 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 | `tools/setadmin.py` | Créer/modifier le compte admin |
 | `tools/resetdb.py` | Réinitialiser la base de données |
 | `tools/testsmtp.py` | Tester la connexion SMTP |
+| `tools/create_instance.sh` | Créer une nouvelle instance (multi-instance) |
 | `tools/migrate_add_uid.py` | Migration : ajout UID, adresse, source (`--dry-run` disponible) |
 | `tools/migrate_add_unsubscribe.py` | Migration : ajout champs désabonnement (`--dry-run` disponible) |
 
@@ -98,6 +104,39 @@ Puis pour HTTPS :
 ```bash
 sudo certbot --nginx -d yoursundomain.yourdomain.ext
 ```
+
+## Déploiement multi-instance
+
+L'architecture multi-instance permet d'héberger plusieurs carnets de contacts isolés sur un même serveur. Chaque carnet = une instance Flask séparée avec sa propre base SQLite, son propre `.env`, et son propre service systemd.
+
+```
+listes.aubaygues.fr/          → landing page (choix du carnet)
+listes.aubaygues.fr/asso1/    → instance asso1 (gunicorn :5001)
+listes.aubaygues.fr/asso2/    → instance asso2 (gunicorn :5002)
+```
+
+### Créer une instance
+
+```bash
+sudo bash tools/create_instance.sh --name asso1 --port 5001
+sudo nano /opt/contact-mailer-instances/asso1/.env   # Configurer SMTP
+sudo systemctl daemon-reload
+sudo systemctl enable --now contact-mailer-asso1
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Configuration nginx
+
+Déployer `deploy/nginx-multi.conf` dans `/etc/nginx/sites-available/` et créer le lien symbolique. Les blocs location par instance sont inclus automatiquement depuis `/etc/nginx/contact-mailer-instances/`.
+
+### Fichiers de déploiement
+
+| Fichier | Description |
+|---------|-------------|
+| `deploy/nginx-multi.conf` | Config serveur nginx (landing + includes) |
+| `deploy/instance.service.template` | Template service systemd par instance |
+| `deploy/instance.nginx.template` | Template bloc location nginx par instance |
+| `deploy/landing/index.html` | Landing page statique (choix du carnet) |
 
 ## Configuration SMTP
 

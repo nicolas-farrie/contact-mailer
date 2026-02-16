@@ -1,0 +1,21 @@
+# Service systemd pour une instance Contact Mailer
+# Placeholders : __INSTANCE__, __PORT__, __DIR__
+# Généré par tools/create_instance.sh
+
+[Unit]
+Description=Contact Mailer - Instance __INSTANCE__
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=__DIR__
+Environment=PATH=/opt/contact-mailer/venv/bin
+EnvironmentFile=__DIR__/.env
+ExecStart=/opt/contact-mailer/venv/bin/gunicorn --bind 127.0.0.1:__PORT__ --workers 2 --timeout 300 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
