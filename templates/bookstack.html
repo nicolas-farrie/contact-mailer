@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}BookStack - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>BookStack</h1>
+</div>
+
+{% if not bs_configured %}
+<div class="alert alert-error">
+    <strong>BookStack non configuré.</strong> Ajoutez les variables BOOKSTACK_URL, BOOKSTACK_TOKEN_ID et BOOKSTACK_TOKEN_SECRET dans votre fichier .env
+</div>
+{% endif %}
+
+<div class="info-box">
+    <h3>Fonctionnement</h3>
+    <ul>
+        <li>Les contacts sont identifiés par leur <strong>adresse email</strong> dans BookStack</li>
+        <li>Si un utilisateur existe déjà, le rôle sélectionné est <strong>ajouté</strong> à ses rôles existants (sans toucher aux autres)</li>
+        <li>Si l'utilisateur n'existe pas, il est <strong>créé avec une invitation</strong> par email</li>
+        <li>Si l'utilisateur possède déjà le rôle, il est <strong>ignoré</strong> (compteur "inchangés")</li>
+    </ul>
+</div>
+
+<!-- Section Rôles -->
+<div class="form-card">
+    <div class="page-header" style="margin-bottom: 1rem;">
+        <h2>Rôles BookStack</h2>
+        <form method="POST" action="{{ url_for('bookstack_sync_roles') }}">
+            <button type="submit" class="btn btn-primary" {% if not bs_configured %}disabled{% endif %}>Synchroniser les rôles</button>
+        </form>
+    </div>
+
+    {% if roles %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nom du rôle</th>
+                <th>Dernière synchro</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for role in roles %}
+            <tr>
+                <td>{{ role.id }}</td>
+                <td>{{ role.display_name }}</td>
+                <td>{{ role.synced_at.strftime('%d/%m/%Y %H:%M') if role.synced_at else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Aucun rôle importé. Cliquez sur "Synchroniser les rôles" pour récupérer les rôles depuis BookStack.</p>
+    {% endif %}
+</div>
+
+<!-- Section Push -->
+<div class="form-card">
+    <h2>Pousser une liste vers BookStack</h2>
+
+    <form method="POST" action="{{ url_for('bookstack_push') }}">
+        <div class="form-group">
+            <label for="liste_id">Liste de contacts</label>
+            <select id="liste_id" name="liste_id" required>
+                <option value="">-- Sélectionner une liste --</option>
+                {% for liste in listes %}
+                <option value="{{ liste.id }}">{{ liste.nom }} ({{ liste.count }} contacts)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="role_id">Rôle BookStack à attribuer</label>
+            <select id="role_id" name="role_id" required>
+                <option value="">-- Sélectionner un rôle --</option>
+                {% for role in roles %}
+                <option value="{{ role.id }}">{{ role.display_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="send_invite" checked>
+                Envoyer une invitation aux nouveaux comptes
+            </label>
+            <p class="hint">Si décoché, les comptes sont créés sans email d'invitation (nécessite un SMTP configuré côté BookStack).</p>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" {% if not bs_configured or not roles %}disabled{% endif %}>
+                Pousser vers BookStack
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

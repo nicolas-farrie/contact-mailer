@@ -33,3 +33,8 @@ class Config:
 
     # Nom de l'instance (multi-instance)
     INSTANCE_NAME = os.environ.get('INSTANCE_NAME', '')
+
+    # BookStack API
+    BOOKSTACK_URL = os.environ.get('BOOKSTACK_URL', '')
+    BOOKSTACK_TOKEN_ID = os.environ.get('BOOKSTACK_TOKEN_ID', '')
+    BOOKSTACK_TOKEN_SECRET = os.environ.get('BOOKSTACK_TOKEN_SECRET', '')

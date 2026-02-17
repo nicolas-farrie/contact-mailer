@@ -2,7 +2,7 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, Contact, Liste, User
+from models import db, Contact, Liste, User, BookstackRole
 from config import Config
 import csv
 import io
@@ -1189,6 +1189,106 @@ def forgot_password():
         return redirect(url_for('forgot_password'))
 
     return render_template('forgot_password.html')
+
+
+# === BOOKSTACK ===
+
+@app.route('/bookstack')
+@admin_required
+def bookstack():
+    roles = BookstackRole.query.order_by(BookstackRole.display_name).all()
+    listes = Liste.query.order_by(Liste.nom).all()
+    bs_configured = bool(Config.BOOKSTACK_URL and Config.BOOKSTACK_TOKEN_ID and Config.BOOKSTACK_TOKEN_SECRET)
+    return render_template('bookstack.html', roles=roles, listes=listes, bs_configured=bs_configured)
+
+
+@app.route('/bookstack/sync-roles', methods=['POST'])
+@admin_required
+def bookstack_sync_roles():
+    from bookstack import BookstackClient
+    from datetime import datetime
+
+    if not Config.BOOKSTACK_URL:
+        flash('BookStack non configuré', 'error')
+        return redirect(url_for('bookstack'))
+
+    try:
+        client = BookstackClient(Config.BOOKSTACK_URL, Config.BOOKSTACK_TOKEN_ID, Config.BOOKSTACK_TOKEN_SECRET)
+        data = client.list_roles()
+        bs_roles = data.get('data', [])
+
+        now = datetime.utcnow()
+        bs_ids = set()
+
+        for r in bs_roles:
+            bs_ids.add(r['id'])
+            existing = BookstackRole.query.get(r['id'])
+            if existing:
+                existing.display_name = r['display_name']
+                existing.synced_at = now
+            else:
+                db.session.add(BookstackRole(id=r['id'], display_name=r['display_name'], synced_at=now))
+
+        # Supprimer les rôles qui n'existent plus dans BS
+        BookstackRole.query.filter(~BookstackRole.id.in_(bs_ids)).delete(synchronize_session=False)
+
+        db.session.commit()
+        flash(f'{len(bs_roles)} rôles synchronisés depuis BookStack', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erreur BookStack : {e}', 'error')
+
+    return redirect(url_for('bookstack'))
+
+
+@app.route('/bookstack/push', methods=['POST'])
+@admin_required
+def bookstack_push():
+    from bookstack import BookstackClient, push_contacts_to_bookstack
+
+    if not Config.BOOKSTACK_URL:
+        flash('BookStack non configuré', 'error')
+        return redirect(url_for('bookstack'))
+
+    liste_id = request.form.get('liste_id', type=int)
+    role_id = request.form.get('role_id', type=int)
+
+    if not liste_id or not role_id:
+        flash('Sélectionnez une liste et un rôle', 'error')
+        return redirect(url_for('bookstack'))
+
+    liste = Liste.query.get_or_404(liste_id)
+    if not liste.contacts:
+        flash('Liste vide', 'error')
+        return redirect(url_for('bookstack'))
+
+    try:
+        send_invite = request.form.get('send_invite') == 'on'
+        client = BookstackClient(Config.BOOKSTACK_URL, Config.BOOKSTACK_TOKEN_ID, Config.BOOKSTACK_TOKEN_SECRET)
+        result = push_contacts_to_bookstack(client, liste.contacts, role_id, send_invite=send_invite)
+
+        parts = []
+        if result['created']:
+            parts.append(f'{result["created"]} créés')
+        if result['updated']:
+            parts.append(f'{result["updated"]} mis à jour')
+        if result['skipped']:
+            parts.append(f'{result["skipped"]} inchangés')
+        if result['errors']:
+            parts.append(f'{len(result["errors"])} erreurs')
+
+        msg = f'Push vers BookStack : {", ".join(parts)}'
+        category = 'success' if not result['errors'] else 'warning'
+        flash(msg, category)
+
+        for err in result['errors']:
+            flash(f'Erreur : {err}', 'error')
+
+    except Exception as e:
+        flash(f'Erreur BookStack : {e}', 'error')
+
+    return redirect(url_for('bookstack'))
 
 
 if __name__ == '__main__':

@@ -17,6 +17,9 @@
             {% if current_user.is_admin %}
             <a href="{{ url_for('import_contacts') }}" {% if request.endpoint == 'import_contacts' %}class="active"{% endif %}>Import</a>
             <a href="{{ url_for('users') }}" {% if request.endpoint in ['users', 'user_new', 'user_edit'] %}class="active"{% endif %}>Utilisateurs</a>
+            {% if config.BOOKSTACK_URL %}
+            <a href="{{ url_for('bookstack') }}" {% if request.endpoint in ['bookstack', 'bookstack_sync_roles', 'bookstack_push'] %}class="active"{% endif %}>BookStack</a>
+            {% endif %}
             {% endif %}
             <span class="nav-separator"></span>
             <a href="{{ url_for('profile') }}" class="nav-user" {% if request.endpoint == 'profile' %}style="color:white"{% endif %}>{{ current_user.display_name }}{% if current_user.is_admin %} <span class="role-badge">admin</span>{% endif %}</a>

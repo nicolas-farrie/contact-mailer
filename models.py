@@ -105,3 +105,10 @@ class User(UserMixin, db.Model):
         if self.prenom and self.nom:
             return f"{self.prenom} {self.nom}"
         return self.username
+
+
+class BookstackRole(db.Model):
+    """Rôle importé depuis BookStack (référence locale)"""
+    id = db.Column(db.Integer, primary_key=True, autoincrement=False)  # ID venant de BS
+    display_name = db.Column(db.String(200), nullable=False)
+    synced_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -4,4 +4,5 @@ Flask-Login==0.6.3
 Werkzeug==3.0.1
 python-dotenv==1.0.0
 gunicorn==21.2.0
+requests>=2.31.0
 vobject>=0.9.6.1
