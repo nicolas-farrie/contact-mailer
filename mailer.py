@@ -145,12 +145,14 @@ class MailQueue:
             }, f, indent=2, default=str)
 
     def set_campaign_template(self, campaign_id: str, subject: str, body: str, format: str = 'text',
-                              sent_by: str = None, include_unsubscribe: bool = False):
+                              sent_by: str = None, include_unsubscribe: bool = False, attachments: list = None):
         """Stocke le sujet, corps et format du mail pour une campagne"""
         data = {'subject': subject, 'body': body, 'format': format,
                 'include_unsubscribe': include_unsubscribe}
         if sent_by:
             data['sent_by'] = sent_by
+        if attachments:
+            data['attachments'] = attachments
         self.campaigns[campaign_id] = data
         self.save()
 
@@ -262,12 +264,21 @@ class Mailer:
         self.use_tls = use_tls
 
     def send_single(self, to_email: str, subject: str, body_text: str, body_html: str = None,
-                     unsubscribe_url: str = None) -> bool:
+                     unsubscribe_url: str = None, attachments: list = None) -> bool:
         """Envoie un email unique. Retourne True si succès."""
         from email.utils import formatdate, make_msgid
+        from email.mime.base import MIMEBase
+        from email import encoders as email_encoders
+
+        has_attachments = bool(attachments)
 
         try:
-            msg = MIMEMultipart('alternative') if body_html else MIMEText(body_text, 'plain', 'utf-8')
+            if has_attachments:
+                msg = MIMEMultipart('mixed')
+            elif body_html:
+                msg = MIMEMultipart('alternative')
+            else:
+                msg = MIMEText(body_text, 'plain', 'utf-8')
 
             msg['Subject'] = subject
             msg['From'] = formataddr((self.sender_name, self.sender_email))
@@ -280,7 +291,27 @@ class Mailer:
                 msg['List-Unsubscribe'] = f'<{unsubscribe_url}>'
                 msg['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
 
-            if body_html:
+            if has_attachments:
+                # Partie texte/html
+                if body_html:
+                    alt = MIMEMultipart('alternative')
+                    alt.attach(MIMEText(body_text, 'plain', 'utf-8'))
+                    alt.attach(MIMEText(body_html, 'html', 'utf-8'))
+                    msg.attach(alt)
+                else:
+                    msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
+                # Pièces jointes
+                for filepath in attachments:
+                    filepath = Path(filepath)
+                    if not filepath.exists():
+                        continue
+                    with open(filepath, 'rb') as f:
+                        part = MIMEBase('application', 'octet-stream')
+                        part.set_payload(f.read())
+                    email_encoders.encode_base64(part)
+                    part.add_header('Content-Disposition', f'attachment; filename="{filepath.name}"')
+                    msg.attach(part)
+            elif body_html:
                 msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
                 msg.attach(MIMEText(body_html, 'html', 'utf-8'))
 

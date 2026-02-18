@@ -31,24 +31,47 @@
 
 {% if template %}
 <div class="template-recap">
-    <h3>Message à envoyer</h3>
-    <p><strong>Sujet :</strong> {{ template.subject }}</p>
-    <pre class="template-body">{{ template.body }}</pre>
+    <div class="template-recap-header">
+        <div>
+            <strong>Sujet :</strong> {{ template.subject }}
+            {% if template.format == 'html' %}<span class="badge-html">HTML</span>{% endif %}
+            {% if template.attachments %}
+            &nbsp;— <strong>Pièces jointes :</strong>
+            {% for path in template.attachments %}{{ path.split('/') | last }}{% if not loop.last %}, {% endif %}{% endfor %}
+            {% endif %}
+        </div>
+        <button type="button" class="btn btn-small" id="toggle-msg-btn" onclick="toggleMessage()">Afficher le message</button>
+    </div>
+    <div id="template-body" style="display:none; margin-top: 0.75rem;">
+        {% if template.format == 'html' %}
+        <iframe srcdoc="{{ template.body | e }}" style="width:100%; min-height:300px; border:1px solid var(--gray-200); border-radius:var(--radius);" onload="resizeFrame(this)"></iframe>
+        {% else %}
+        <pre class="template-body">{{ template.body }}</pre>
+        {% endif %}
+    </div>
 </div>
 {% endif %}
 
 {% if stats.pending > 0 %}
 <div class="process-section">
-    <form method="POST" action="{{ url_for('mailing_process') }}">
+    <form method="POST" action="{{ url_for('mailing_process') }}" id="process-form">
         <input type="hidden" name="campaign" value="{{ campaign }}">
-        <button type="submit" class="btn btn-primary btn-large"
-                onclick="return confirm('Lancer l\'envoi de {{ stats.pending }} emails ?')">
+        <button type="button" class="btn btn-primary btn-large" onclick="confirmAndSend()">
             Envoyer {{ stats.pending }} emails maintenant
         </button>
         <span class="hint" style="margin-left:1rem;">Rate-limit : {{ config.MAIL_RATE_PER_MINUTE if config else 20 }} emails/minute</span>
     </form>
 </div>
 {% endif %}
+
+<!-- Overlay spinner envoi -->
+<div id="sending-overlay">
+    <div class="sending-content">
+        <div class="spinner"></div>
+        <p><strong>Envoi en cours...</strong></p>
+        <p class="hint">Ne fermez pas cette page.</p>
+    </div>
+</div>
 
 <table class="data-table">
     <thead>
@@ -87,6 +110,29 @@
     </tbody>
 </table>
 
+<script>
+function toggleMessage() {
+    const body = document.getElementById('template-body');
+    const btn = document.getElementById('toggle-msg-btn');
+    const visible = body.style.display !== 'none';
+    body.style.display = visible ? 'none' : 'block';
+    btn.textContent = visible ? 'Afficher le message' : 'Masquer le message';
+}
+
+function resizeFrame(iframe) {
+    try {
+        iframe.style.height = iframe.contentDocument.body.scrollHeight + 40 + 'px';
+    } catch(e) {}
+}
+
+function confirmAndSend() {
+    const pending = {{ stats.pending }};
+    if (!confirm('Lancer l\'envoi de ' + pending + ' emails ?')) return;
+    document.getElementById('sending-overlay').style.display = 'flex';
+    document.getElementById('process-form').submit();
+}
+</script>
+
 <style>
 .stats-grid {
     display: grid;
@@ -120,8 +166,21 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     margin-bottom: 1.5rem;
 }
-.template-recap h3 {
-    margin-bottom: 0.5rem;
+.template-recap-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.badge-html {
+    display: inline-block;
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    vertical-align: middle;
 }
 .template-body {
     background: var(--gray-50);
@@ -140,6 +199,37 @@
     font-size: 1rem;
 }
 
+/* Overlay spinner */
+#sending-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+.sending-content {
+    background: white;
+    padding: 2.5rem 3rem;
+    border-radius: var(--radius);
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.sending-content p {
+    margin: 0.25rem 0;
+}
+.spinner {
+    width: 44px;
+    height: 44px;
+    border: 4px solid var(--gray-200);
+    border-top-color: var(--primary, #2563eb);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1.25rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .status {
     display: inline-block;
     padding: 0.125rem 0.5rem;
@@ -151,9 +241,7 @@
 .status-error { background: #fee2e2; color: #991b1b; }
 
 @media (max-width: 640px) {
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
 {% endblock %}

@@ -808,11 +808,28 @@ def mailing_send():
     # Générer un ID de campagne
     campaign_id = f"{liste.nom}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
+    # Sauvegarder les pièces jointes sur disque
+    from werkzeug.utils import secure_filename
+    from pathlib import Path
+    attachment_paths = []
+    uploaded_files = request.files.getlist('attachments')
+    if uploaded_files and uploaded_files[0].filename:
+        attach_dir = Path(f'data/attachments/{campaign_id}')
+        attach_dir.mkdir(parents=True, exist_ok=True)
+        for f in uploaded_files:
+            if f.filename:
+                filename = secure_filename(f.filename)
+                if filename:
+                    filepath = attach_dir / filename
+                    f.save(str(filepath))
+                    attachment_paths.append(str(filepath))
+
     # Ajouter à la file d'attente et sauvegarder le template
     queue = MailQueue()
     queue.set_campaign_template(campaign_id, subject, body, mail_format,
                                 sent_by=current_user.username,
-                                include_unsubscribe=include_unsubscribe)
+                                include_unsubscribe=include_unsubscribe,
+                                attachments=attachment_paths or None)
     for contact in contacts:
         queue.add(contact, campaign_id)
 
@@ -878,6 +895,7 @@ def mailing_process():
 
     mail_format = tpl.get('format', 'text')
     include_unsubscribe = tpl.get('include_unsubscribe', False)
+    attachments = tpl.get('attachments', [])
 
     if mail_format == 'html':
         template = EmailTemplate(subject=tpl['subject'], body_text='', body_html=tpl['body'])
@@ -900,7 +918,7 @@ def mailing_process():
         try:
             subj, body_text, body_html = template.render(contact, unsubscribe_url=unsub_url)
             mailer.send_single(contact['email'], subj, body_text, body_html,
-                               unsubscribe_url=unsub_url)
+                               unsubscribe_url=unsub_url, attachments=attachments)
             queue.mark_sent(item['id'])
             sent += 1
         except Exception as e:
