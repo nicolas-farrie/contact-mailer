@@ -7,6 +7,7 @@
 </div>
 
 <form method="POST" class="form-card">
+    <input type="hidden" name="back_liste" value="{{ back_liste or '' }}">
     {% if contact %}
     <div class="form-row">
         <div class="form-group">
@@ -129,7 +130,7 @@
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">{{ 'Modifier' if contact else 'Créer' }}</button>
-        <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Annuler</a>
+        <a href="{{ url_for('contacts', liste=back_liste) if back_liste else url_for('contacts') }}" class="btn btn-secondary">Annuler</a>
     </div>
 </form>
 

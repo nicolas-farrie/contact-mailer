@@ -193,6 +193,7 @@ def contact_edit(id):
     contact = Contact.query.get_or_404(id)
 
     if request.method == 'POST':
+        back_liste = request.form.get('back_liste', '') or None
         contact.nom = request.form.get('nom', '').strip()
         contact.prenom = request.form.get('prenom', '').strip()
         contact.email = request.form.get('email', '').strip()
@@ -218,13 +219,14 @@ def contact_edit(id):
         try:
             db.session.commit()
             flash(f'Contact mis à jour', 'success')
-            return redirect(url_for('contacts'))
+            return redirect(url_for('contacts', liste=back_liste) if back_liste else url_for('contacts'))
         except Exception as e:
             db.session.rollback()
             flash(f'Erreur: {e}', 'error')
 
+    back_liste = request.args.get('back_liste', '') or None
     listes = Liste.query.order_by(Liste.nom).all()
-    return render_template('contact_form.html', contact=contact, listes=listes)
+    return render_template('contact_form.html', contact=contact, listes=listes, back_liste=back_liste)
 
 
 @app.route('/contacts/<int:id>/delete', methods=['POST'])
