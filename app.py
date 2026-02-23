@@ -926,15 +926,49 @@ def mailing_process():
             errors += 1
         time.sleep(delay)
 
-    # Envoyer une copie à l'expéditeur (trace de la campagne)
-    if sent > 0:
-        try:
-            first_contact = pending[0]['contact']
-            subj, body_text, body_html = template.render(first_contact)
-            copy_subject = f"[Campagne] {subj}"
-            mailer.send_single(Config.SMTP_SENDER_EMAIL, copy_subject, body_text, body_html)
-        except Exception:
-            pass  # Ne pas bloquer si la copie échoue
+    # Envoyer une copie récapitulative à l'expéditeur
+    try:
+        first_contact = pending[0]['contact']
+        subj, body_text, body_html = template.render(first_contact)
+        copy_subject = f"[Campagne {campaign} — {sent} envoyés, {errors} erreurs] {subj}"
+
+        # Récapitulatif des résultats à ajouter au corps
+        recap_text = (
+            f"\n\n{'='*60}\n"
+            f"RÉCAPITULATIF CAMPAGNE : {campaign}\n"
+            f"{'='*60}\n"
+            f"  Envoyés  : {sent}\n"
+            f"  Erreurs  : {errors}\n"
+            f"  Total    : {len(pending)}\n"
+        )
+        if errors > 0:
+            failed = [i['contact']['email'] for i in pending if i['status'] == 'error']
+            recap_text += f"\nEmails en erreur :\n" + "\n".join(f"  - {e}" for e in failed) + "\n"
+        if attachments:
+            recap_text += f"\nPièces jointes : {', '.join(Path(p).name for p in attachments)}\n"
+        recap_text += f"{'='*60}\n"
+
+        recap_html = (
+            f'<hr><div style="font-family:monospace;font-size:13px;color:#555;background:#f5f5f5;padding:1rem;border-radius:4px;">'
+            f'<strong>Récapitulatif — {campaign}</strong><br><br>'
+            f'Envoyés : <strong>{sent}</strong> &nbsp;|&nbsp; '
+            f'Erreurs : <strong style="color:{"#c00" if errors else "#090"}">{errors}</strong> &nbsp;|&nbsp; '
+            f'Total : <strong>{len(pending)}</strong>'
+        )
+        if errors > 0:
+            failed = [i['contact']['email'] for i in pending if i['status'] == 'error']
+            recap_html += '<br><br>Emails en erreur :<br>' + '<br>'.join(f'&nbsp;• {e}' for e in failed)
+        if attachments:
+            recap_html += f'<br><br>Pièces jointes : {", ".join(Path(p).name for p in attachments)}'
+        recap_html += '</div>'
+
+        copy_body_text = body_text + recap_text
+        copy_body_html = (body_html + recap_html) if body_html else None
+
+        mailer.send_single(Config.SMTP_SENDER_EMAIL, copy_subject,
+                           copy_body_text, copy_body_html, attachments=attachments)
+    except Exception as e:
+        flash(f'Copie expéditeur non envoyée : {e}', 'warning')
 
     flash(f'Envoi terminé : {sent} envoyés, {errors} erreurs', 'success' if errors == 0 else 'warning')
     return redirect(url_for('mailing_queue', campaign=campaign))

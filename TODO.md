@@ -26,7 +26,7 @@
 - [x] Filtre par source dans la vue contacts
 - [x] Migration automatique avec backup (tools/migrate_add_uid.py)
 - [x] Gestion des désabonnements RGPD : lien dans les emails, page publique avec confirmation, exclusion à l'envoi, réabonnement admin
-- [x] Copie automatique de la campagne à l'expéditeur (trace dans sa boite mail)
+- [x] Copie automatique de la campagne à l'expéditeur (sujet enrichi, récapitulatif résultats, pièces jointes)
 - [x] Import/export réservés aux administrateurs (@admin_required)
 - [x] Interface améliorée : layout pleine largeur (contacts, mailing), éditeur HTML par défaut
 - [x] Preview mailing : navigation entre contacts (boutons prev/next), toggle afficher/masquer
@@ -40,12 +40,16 @@
 - [x] Gestion multi-utilisateurs : CRUD users, rôles admin/user, qui a fait quoi
 - [x] Déploiement multi-instance : middleware ReverseProxied, templates systemd/nginx, script create_instance.sh, landing page
 - [x] Mot de passe oublié : notification admin par email (sans tokens)
+- [x] Intégration API BookStack : sync rôles, push contacts avec rôle, invitation optionnelle, langue fr par défaut
 - [ ] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
 - [ ] Support templates .eml (brouillons Thunderbird) - format standard RFC 5322
 
 ## A faire - Améliorations
 - [x] Export vCard (réutiliser vcard_converter.py en sens inverse)
 - [~] Historique des campagnes envoyées (historique messages, envois // reste à faire : historique par contact)
+- [x] Spinner overlay "Envoi en cours" sur le bouton de lancement de campagne
+- [x] Pièces jointes dans les mailings (upload, stockage, envoi MIMEBase)
+- [x] Affichage du message dans la file d'attente : toggle afficher/masquer, rendu HTML via iframe
 - [ ] Envoi asynchrone (ne pas bloquer l'interface pendant l'envoi)
 - [ ] Pagination de la liste des contacts
 - [ ] Recherche avancée (filtres multiples)
