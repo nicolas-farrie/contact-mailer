@@ -10,7 +10,8 @@
     {% if current_user.is_authenticated %}
     <nav class="navbar">
         <div class="nav-brand">Contact Mailer</div>
-        <div class="nav-links">
+        <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">&#9776;</button>
+        <div class="nav-links" id="nav-links">
             <a href="{{ url_for('contacts') }}" {% if request.endpoint == 'contacts' %}class="active"{% endif %}>Contacts</a>
             <a href="{{ url_for('listes') }}" {% if request.endpoint == 'listes' %}class="active"{% endif %}>Listes</a>
             <a href="{{ url_for('mailing') }}" {% if request.endpoint in ['mailing', 'mailing_queue', 'mailing_history'] %}class="active"{% endif %}>Mailing</a>
@@ -26,6 +27,11 @@
             <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
         </div>
     </nav>
+    <script>
+    function toggleNav() {
+        document.getElementById('nav-links').classList.toggle('nav-open');
+    }
+    </script>
     {% endif %}
 
     <main class="container {% block container_class %}{% endblock %}">

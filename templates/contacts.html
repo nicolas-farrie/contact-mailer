@@ -70,7 +70,7 @@
                     {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}
                 </td>
                 <td><a href="mailto:{{ contact.email }}">{{ contact.email }}</a></td>
-                <td>{{ contact.telephone or '-' }}</td>
+                <td>{% if contact.telephone %}<a href="tel:{{ contact.telephone }}" class="tel-link">{{ contact.telephone }}</a>{% else %}-{% endif %}</td>
                 <td>{{ contact.organisation or '-' }}</td>
                 <td>
                     {% for liste in contact.listes %}
@@ -93,6 +93,37 @@
         </tbody>
     </table>
 </form>
+
+<!-- Vue cards pour mobile -->
+<div class="mobile-cards">
+    {% for contact in contacts %}
+    <div class="contact-card">
+        <div class="contact-card-header">
+            <div>
+                <div class="contact-card-name">
+                    {{ contact.nom }} {{ contact.prenom }}
+                    {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}
+                </div>
+                {% if contact.organisation %}<div style="font-size:0.8rem;color:var(--gray-500);">{{ contact.organisation }}</div>{% endif %}
+            </div>
+            <div class="contact-card-actions">
+                <a href="{{ url_for('contact_edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-small">Modifier</a>
+                <form method="POST" action="{{ url_for('contact_delete', id=contact.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-danger btn-small"
+                            onclick="return confirm('Supprimer ce contact ?')">Suppr.</button>
+                </form>
+            </div>
+        </div>
+        <div class="contact-card-body">
+            {% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% endif %}
+            {% if contact.telephone %}<a href="tel:{{ contact.telephone }}">📞 {{ contact.telephone }}</a>{% endif %}
+            <div>{% for liste in contact.listes %}<span class="tag">{{ liste.nom }}</span>{% endfor %}</div>
+        </div>
+    </div>
+    {% else %}
+    <p class="empty">Aucun contact trouvé</p>
+    {% endfor %}
+</div>
 
 {% if liste_filter %}
 <div class="export-section">
