@@ -588,8 +588,8 @@ select:focus {
     /* Bulk actions : masqué sur mobile */
     .bulk-actions { display: none; }
 
-    /* Table contacts → cards */
-    .data-table { display: none; }
+    /* Table contacts → cards (uniquement la table contacts) */
+    .data-table-contacts { display: none; }
     .mobile-cards { display: block; }
 
     /* Cards grid : 1 col */
