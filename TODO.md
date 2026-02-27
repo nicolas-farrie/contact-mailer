@@ -31,6 +31,9 @@
 - [x] Interface améliorée : layout pleine largeur (contacts, mailing), éditeur HTML par défaut
 - [x] Preview mailing : navigation entre contacts (boutons prev/next), toggle afficher/masquer
 - [x] Sauvegarde automatique du brouillon mailing (localStorage)
+- [x] Interface responsive mobile : hamburger nav, cards contacts, numéros en clic-to-call
+- [x] Lien utilisateur ↔ fiche contact (contact_id FK, select admin, info-box profil)
+- [x] Retour à la liste filtrée après édition d'un contact
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
