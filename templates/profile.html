@@ -46,4 +46,17 @@
         <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Annuler</a>
     </div>
 </form>
+
+{% if current_user.contact_id %}
+<div class="info-box" style="margin-top:1.5rem;">
+    <h3>Fiche contact liée</h3>
+    <p>
+        {{ current_user.contact.prenom }} {{ current_user.contact.nom }}
+        {% if current_user.contact.email %} — {{ current_user.contact.email }}{% endif %}
+    </p>
+    <a href="{{ url_for('contact_edit', id=current_user.contact_id) }}" class="btn btn-small" style="margin-top:0.75rem;">
+        Voir / modifier ma fiche contact
+    </a>
+</div>
+{% endif %}
 {% endblock %}

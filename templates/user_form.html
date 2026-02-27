@@ -41,6 +41,19 @@
         <input type="password" id="password" name="password" {% if not user %}required{% endif %}>
     </div>
 
+    <div class="form-group">
+        <label for="contact_id">Fiche contact liée</label>
+        <select id="contact_id" name="contact_id">
+            <option value="">-- Aucune --</option>
+            {% for c in contacts %}
+            <option value="{{ c.id }}" {% if user and user.contact_id == c.id %}selected{% endif %}>
+                {{ c.nom }} {{ c.prenom }}{% if c.email %} — {{ c.email }}{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+        <p class="hint">Permet d'accéder directement à la fiche contact depuis le profil.</p>
+    </div>
+
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">{{ 'Modifier' if user else 'Créer' }}</button>
         <a href="{{ url_for('users') }}" class="btn btn-secondary">Annuler</a>

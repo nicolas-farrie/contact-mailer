@@ -95,6 +95,8 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), default='user')
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=True)
+    contact = db.relationship('Contact', foreign_keys=[contact_id])
 
     @property
     def is_admin(self):

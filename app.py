@@ -1022,11 +1022,13 @@ def user_new():
 
         if not username or not password:
             flash('Identifiant et mot de passe requis', 'error')
-            return render_template('user_form.html', user=None)
+            contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+            return render_template('user_form.html', user=None, contacts=contacts)
 
         if User.query.filter_by(username=username).first():
             flash(f'L\'identifiant "{username}" existe déjà', 'error')
-            return render_template('user_form.html', user=None)
+            contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+            return render_template('user_form.html', user=None, contacts=contacts)
 
         if role not in ('admin', 'user'):
             role = 'user'
@@ -1049,7 +1051,8 @@ def user_new():
             db.session.rollback()
             flash(f'Erreur: {e}', 'error')
 
-    return render_template('user_form.html', user=None)
+    contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+    return render_template('user_form.html', user=None, contacts=contacts)
 
 
 @app.route('/users/<int:id>/edit', methods=['GET', 'POST'])
@@ -1078,11 +1081,14 @@ def user_edit(id):
         if role not in ('admin', 'user'):
             role = 'user'
 
+        contact_id = request.form.get('contact_id', type=int) or None
+
         user.username = username
         user.nom = nom
         user.prenom = prenom
         user.email = email or None
         user.role = role
+        user.contact_id = contact_id
 
         if password:
             user.password_hash = generate_password_hash(password)
@@ -1095,7 +1101,8 @@ def user_edit(id):
             db.session.rollback()
             flash(f'Erreur: {e}', 'error')
 
-    return render_template('user_form.html', user=user)
+    contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+    return render_template('user_form.html', user=user, contacts=contacts)
 
 
 @app.route('/users/<int:id>/delete', methods=['POST'])
