@@ -18,7 +18,7 @@
     </div>
 
     <div class="form-actions">
-        <button type="submit" class="btn btn-primary">{{ 'Modifier' if liste else 'Créer' }}</button>
+        <button type="submit" class="btn {% if liste %}btn-warning{% else %}btn-primary{% endif %}">{{ 'Modifier' if liste else 'Créer' }}</button>
         <a href="{{ url_for('listes') }}" class="btn btn-secondary">Annuler</a>
     </div>
 </form>

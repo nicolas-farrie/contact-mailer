@@ -10,7 +10,6 @@
 
 <div class="filters">
     <form method="GET" class="filter-form">
-        <input type="text" name="q" value="{{ search }}" placeholder="Rechercher..." class="search-input">
         <select name="liste" onchange="this.form.submit()">
             <option value="">Toutes les listes</option>
             {% for liste in listes %}
@@ -19,13 +18,16 @@
             </option>
             {% endfor %}
         </select>
+        {% if current_user.is_admin %}
         <select name="source" onchange="this.form.submit()">
             <option value="">Toutes les sources</option>
             {% for src in sources %}
             <option value="{{ src }}" {% if src == source_filter %}selected{% endif %}>{{ src }}</option>
             {% endfor %}
         </select>
-        <button type="submit" class="btn">Filtrer</button>
+        {% endif %}
+        <input type="text" name="q" value="{{ search }}" placeholder="Rechercher..." class="search-input">
+        <button type="submit" class="btn btn-action">Filtrer</button>
         {% if search or liste_filter or source_filter %}
         <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Effacer</a>
         {% endif %}
@@ -33,7 +35,8 @@
 </div>
 
 <form method="POST" action="{{ url_for('contacts_bulk_action') }}" id="bulk-form">
-    <div class="bulk-actions">
+    <button type="button" class="bulk-toggle" onclick="toggleBulk(this)">Actions ▾</button>
+    <div class="bulk-actions" id="bulk-actions-bar">
         <label class="select-all-label">
             <input type="checkbox" id="select-all"> Tout sélectionner
         </label>
@@ -78,7 +81,7 @@
                     {% endfor %}
                 </td>
                 <td class="actions">
-                    <a href="{{ url_for('contact_edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-small">Modifier</a>
+                    <a href="{{ url_for('contact_edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-warning btn-small">Modifier</a>
                     <form method="POST" action="{{ url_for('contact_delete', id=contact.id) }}" style="display:inline">
                         <button type="submit" class="btn btn-danger btn-small"
                                 onclick="return confirm('Supprimer ce contact ?')">Suppr.</button>
@@ -109,7 +112,7 @@
                 {% if contact.organisation %}<div style="font-size:0.8rem;color:var(--gray-500);">{{ contact.organisation }}</div>{% endif %}
             </div>
             <div class="contact-card-actions">
-                <a href="{{ url_for('contact_edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-small">Modifier</a>
+                <a href="{{ url_for('contact_edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-warning btn-small">Modifier</a>
                 <form method="POST" action="{{ url_for('contact_delete', id=contact.id) }}" style="display:inline">
                     <button type="submit" class="btn btn-danger btn-small"
                             onclick="return confirm('Supprimer ce contact ?')">Suppr.</button>
@@ -144,6 +147,12 @@ document.getElementById('select-all').addEventListener('change', function() {
         if (cb.offsetParent !== null) cb.checked = this.checked;
     });
 });
+
+function toggleBulk(btn) {
+    var bar = document.getElementById('bulk-actions-bar');
+    var open = bar.classList.toggle('bulk-actions-open');
+    btn.textContent = open ? 'Actions ▴' : 'Actions ▾';
+}
 </script>
 
 <style>

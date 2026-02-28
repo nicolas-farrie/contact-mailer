@@ -34,6 +34,10 @@
 - [x] Interface responsive mobile : hamburger nav, cards contacts, numéros en clic-to-call
 - [x] Lien utilisateur ↔ fiche contact (contact_id FK, select admin, info-box profil)
 - [x] Retour à la liste filtrée après édition d'un contact
+- [x] Bulk actions disponibles sur mobile : checkboxes sur les cards, barre toggle "Actions ▾"
+- [x] Code couleur boutons : bleu création, orange modification, vert foncé action/filtre, rouge suppression
+- [x] Filtre contacts : réorganisation (liste → source → recherche → bouton), source réservée aux admins
+- [x] Favicon SVG (onglet navigateur + icône mobile)
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)

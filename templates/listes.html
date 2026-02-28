@@ -20,7 +20,7 @@
         <div class="card-actions">
             <a href="{{ url_for('contacts', liste=liste.id) }}" class="btn btn-small">Voir contacts</a>
             <a href="{{ url_for('export_contacts', liste=liste.id) }}" class="btn btn-small">Exporter</a>
-            <a href="{{ url_for('liste_edit', id=liste.id) }}" class="btn btn-small">Modifier</a>
+            <a href="{{ url_for('liste_edit', id=liste.id) }}" class="btn btn-warning btn-small">Modifier</a>
             <form method="POST" action="{{ url_for('liste_delete', id=liste.id) }}" style="display:inline">
                 <button type="submit" class="btn btn-danger btn-small"
                         onclick="return confirm('Supprimer cette liste ? Les contacts ne seront pas supprimés.')">Suppr.</button>
