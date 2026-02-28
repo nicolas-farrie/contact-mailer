@@ -518,6 +518,17 @@ select:focus {
     font-weight: 600;
     font-size: 1rem;
 }
+.contact-card-check {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding-right: 0.25rem;
+}
+.contact-card-check input[type="checkbox"] {
+    width: 1.2rem;
+    height: 1.2rem;
+    cursor: pointer;
+}
 .contact-card-actions {
     display: flex;
     gap: 0.25rem;
@@ -585,8 +596,10 @@ select:focus {
     .form-actions { flex-direction: column; }
     .form-actions .btn { width: 100%; text-align: center; }
 
-    /* Bulk actions : masqué sur mobile */
-    .bulk-actions { display: none; }
+    /* Bulk actions : visible sur mobile, en colonne */
+    .bulk-actions { flex-direction: column; align-items: stretch; }
+    .bulk-liste-select { min-width: unset; width: 100%; }
+    .bulk-actions .btn { width: 100%; text-align: center; }
 
     /* Table contacts → cards (uniquement la table contacts) */
     .data-table-contacts { display: none; }

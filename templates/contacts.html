@@ -92,13 +92,15 @@
             {% endfor %}
         </tbody>
     </table>
-</form>
 
 <!-- Vue cards pour mobile -->
 <div class="mobile-cards">
     {% for contact in contacts %}
     <div class="contact-card">
         <div class="contact-card-header">
+            <label class="contact-card-check">
+                <input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox">
+            </label>
             <div>
                 <div class="contact-card-name">
                     {{ contact.nom }} {{ contact.prenom }}
@@ -124,6 +126,7 @@
     <p class="empty">Aucun contact trouvé</p>
     {% endfor %}
 </div>
+</form>
 
 {% if liste_filter %}
 <div class="export-section">
@@ -137,7 +140,9 @@
 
 <script>
 document.getElementById('select-all').addEventListener('change', function() {
-    document.querySelectorAll('.contact-checkbox').forEach(cb => cb.checked = this.checked);
+    document.querySelectorAll('.contact-checkbox').forEach(cb => {
+        if (cb.offsetParent !== null) cb.checked = this.checked;
+    });
 });
 </script>
 
