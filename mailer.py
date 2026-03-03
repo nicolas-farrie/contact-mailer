@@ -145,7 +145,8 @@ class MailQueue:
             }, f, indent=2, default=str)
 
     def set_campaign_template(self, campaign_id: str, subject: str, body: str, format: str = 'text',
-                              sent_by: str = None, include_unsubscribe: bool = False, attachments: list = None):
+                              sent_by: str = None, include_unsubscribe: bool = False,
+                              attachments: list = None, liste_id: int = None):
         """Stocke le sujet, corps et format du mail pour une campagne"""
         data = {'subject': subject, 'body': body, 'format': format,
                 'include_unsubscribe': include_unsubscribe}
@@ -153,6 +154,8 @@ class MailQueue:
             data['sent_by'] = sent_by
         if attachments:
             data['attachments'] = attachments
+        if liste_id:
+            data['liste_id'] = liste_id
         self.campaigns[campaign_id] = data
         self.save()
 

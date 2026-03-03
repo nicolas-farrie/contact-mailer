@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Confirmer l'envoi - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Confirmer l'envoi</h1>
+    <a href="{{ url_for('mailing') }}" class="btn btn-secondary">Annuler</a>
+</div>
+
+<div class="info-box" style="margin-bottom:1.5rem;">
+    <strong>Campagne :</strong> {{ campaign_id }}<br>
+    <strong>Sujet :</strong> {{ template.subject }}<br>
+    <strong>Liste :</strong> {{ liste.nom }} — {{ contacts|length }} contact{{ 's' if contacts|length > 1 }} actif{{ 's' if contacts|length > 1 }}
+</div>
+
+<form method="POST" action="{{ url_for('mailing_add_to_queue') }}" id="confirm-form">
+    <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
+
+    <div class="bulk-actions" style="margin-bottom:1rem;">
+        <label class="select-all-label">
+            <input type="checkbox" id="select-all-confirm"> Tout sélectionner / désélectionner
+        </label>
+        <span style="margin-left:auto;font-size:0.875rem;color:var(--gray-500);">
+            <span id="selected-count">{{ contacts|length }}</span> / {{ contacts|length }} sélectionné{{ 's' if contacts|length > 1 }}
+        </span>
+    </div>
+
+    <div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th class="col-checkbox"></th>
+                <th>Nom</th>
+                <th>Email</th>
+                <th>Organisation</th>
+                <th>Listes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in contacts %}
+            <tr>
+                <td><input type="checkbox" name="contact_ids" value="{{ c.id }}" class="contact-cb" checked></td>
+                <td><strong>{{ c.nom }}</strong> {{ c.prenom }}</td>
+                <td>{{ c.email }}</td>
+                <td>{{ c.organisation or '-' }}</td>
+                <td>{% for l in c.listes %}<span class="tag">{{ l.nom }}</span>{% endfor %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="form-actions" style="margin-top:1.5rem;">
+        <button type="submit" class="btn btn-primary" id="submit-btn">
+            Mettre en file d'envoi (<span id="submit-count">{{ contacts|length }}</span> contacts)
+        </button>
+        <a href="{{ url_for('mailing') }}" class="btn btn-secondary">Annuler</a>
+    </div>
+</form>
+
+<script>
+var total = {{ contacts|length }};
+
+function updateCount() {
+    var n = document.querySelectorAll('.contact-cb:checked').length;
+    document.getElementById('selected-count').textContent = n;
+    document.getElementById('submit-count').textContent = n;
+    document.getElementById('submit-btn').disabled = (n === 0);
+}
+
+document.getElementById('select-all-confirm').addEventListener('change', function() {
+    document.querySelectorAll('.contact-cb').forEach(cb => cb.checked = this.checked);
+    updateCount();
+});
+
+document.querySelectorAll('.contact-cb').forEach(cb => {
+    cb.addEventListener('change', updateCount);
+});
+</script>
+{% endblock %}

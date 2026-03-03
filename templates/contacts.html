@@ -139,10 +139,14 @@
 {% if liste_filter %}
 <div class="export-section">
     <a href="{{ url_for('export_contacts', liste=liste_filter) }}" class="btn">Exporter cette liste (TSV)</a>
+    <a href="{{ url_for('export_vcard', liste=liste_filter, version='3.0') }}" class="btn">Exporter cette liste (vCard 3.0)</a>
+    <a href="{{ url_for('export_vcard', liste=liste_filter, version='4.0') }}" class="btn">Exporter cette liste (vCard 4.0)</a>
 </div>
 {% else %}
 <div class="export-section">
     <a href="{{ url_for('export_contacts') }}" class="btn">Exporter tous les contacts (TSV)</a>
+    <a href="{{ url_for('export_vcard', version='3.0') }}" class="btn">Exporter tous (vCard 3.0)</a>
+    <a href="{{ url_for('export_vcard', version='4.0') }}" class="btn">Exporter tous (vCard 4.0)</a>
 </div>
 {% endif %}
 

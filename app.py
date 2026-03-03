@@ -647,6 +647,50 @@ def import_contacts():
     return render_template('import.html')
 
 
+@app.route('/export/vcard')
+@admin_required
+def export_vcard():
+    from vcard_converter import create_vcard
+    liste_id = request.args.get('liste', type=int)
+    version = request.args.get('version', '3.0')
+    if version not in ('3.0', '4.0'):
+        version = '3.0'
+
+    if liste_id:
+        liste = Liste.query.get_or_404(liste_id)
+        contacts = liste.contacts
+        filename = f'contacts_{liste.nom}.vcf'
+    else:
+        contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+        filename = 'contacts_all.vcf'
+
+    lines = []
+    for c in contacts:
+        adr_parts = [c.adresse_rue, c.adresse_complement, c.adresse_ville,
+                     c.adresse_cp, c.adresse_region, c.adresse_pays]
+        adresse = ', '.join(p for p in adr_parts if p)
+        row = {
+            'UID': c.uid or '',
+            'Nom, Prénom': f"{c.nom},{c.prenom}",
+            'Nom Complet': f"{c.prenom} {c.nom}".strip(),
+            'Email_Autre': c.email,
+            'Tel_Cell': c.telephone or '',
+            'Organisation': c.organisation or '',
+            'Note': c.notes or '',
+            'Adresse': adresse,
+            'Catégories': ' | '.join(l.nom for l in c.listes),
+        }
+        vcard = create_vcard(row, version)
+        lines.append(vcard.serialize())
+
+    from flask import Response
+    return Response(
+        '\n'.join(lines),
+        mimetype='text/vcard',
+        headers={'Content-Disposition': f'attachment; filename={filename}'}
+    )
+
+
 @app.route('/export')
 @admin_required
 def export_contacts():
@@ -843,16 +887,65 @@ def mailing_send():
                     f.save(str(filepath))
                     attachment_paths.append(str(filepath))
 
-    # Ajouter à la file d'attente et sauvegarder le template
+    # Sauvegarder le template (sans encore peupler la queue)
     queue = MailQueue()
     queue.set_campaign_template(campaign_id, subject, body, mail_format,
                                 sent_by=current_user.username,
                                 include_unsubscribe=include_unsubscribe,
-                                attachments=attachment_paths or None)
-    for contact in contacts:
-        queue.add(contact, campaign_id)
+                                attachments=attachment_paths or None,
+                                liste_id=liste_id)
 
-    flash(f'Campagne "{campaign_id}" créée avec {len(contacts)} contacts.', 'success')
+    return redirect(url_for('mailing_confirm', campaign=campaign_id))
+
+
+@app.route('/mailing/confirm')
+@login_required
+def mailing_confirm():
+    """Page de confirmation : sélection des contacts avant mise en file"""
+    from mailer import MailQueue
+    campaign_id = request.args.get('campaign')
+    if not campaign_id:
+        return redirect(url_for('mailing'))
+
+    queue = MailQueue()
+    tpl = queue.get_campaign_template(campaign_id)
+    if not tpl:
+        flash('Campagne introuvable', 'error')
+        return redirect(url_for('mailing'))
+
+    liste_id = tpl.get('liste_id')
+    liste = Liste.query.get_or_404(liste_id)
+    active_contacts = [c for c in liste.contacts if not c.is_unsubscribed]
+
+    return render_template('mailing_confirm.html',
+                           campaign_id=campaign_id,
+                           template=tpl,
+                           liste=liste,
+                           contacts=active_contacts)
+
+
+@app.route('/mailing/add-to-queue', methods=['POST'])
+@login_required
+def mailing_add_to_queue():
+    """Ajoute les contacts sélectionnés à la file d'envoi"""
+    from mailer import MailQueue
+    campaign_id = request.form.get('campaign_id')
+    contact_ids = set(request.form.getlist('contact_ids', type=int))
+
+    if not campaign_id or not contact_ids:
+        flash('Aucun contact sélectionné', 'error')
+        return redirect(url_for('mailing'))
+
+    queue = MailQueue()
+    tpl = queue.get_campaign_template(campaign_id)
+    liste_id = tpl.get('liste_id')
+    liste = Liste.query.get_or_404(liste_id)
+
+    selected = [c for c in liste.contacts if c.id in contact_ids and not c.is_unsubscribed]
+    for contact in selected:
+        queue.add(contact.to_dict(), campaign_id)
+
+    flash(f'Campagne "{campaign_id}" créée avec {len(selected)} contacts.', 'success')
     return redirect(url_for('mailing_queue', campaign=campaign_id))
 
 

@@ -38,12 +38,14 @@
 - [x] Code couleur boutons : bleu création, orange modification, vert foncé action/filtre, rouge suppression
 - [x] Filtre contacts : réorganisation (liste → source → recherche → bouton), source réservée aux admins
 - [x] Favicon SVG (onglet navigateur + icône mobile)
+- [x] Sélection des contacts à l'envoi d'un mailing (page de confirmation avec cases à cocher)
+- [x] Réutilisation historique mailing : chargement complet (sujet, corps, liste) via campaign_id
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
 - [x] Liste des messages déjà envoyés, réutilisation pour nouvel envoi
-- [ ] dans la gestion des contacts / liste, "Retirer de la liste" ne fonctionne pas du tout
-- [ ] Dans "mailing -> historique", réutiliser un mailing fait (le texte du mail, la liste) n'est plus accessible dans les dernières versions
+- [x] Bulk actions : "Retirer de la liste" corrigé (formulaires imbriqués), retour au filtre courant, confirmation avant action
+- [x] Historique mailing : réutilisation du texte et de la liste corrigée
 
 
 ## A faire - Prioritaire
@@ -64,5 +66,4 @@
 - [ ] Pagination de la liste des contacts
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
-- [ ] New: le besoin : envoyer un mailing à un sous-groupe d'une liste, soit par choix dans le mécanisme d'envoi d'un mailing, au moment de la validation, on pourrait avoir des un case à cocher par contact et pouvoir décocher la case - soit un autre mécanisme à inventer
-- [ ] New : exporter vers une source en vcard  - avec le dialect d'import ?
+- [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
