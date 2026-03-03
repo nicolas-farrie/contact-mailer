@@ -42,6 +42,9 @@
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
 - [x] Liste des messages déjà envoyés, réutilisation pour nouvel envoi
+- [ ] dans la gestion des contacts / liste, "Retirer de la liste" ne fonctionne pas du tout
+- [ ] Dans "mailing -> historique", réutiliser un mailing fait (le texte du mail, la liste) n'est plus accessible dans les dernières versions
+
 
 ## A faire - Prioritaire
 - [x] Gestion multi-utilisateurs : CRUD users, rôles admin/user, qui a fait quoi
@@ -61,3 +64,5 @@
 - [ ] Pagination de la liste des contacts
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
+- [ ] New: le besoin : envoyer un mailing à un sous-groupe d'une liste, soit par choix dans le mécanisme d'envoi d'un mailing, au moment de la validation, on pourrait avoir des un case à cocher par contact et pouvoir décocher la case - soit un autre mécanisme à inventer
+- [ ] New : exporter vers une source en vcard  - avec le dialect d'import ?

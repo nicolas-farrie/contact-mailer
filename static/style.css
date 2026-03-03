@@ -209,6 +209,12 @@ a:hover {
     background: var(--action-dark);
 }
 
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .btn-small {
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;

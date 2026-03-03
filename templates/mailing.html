@@ -27,7 +27,7 @@
             <select id="liste_id" name="liste_id" required>
                 <option value="">-- Sélectionner une liste --</option>
                 {% for liste in listes %}
-                <option value="{{ liste.id }}">{{ liste.nom }} ({{ liste.count }} contacts)</option>
+                <option value="{{ liste.id }}" {% if prefill.liste_id|string == liste.id|string %}selected{% endif %}>{{ liste.nom }} ({{ liste.count }} contacts)</option>
                 {% endfor %}
             </select>
         </div>

@@ -53,8 +53,8 @@
             </td>
             <td class="actions-cell">
                 {% if c.template %}
-                <a href="{{ url_for('mailing', subject=c.template.subject, body=c.template.body, format=c.template.format|default('text', true)) }}"
-                   class="btn btn-sm" title="Réutiliser ce message">Réutiliser</a>
+                <a href="{{ url_for('mailing', from_campaign=c.id) }}"
+                   class="btn btn-sm btn-warning" title="Réutiliser ce message">Réutiliser</a>
                 {% endif %}
                 {% if c.stats.pending > 0 %}
                 <a href="{{ url_for('mailing_queue', campaign=c.id) }}"

@@ -307,10 +307,20 @@ def contacts_bulk_action():
     action = request.form.get('action')
     contact_ids = request.form.getlist('contact_ids')
     liste_id = request.form.get('liste_id', type=int)
+    back_liste = request.form.get('back_liste')
+    back_source = request.form.get('back_source')
+    back_q = request.form.get('back_q')
+
+    def redirect_back():
+        params = {}
+        if back_liste: params['liste'] = back_liste
+        if back_source: params['source'] = back_source
+        if back_q: params['q'] = back_q
+        return redirect(url_for('contacts', **params))
 
     if not contact_ids:
         flash('Aucun contact sélectionné', 'error')
-        return redirect(url_for('contacts'))
+        return redirect_back()
 
     contacts = Contact.query.filter(Contact.id.in_(contact_ids)).all()
     liste = Liste.query.get(liste_id) if liste_id else None
@@ -335,7 +345,7 @@ def contacts_bulk_action():
         db.session.commit()
         flash(f'{len(contacts)} contacts supprimés', 'success')
 
-    return redirect(url_for('contacts'))
+    return redirect_back()
 
 
 # === IMPORT / EXPORT ===
@@ -684,12 +694,19 @@ def mailing():
     listes = Liste.query.order_by(Liste.nom).all()
     smtp_configured = bool(Config.SMTP_HOST and Config.SMTP_USER)
 
-    # Pré-remplissage depuis l'historique (réutilisation)
-    prefill = {
-        'subject': request.args.get('subject', ''),
-        'body': request.args.get('body', ''),
-        'format': request.args.get('format', 'text'),
-    }
+    # Pré-remplissage depuis l'historique (réutilisation par campaign_id)
+    prefill = {'subject': '', 'body': '', 'format': 'text', 'liste_id': ''}
+    from_campaign = request.args.get('from_campaign')
+    if from_campaign:
+        from mailer import MailQueue
+        tpl = MailQueue().get_campaign_template(from_campaign)
+        if tpl:
+            prefill = {
+                'subject': tpl.get('subject', ''),
+                'body': tpl.get('body', ''),
+                'format': tpl.get('format', 'text'),
+                'liste_id': tpl.get('liste_id', ''),
+            }
 
     return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill)
 

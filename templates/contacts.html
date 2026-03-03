@@ -40,34 +40,40 @@
         <label class="select-all-label">
             <input type="checkbox" id="select-all"> Tout sélectionner
         </label>
-        <select name="liste_id" class="bulk-liste-select">
+        <select name="liste_id" class="bulk-liste-select" onchange="updateListeButtons(this.value)">
             <option value="">-- Choisir une liste --</option>
             {% for liste in listes %}
             <option value="{{ liste.id }}">{{ liste.nom }}</option>
             {% endfor %}
         </select>
-        <button type="submit" name="action" value="add_to_liste" class="btn btn-small">Ajouter à la liste</button>
-        <button type="submit" name="action" value="remove_from_liste" class="btn btn-small">Retirer de la liste</button>
+        <button type="submit" name="action" value="add_to_liste" class="btn btn-small" id="btn-add-liste" disabled
+                onclick="return confirm('Ajouter les contacts sélectionnés à cette liste ?')">Ajouter à la liste</button>
+        <button type="submit" name="action" value="remove_from_liste" class="btn btn-small" id="btn-remove-liste" disabled
+                onclick="return confirm('Retirer les contacts sélectionnés de cette liste ?')">Retirer de la liste</button>
         <button type="submit" name="action" value="delete" class="btn btn-danger btn-small"
                 onclick="return confirm('Supprimer les contacts sélectionnés ?')">Supprimer</button>
     </div>
+    <input type="hidden" name="back_liste" value="{{ liste_filter or '' }}">
+    <input type="hidden" name="back_source" value="{{ source_filter or '' }}">
+    <input type="hidden" name="back_q" value="{{ search or '' }}">
+</form>
 
-    <table class="data-table data-table-contacts">
-        <thead>
-            <tr>
-                <th class="col-checkbox"></th>
-                <th>Nom</th>
-                <th>Email</th>
-                <th>Téléphone</th>
-                <th>Organisation</th>
-                <th>Listes</th>
-                <th class="col-actions">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for contact in contacts %}
-            <tr>
-                <td><input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox"></td>
+<table class="data-table data-table-contacts">
+    <thead>
+        <tr>
+            <th class="col-checkbox"></th>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Téléphone</th>
+            <th>Organisation</th>
+            <th>Listes</th>
+            <th class="col-actions">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for contact in contacts %}
+        <tr>
+            <td><input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox" form="bulk-form"></td>
                 <td>
                     <strong>{{ contact.nom }}</strong> {{ contact.prenom }}
                     {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}
@@ -102,7 +108,7 @@
     <div class="contact-card">
         <div class="contact-card-header">
             <label class="contact-card-check">
-                <input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox">
+                <input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox" form="bulk-form">
             </label>
             <div>
                 <div class="contact-card-name">
@@ -129,7 +135,6 @@
     <p class="empty">Aucun contact trouvé</p>
     {% endfor %}
 </div>
-</form>
 
 {% if liste_filter %}
 <div class="export-section">
@@ -152,6 +157,12 @@ function toggleBulk(btn) {
     var bar = document.getElementById('bulk-actions-bar');
     var open = bar.classList.toggle('bulk-actions-open');
     btn.textContent = open ? 'Actions ▴' : 'Actions ▾';
+}
+
+function updateListeButtons(val) {
+    var hasListe = val !== '';
+    document.getElementById('btn-add-liste').disabled = !hasListe;
+    document.getElementById('btn-remove-liste').disabled = !hasListe;
 }
 </script>
 
