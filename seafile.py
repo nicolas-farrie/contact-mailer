@@ -69,7 +69,7 @@ class SeafileClient:
             'is_staff': False,
             'is_active': True,
         }
-        return self._request('POST', 'api/v2.1/admin/users/', json=payload)
+        return self._request('POST', 'api/v2.1/admin/users/', data=payload)
 
     def update_user(self, email, name=None, is_active=None):
         """Met à jour un utilisateur Seafile."""
@@ -78,7 +78,7 @@ class SeafileClient:
             payload['name'] = name
         if is_active is not None:
             payload['is_active'] = is_active
-        return self._request('PUT', f'api/v2.1/admin/users/{email}/', json=payload)
+        return self._request('PUT', f'api/v2.1/admin/users/{email}/', data=payload)
 
     # === GROUPES ===
 
@@ -103,7 +103,7 @@ class SeafileClient:
     def add_member_to_group(self, group_id, email):
         """Ajoute un membre à un groupe."""
         return self._request('POST', f'api/v2.1/groups/{group_id}/members/',
-                              json={'email': email})
+                              data={'email': email})
 
 
 def generate_password(length=12):
