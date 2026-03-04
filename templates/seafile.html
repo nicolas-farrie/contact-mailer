@@ -79,16 +79,16 @@ function downloadPasswords() {
         </div>
         <div class="form-group">
             <label for="inv_body">Corps du mail (HTML)</label>
-            <p class="hint">Variables disponibles : <code>{{prenom}}</code>, <code>{{nom}}</code>, <code>{{email}}</code>, <code>{{seafile_password}}</code>, <code>{{seafile_url}}</code></p>
+            <p class="hint">Variables disponibles : <code>{prenom}</code>, <code>{nom}</code>, <code>{email}</code>, <code>{seafile_password}</code>, <code>{seafile_url}</code></p>
             <textarea id="inv_body" name="body" rows="10" required
-                      style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:4px;font-family:monospace;font-size:0.875rem;"><p>Bonjour {{prenom}},</p>
+                      style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:4px;font-family:monospace;font-size:0.875rem;"><p>Bonjour {prenom},</p>
 
 <p>Votre compte sur le drive partagé Seafile a été créé. Voici vos identifiants :</p>
 
 <ul>
-    <li><strong>URL :</strong> <a href="{{seafile_url}}">{{seafile_url}}</a></li>
-    <li><strong>Identifiant :</strong> {{email}}</li>
-    <li><strong>Mot de passe temporaire :</strong> <code>{{seafile_password}}</code></li>
+    <li><strong>URL :</strong> <a href="{seafile_url}">{seafile_url}</a></li>
+    <li><strong>Identifiant :</strong> {email}</li>
+    <li><strong>Mot de passe temporaire :</strong> <code>{seafile_password}</code></li>
 </ul>
 
 <p>Merci de changer votre mot de passe lors de votre première connexion.</p>
