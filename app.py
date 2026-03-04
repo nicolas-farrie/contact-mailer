@@ -1475,8 +1475,10 @@ def seafile():
             groups = client.list_groups()
         except Exception:
             pass
+    pending_invitations = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None)).all()
     return render_template('seafile.html', listes=listes, groups=groups,
-                           sf_configured=sf_configured, new_passwords={})
+                           sf_configured=sf_configured, new_passwords={},
+                           pending_invitations=pending_invitations)
 
 
 @app.route('/seafile/sync-groups', methods=['POST'])
@@ -1539,6 +1541,15 @@ def seafile_push():
         client = SeafileClient(Config.SEAFILE_URL, Config.SEAFILE_TOKEN)
         result = push_contacts_to_seafile(client, liste.contacts, group_id or None)
 
+        # Stocker les mots de passe temporaires en base
+        if result['passwords']:
+            email_to_contact = {c.email.strip().lower(): c for c in liste.contacts}
+            for email, pwd in result['passwords'].items():
+                contact = email_to_contact.get(email)
+                if contact:
+                    contact.seafile_temp_pwd = pwd
+            db.session.commit()
+
         parts = []
         if result['created']:
             parts.append(f'{result["created"]} créés')
@@ -1553,15 +1564,109 @@ def seafile_push():
             flash(f'Erreur : {err}', 'error')
 
         groups = client.list_groups()
+        pending_invitations = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None)).all()
         return render_template('seafile.html',
                                listes=Liste.query.order_by(Liste.nom).all(),
                                groups=groups,
                                sf_configured=True,
-                               new_passwords=result.get('passwords', {}))
+                               new_passwords=result.get('passwords', {}),
+                               pending_invitations=pending_invitations)
 
     except Exception as e:
         flash(f'Erreur Seafile : {e}', 'error')
         return redirect(url_for('seafile'))
+
+
+@app.route('/seafile/reset-passwords', methods=['POST'])
+@admin_required
+def seafile_reset_passwords():
+    """Régénère les mots de passe Seafile pour les contacts d'une liste sans invitation en attente."""
+    from seafile import SeafileClient, generate_password
+
+    if not Config.SEAFILE_URL:
+        flash('Seafile non configuré', 'error')
+        return redirect(url_for('seafile'))
+
+    liste_id = request.form.get('liste_id', type=int)
+    if not liste_id:
+        flash('Sélectionnez une liste', 'error')
+        return redirect(url_for('seafile'))
+
+    liste = Liste.query.get_or_404(liste_id)
+    contacts_sans_pwd = [c for c in liste.contacts if not c.seafile_temp_pwd]
+    if not contacts_sans_pwd:
+        flash('Tous les contacts de cette liste ont déjà un mot de passe en attente', 'info')
+        return redirect(url_for('seafile'))
+
+    try:
+        client = SeafileClient(Config.SEAFILE_URL, Config.SEAFILE_TOKEN)
+        sf_users = client.list_users()
+        contact_to_internal = {
+            (u.get('contact_email') or u['email']).lower(): u['email']
+            for u in sf_users
+        }
+
+        updated = 0
+        not_found = 0
+        for contact in contacts_sans_pwd:
+            internal_email = contact_to_internal.get(contact.email.strip().lower())
+            if internal_email:
+                pwd = generate_password()
+                client.update_user(internal_email, password=pwd)
+                contact.seafile_temp_pwd = pwd
+                updated += 1
+            else:
+                not_found += 1
+
+        db.session.commit()
+        msg = f'{updated} mots de passe régénérés'
+        if not_found:
+            msg += f', {not_found} contacts non trouvés dans Seafile (pas encore poussés ?)'
+        flash(msg, 'success' if not not_found else 'warning')
+
+    except Exception as e:
+        flash(f'Erreur Seafile : {e}', 'error')
+
+    return redirect(url_for('seafile'))
+
+
+@app.route('/seafile/send-invitations', methods=['POST'])
+@admin_required
+def seafile_send_invitations():
+    """Crée un mailing d'invitation pour les contacts avec un mot de passe Seafile en attente."""
+    import uuid as _uuid
+    from mailer import MailQueue
+
+    subject = request.form.get('subject', '').strip()
+    body = request.form.get('body', '').strip()
+
+    if not subject or not body:
+        flash('Sujet et corps du mail requis', 'error')
+        return redirect(url_for('seafile'))
+
+    contacts = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None)).all()
+    if not contacts:
+        flash('Aucune invitation en attente', 'error')
+        return redirect(url_for('seafile'))
+
+    campaign_id = f'seafile-inv-{_uuid.uuid4().hex[:8]}'
+    queue = MailQueue()
+    queue.set_campaign_template(campaign_id, subject, body, format='html',
+                                sent_by=current_user.display_name,
+                                include_unsubscribe=False)
+
+    for contact in contacts:
+        contact_dict = contact.to_dict()
+        contact_dict['seafile_url'] = Config.SEAFILE_URL
+        queue.add(contact_dict, campaign_id)
+
+    # Vider les mots de passe après mise en queue
+    for contact in contacts:
+        contact.seafile_temp_pwd = None
+    db.session.commit()
+
+    flash(f'Campagne d\'invitation créée : {len(contacts)} contacts en attente d\'envoi.', 'success')
+    return redirect(url_for('mailing_queue', campaign=campaign_id))
 
 
 init_db()

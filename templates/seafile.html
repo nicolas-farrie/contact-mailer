@@ -63,6 +63,72 @@ function downloadPasswords() {
 </script>
 {% endif %}
 
+<!-- Invitations en attente -->
+{% set pending_count = pending_invitations | length %}
+{% if pending_count > 0 %}
+<div class="form-card" style="border-left: 4px solid var(--info, #3b82f6);">
+    <h2>Invitations en attente ({{ pending_count }})</h2>
+    <p>{{ pending_count }} contact(s) ont un mot de passe Seafile temporaire stocké en attente d'envoi.</p>
+
+    <form method="POST" action="{{ url_for('seafile_send_invitations') }}">
+        <div class="form-group">
+            <label for="inv_subject">Sujet du mail</label>
+            <input type="text" id="inv_subject" name="subject" required
+                   value="Votre accès au drive Seafile"
+                   style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:4px;">
+        </div>
+        <div class="form-group">
+            <label for="inv_body">Corps du mail (HTML)</label>
+            <p class="hint">Variables disponibles : <code>{{prenom}}</code>, <code>{{nom}}</code>, <code>{{email}}</code>, <code>{{seafile_password}}</code>, <code>{{seafile_url}}</code></p>
+            <textarea id="inv_body" name="body" rows="10" required
+                      style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:4px;font-family:monospace;font-size:0.875rem;"><p>Bonjour {{prenom}},</p>
+
+<p>Votre compte sur le drive partagé Seafile a été créé. Voici vos identifiants :</p>
+
+<ul>
+    <li><strong>URL :</strong> <a href="{{seafile_url}}">{{seafile_url}}</a></li>
+    <li><strong>Identifiant :</strong> {{email}}</li>
+    <li><strong>Mot de passe temporaire :</strong> <code>{{seafile_password}}</code></li>
+</ul>
+
+<p>Merci de changer votre mot de passe lors de votre première connexion.</p>
+
+<p>Cordialement</p></textarea>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                Envoyer les {{ pending_count }} invitation(s)
+            </button>
+        </div>
+        <p style="margin-top:0.75rem;font-size:0.875rem;color:var(--gray-500);">
+            Les mots de passe seront supprimés de la base après mise en file d'envoi.
+        </p>
+    </form>
+</div>
+{% endif %}
+
+<!-- Régénérer mots de passe -->
+<div class="form-card">
+    <h2>Régénérer les mots de passe</h2>
+    <p>Pour les contacts d'une liste déjà présents dans Seafile mais sans invitation en attente, génère de nouveaux mots de passe temporaires via l'API.</p>
+    <form method="POST" action="{{ url_for('seafile_reset_passwords') }}">
+        <div class="form-group">
+            <label for="reset_liste_id">Liste de contacts</label>
+            <select id="reset_liste_id" name="liste_id" required>
+                <option value="">-- Sélectionner une liste --</option>
+                {% for liste in listes %}
+                <option value="{{ liste.id }}">{{ liste.nom }} ({{ liste.count }} contacts)</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-action" {% if not sf_configured %}disabled{% endif %}>
+                Régénérer les mots de passe
+            </button>
+        </div>
+    </form>
+</div>
+
 <!-- Sync groupes -->
 <div class="form-card">
     <h2>Groupes Seafile</h2>

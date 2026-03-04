@@ -74,13 +74,15 @@ class SeafileClient:
         }
         return self._request('POST', 'api/v2.1/admin/users/', data=payload)
 
-    def update_user(self, email, name=None, is_active=None):
+    def update_user(self, email, name=None, is_active=None, password=None):
         """Met à jour un utilisateur Seafile."""
         payload = {}
         if name is not None:
             payload['name'] = name
         if is_active is not None:
             payload['is_active'] = is_active
+        if password is not None:
+            payload['password'] = password
         encoded = quote(email, safe='')
         return self._request('PUT', f'api/v2.1/admin/users/{encoded}/', json=payload)
 

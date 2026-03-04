@@ -29,6 +29,7 @@ class Contact(db.Model):
     adresse_pays = db.Column(db.String(100))
     source = db.Column(db.String(100), default='Manuel')
     notes = db.Column(db.Text)
+    seafile_temp_pwd = db.Column(db.String(100), nullable=True)
     is_unsubscribed = db.Column(db.Boolean, default=False)
     unsubscribed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -63,6 +64,8 @@ class Contact(db.Model):
             'adresse_pays': self.adresse_pays,
             'source': self.source,
             'notes': self.notes,
+            'seafile_temp_pwd': self.seafile_temp_pwd,
+            'seafile_password': self.seafile_temp_pwd,  # alias pour templates mailing
             'listes': [l.nom for l in self.listes]
         }
 
