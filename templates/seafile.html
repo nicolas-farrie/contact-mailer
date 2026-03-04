@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Seafile - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Seafile</h1>
+</div>
+
+{% if not sf_configured %}
+<div class="alert alert-error">
+    <strong>Seafile non configuré.</strong> Ajoutez SEAFILE_URL et SEAFILE_TOKEN dans votre fichier .env
+</div>
+{% endif %}
+
+<div class="info-box">
+    <h3>Fonctionnement</h3>
+    <ul>
+        <li>Les contacts sont identifiés par leur <strong>adresse email</strong> dans Seafile</li>
+        <li>Si un compte existe déjà, le <strong>nom est mis à jour</strong></li>
+        <li>Si le compte n'existe pas, il est <strong>créé avec un mot de passe temporaire</strong> à communiquer manuellement</li>
+        <li>Si un groupe Seafile est sélectionné, les contacts y sont <strong>ajoutés automatiquement</strong></li>
+    </ul>
+</div>
+
+<!-- Mots de passe temporaires générés -->
+{% if new_passwords %}
+<div class="form-card" style="border-left: 4px solid var(--warning);">
+    <h2>⚠ Mots de passe temporaires à communiquer</h2>
+    <p>Ces mots de passe ont été générés pour les nouveaux comptes. Communiquez-les aux utilisateurs concernés :</p>
+    <table class="data-table">
+        <thead>
+            <tr><th>Email</th><th>Mot de passe temporaire</th></tr>
+        </thead>
+        <tbody>
+            {% for email, pwd in new_passwords.items() %}
+            <tr>
+                <td>{{ email }}</td>
+                <td><code>{{ pwd }}</code></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p style="margin-top:0.75rem;font-size:0.875rem;color:var(--gray-500);">
+        Ces mots de passe ne sont affichés qu'une seule fois.
+    </p>
+</div>
+{% endif %}
+
+<!-- Sync groupes -->
+<div class="form-card">
+    <div class="page-header" style="margin-bottom:1rem;">
+        <h2>Groupes Seafile</h2>
+        <form method="POST" action="{{ url_for('seafile_sync_groups') }}">
+            <button type="submit" class="btn btn-action" {% if not sf_configured %}disabled{% endif %}>
+                Synchroniser les groupes
+            </button>
+        </form>
+    </div>
+
+    {% if groups %}
+    <table class="data-table">
+        <thead>
+            <tr><th>ID</th><th>Nom du groupe</th><th>Créateur</th></tr>
+        </thead>
+        <tbody>
+            {% for g in groups %}
+            <tr>
+                <td>{{ g.id }}</td>
+                <td>{{ g.name }}</td>
+                <td>{{ g.owner or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Aucun groupe Seafile. Cliquez sur "Synchroniser les groupes" pour créer les groupes correspondant à vos listes.</p>
+    {% endif %}
+</div>
+
+<!-- Push contacts -->
+<div class="form-card">
+    <h2>Pousser une liste vers Seafile</h2>
+
+    <form method="POST" action="{{ url_for('seafile_push') }}">
+        <div class="form-group">
+            <label for="liste_id">Liste de contacts</label>
+            <select id="liste_id" name="liste_id" required>
+                <option value="">-- Sélectionner une liste --</option>
+                {% for liste in listes %}
+                <option value="{{ liste.id }}">{{ liste.nom }} ({{ liste.count }} contacts)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="group_id">Groupe Seafile (optionnel)</label>
+            <select id="group_id" name="group_id">
+                <option value="">-- Aucun groupe --</option>
+                {% for g in groups %}
+                <option value="{{ g.id }}">{{ g.name }}</option>
+                {% endfor %}
+            </select>
+            <p class="hint">Si sélectionné, les contacts seront ajoutés à ce groupe après création/mise à jour.</p>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" {% if not sf_configured %}disabled{% endif %}>
+                Pousser vers Seafile
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

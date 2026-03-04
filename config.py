@@ -38,3 +38,7 @@ class Config:
     BOOKSTACK_URL = os.environ.get('BOOKSTACK_URL', '')
     BOOKSTACK_TOKEN_ID = os.environ.get('BOOKSTACK_TOKEN_ID', '')
     BOOKSTACK_TOKEN_SECRET = os.environ.get('BOOKSTACK_TOKEN_SECRET', '')
+
+    # Seafile API
+    SEAFILE_URL = os.environ.get('SEAFILE_URL', '')
+    SEAFILE_TOKEN = os.environ.get('SEAFILE_TOKEN', '')

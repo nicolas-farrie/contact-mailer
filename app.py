@@ -1462,6 +1462,100 @@ def bookstack_push():
     return redirect(url_for('bookstack'))
 
 
+@app.route('/seafile')
+@admin_required
+def seafile():
+    listes = Liste.query.order_by(Liste.nom).all()
+    sf_configured = bool(Config.SEAFILE_URL and Config.SEAFILE_TOKEN)
+    groups = []
+    if sf_configured:
+        try:
+            from seafile import SeafileClient
+            client = SeafileClient(Config.SEAFILE_URL, Config.SEAFILE_TOKEN)
+            groups = client.list_groups()
+        except Exception:
+            pass
+    return render_template('seafile.html', listes=listes, groups=groups,
+                           sf_configured=sf_configured, new_passwords={})
+
+
+@app.route('/seafile/sync-groups', methods=['POST'])
+@admin_required
+def seafile_sync_groups():
+    """Crée dans Seafile un groupe pour chaque liste contact-mailer (si absent)."""
+    from seafile import SeafileClient
+
+    if not Config.SEAFILE_URL:
+        flash('Seafile non configuré', 'error')
+        return redirect(url_for('seafile'))
+
+    try:
+        client = SeafileClient(Config.SEAFILE_URL, Config.SEAFILE_TOKEN)
+        existing = {g['name'] for g in client.list_groups()}
+        listes = Liste.query.order_by(Liste.nom).all()
+        created = 0
+        for liste in listes:
+            if liste.nom not in existing:
+                client.create_group(liste.nom)
+                created += 1
+        flash(f'Groupes Seafile : {created} créés, {len(listes) - created} déjà existants', 'success')
+    except Exception as e:
+        flash(f'Erreur Seafile : {e}', 'error')
+
+    return redirect(url_for('seafile'))
+
+
+@app.route('/seafile/push', methods=['POST'])
+@admin_required
+def seafile_push():
+    """Pousse les contacts d'une liste vers Seafile et les ajoute à un groupe."""
+    from seafile import SeafileClient, push_contacts_to_seafile
+
+    if not Config.SEAFILE_URL:
+        flash('Seafile non configuré', 'error')
+        return redirect(url_for('seafile'))
+
+    liste_id = request.form.get('liste_id', type=int)
+    group_id = request.form.get('group_id', type=int)
+
+    if not liste_id:
+        flash('Sélectionnez une liste', 'error')
+        return redirect(url_for('seafile'))
+
+    liste = Liste.query.get_or_404(liste_id)
+    if not liste.contacts:
+        flash('Liste vide', 'error')
+        return redirect(url_for('seafile'))
+
+    try:
+        client = SeafileClient(Config.SEAFILE_URL, Config.SEAFILE_TOKEN)
+        result = push_contacts_to_seafile(client, liste.contacts, group_id or None)
+
+        parts = []
+        if result['created']:
+            parts.append(f'{result["created"]} créés')
+        if result['updated']:
+            parts.append(f'{result["updated"]} mis à jour')
+        if result['errors']:
+            parts.append(f'{len(result["errors"])} erreurs')
+
+        flash(f'Push Seafile : {", ".join(parts) or "aucun changement"}',
+              'success' if not result['errors'] else 'warning')
+        for err in result['errors']:
+            flash(f'Erreur : {err}', 'error')
+
+        groups = client.list_groups()
+        return render_template('seafile.html',
+                               listes=Liste.query.order_by(Liste.nom).all(),
+                               groups=groups,
+                               sf_configured=True,
+                               new_passwords=result.get('passwords', {}))
+
+    except Exception as e:
+        flash(f'Erreur Seafile : {e}', 'error')
+        return redirect(url_for('seafile'))
+
+
 init_db()
 
 if __name__ == '__main__':
