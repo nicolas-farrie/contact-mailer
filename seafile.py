@@ -53,7 +53,9 @@ class SeafileClient:
             if isinstance(data, list):
                 users.extend(data)
                 break
-            batch = data.get('data', [])
+            # Seafile peut utiliser différentes clés selon la version
+            batch = (data.get('data') or data.get('user_list') or
+                     data.get('users') or [])
             users.extend(batch)
             if not data.get('next_page'):
                 break
@@ -149,13 +151,21 @@ def push_contacts_to_seafile(client, contacts, group_id=None):
             else:
                 # Création avec mot de passe temporaire
                 pwd = generate_password()
-                resp = client.create_user(email, name, pwd)
-                result['created'] += 1
-                result['passwords'][email] = pwd
-                # Récupère l'email réellement stocké depuis la réponse API
-                if isinstance(resp, dict) and resp.get('email'):
-                    stored_email = resp['email']
-                    email_map[email] = stored_email
+                try:
+                    resp = client.create_user(email, name, pwd)
+                    result['created'] += 1
+                    result['passwords'][email] = pwd
+                    # Récupère l'email réellement stocké depuis la réponse API
+                    if isinstance(resp, dict) and resp.get('email'):
+                        stored_email = resp['email']
+                        email_map[email] = stored_email
+                except RuntimeError as e:
+                    if 'already exists' in str(e).lower():
+                        # L'utilisateur existe déjà (list_users incomplet) : on met à jour
+                        client.update_user(email, name=name)
+                        result['updated'] += 1
+                    else:
+                        raise
 
             # Ajout au groupe si demandé et pas déjà membre
             if group_id and email not in group_member_emails:
