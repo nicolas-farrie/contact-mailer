@@ -123,57 +123,56 @@ def push_contacts_to_seafile(client, contacts, group_id=None):
     - Met à jour le nom si le compte existe
     - Ajoute au groupe Seafile si group_id fourni
 
+    Note : Seafile stocke un identifiant interne UUID@auth.local dans 'email'
+    et l'email externe dans 'contact_email'. Toutes les opérations API utilisent
+    l'identifiant interne.
+
     Returns:
         dict avec clés created, updated, skipped, errors, passwords (email→mdp pour les nouveaux)
     """
     result = {'created': 0, 'updated': 0, 'skipped': 0, 'errors': [], 'passwords': {}}
 
-    # Index des users existants : lowercase → email exact stocké dans Seafile
+    # Map contact_email.lower() → identifiant interne Seafile (UUID@auth.local)
     sf_users = client.list_users()
-    email_map = {u['email'].lower(): u['email'] for u in sf_users}
-    existing_emails = set(email_map.keys())
+    contact_to_internal = {}
+    for u in sf_users:
+        # contact_email contient l'email externe, email contient l'UUID interne
+        ext = (u.get('contact_email') or u['email']).lower()
+        contact_to_internal[ext] = u['email']
 
-    # Index des membres du groupe si fourni
-    group_member_emails = set()
+    # Membres du groupe existants (par identifiant interne)
+    group_member_internals = set()
     if group_id:
         members = client.list_group_members(group_id)
-        group_member_emails = {m['email'].lower() for m in members}
+        group_member_internals = {m['email'] for m in members}
 
     for contact in contacts:
         email = contact.email.strip().lower()
         name = f'{contact.prenom} {contact.nom}'.strip() or email
-        # Email tel que stocké dans Seafile (peut différer de ce qu'on envoie)
-        stored_email = email_map.get(email, email)
+        internal_email = None
 
         try:
-            if email in existing_emails:
-                # Mise à jour du nom
-                client.update_user(stored_email, name=name)
+            if email in contact_to_internal:
+                # Utilisateur existant : mise à jour du nom via identifiant interne
+                internal_email = contact_to_internal[email]
+                client.update_user(internal_email, name=name)
                 result['updated'] += 1
             else:
                 # Création avec mot de passe temporaire
                 pwd = generate_password()
-                try:
-                    resp = client.create_user(email, name, pwd)
-                    result['created'] += 1
-                    result['passwords'][email] = pwd
-                    # Récupère l'email réellement stocké depuis la réponse API
-                    if isinstance(resp, dict) and resp.get('email'):
-                        stored_email = resp['email']
-                        email_map[email] = stored_email
-                except RuntimeError as e:
-                    if 'already exists' in str(e).lower():
-                        # L'utilisateur existe déjà (list_users incomplet) : on met à jour
-                        client.update_user(email, name=name)
-                        result['updated'] += 1
-                    else:
-                        raise
+                resp = client.create_user(email, name, pwd)
+                result['created'] += 1
+                result['passwords'][email] = pwd
+                # La réponse contient l'identifiant interne généré par Seafile
+                if isinstance(resp, dict) and resp.get('email'):
+                    internal_email = resp['email']
+                    contact_to_internal[email] = internal_email
 
-            # Ajout au groupe si demandé et pas déjà membre
-            if group_id and email not in group_member_emails:
+            # Ajout au groupe si demandé, pas déjà membre, et identifiant connu
+            if group_id and internal_email and internal_email not in group_member_internals:
                 try:
-                    client.add_member_to_group(group_id, stored_email)
-                    group_member_emails.add(email)
+                    client.add_member_to_group(group_id, internal_email)
+                    group_member_internals.add(internal_email)
                 except Exception as e:
                     result['errors'].append(f'{email} (groupe): {e}')
 
