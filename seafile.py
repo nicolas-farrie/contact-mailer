@@ -3,6 +3,7 @@
 import requests
 import secrets
 import string
+from urllib.parse import quote
 
 
 class SeafileClient:
@@ -80,7 +81,8 @@ class SeafileClient:
             payload['name'] = name
         if is_active is not None:
             payload['is_active'] = is_active
-        return self._request('PUT', f'api/v2.1/admin/users/{email}/', data=payload)
+        encoded = quote(email, safe='')
+        return self._request('PUT', f'api/v2.1/admin/users/{encoded}/', json=payload)
 
     # === GROUPES ===
 
