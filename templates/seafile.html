@@ -40,10 +40,27 @@
             {% endfor %}
         </tbody>
     </table>
+    <div class="form-actions" style="margin-top:1rem;">
+        <button onclick="downloadPasswords()" class="btn btn-action">Télécharger en CSV</button>
+    </div>
     <p style="margin-top:0.75rem;font-size:0.875rem;color:var(--gray-500);">
         Ces mots de passe ne sont affichés qu'une seule fois.
     </p>
 </div>
+
+<script>
+function downloadPasswords() {
+    var rows = [['Email', 'Mot de passe temporaire', 'URL']];
+    {% for email, pwd in new_passwords.items() %}
+    rows.push(['{{ email }}', '{{ pwd }}', '{{ config.SEAFILE_URL }}']);
+    {% endfor %}
+    var csv = rows.map(r => r.map(v => '"' + v + '"').join(',')).join('\n');
+    var a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'seafile_passwords.csv';
+    a.click();
+}
+</script>
 {% endif %}
 
 <!-- Sync groupes -->

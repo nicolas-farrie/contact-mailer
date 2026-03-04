@@ -50,6 +50,9 @@ class SeafileClient:
         per_page = 100
         while True:
             data = self._request('GET', f'api/v2.1/admin/users/?page={page}&per_page={per_page}')
+            if isinstance(data, list):
+                users.extend(data)
+                break
             batch = data.get('data', [])
             users.extend(batch)
             if not data.get('next_page'):
@@ -82,7 +85,9 @@ class SeafileClient:
     def list_groups(self):
         """Retourne tous les groupes."""
         data = self._request('GET', 'api/v2.1/admin/groups/?page=1&per_page=500')
-        return data.get('groups', [])
+        if isinstance(data, list):
+            return data
+        return data.get('groups', data.get('data', []))
 
     def create_group(self, name):
         """Crée un groupe Seafile."""
@@ -91,7 +96,9 @@ class SeafileClient:
     def list_group_members(self, group_id):
         """Retourne les membres d'un groupe."""
         data = self._request('GET', f'api/v2.1/groups/{group_id}/members/')
-        return data.get('members', [])
+        if isinstance(data, list):
+            return data
+        return data.get('members', data.get('data', []))
 
     def add_member_to_group(self, group_id, email):
         """Ajoute un membre à un groupe."""
