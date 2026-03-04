@@ -103,7 +103,7 @@ class SeafileClient:
     def add_member_to_group(self, group_id, email):
         """Ajoute un membre à un groupe."""
         return self._request('POST', f'api/v2.1/groups/{group_id}/members/',
-                              data={'email': email})
+                              json={'email': email})
 
 
 def generate_password(length=12):
