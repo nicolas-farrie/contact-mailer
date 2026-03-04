@@ -1489,16 +1489,24 @@ def seafile_sync_groups():
         flash('Seafile non configuré', 'error')
         return redirect(url_for('seafile'))
 
+    liste_ids = request.form.getlist('liste_ids', type=int)
+    if not liste_ids:
+        flash('Aucune liste sélectionnée', 'error')
+        return redirect(url_for('seafile'))
+
     try:
         client = SeafileClient(Config.SEAFILE_URL, Config.SEAFILE_TOKEN)
         existing = {g['name'] for g in client.list_groups()}
-        listes = Liste.query.order_by(Liste.nom).all()
+        listes = Liste.query.filter(Liste.id.in_(liste_ids)).all()
         created = 0
+        skipped = 0
         for liste in listes:
             if liste.nom not in existing:
                 client.create_group(liste.nom)
                 created += 1
-        flash(f'Groupes Seafile : {created} créés, {len(listes) - created} déjà existants', 'success')
+            else:
+                skipped += 1
+        flash(f'Groupes Seafile : {created} créés, {skipped} déjà existants', 'success')
     except Exception as e:
         flash(f'Erreur Seafile : {e}', 'error')
 

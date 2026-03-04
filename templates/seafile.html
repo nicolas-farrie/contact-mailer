@@ -48,16 +48,35 @@
 
 <!-- Sync groupes -->
 <div class="form-card">
-    <div class="page-header" style="margin-bottom:1rem;">
-        <h2>Groupes Seafile</h2>
-        <form method="POST" action="{{ url_for('seafile_sync_groups') }}">
+    <h2>Groupes Seafile</h2>
+
+    <form method="POST" action="{{ url_for('seafile_sync_groups') }}">
+        <p>Sélectionnez les listes à créer comme groupes dans Seafile (les groupes déjà existants seront ignorés) :</p>
+
+        {% set group_names = groups | map(attribute='name') | list %}
+        <div style="margin-bottom:1rem;">
+            {% for liste in listes %}
+            <label class="checkbox-label" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+                <input type="checkbox" name="liste_ids" value="{{ liste.id }}"
+                       {% if liste.nom not in group_names %}checked{% endif %}>
+                {{ liste.nom }}
+                {% if liste.nom in group_names %}
+                <span class="tag" style="font-size:0.75rem;">déjà dans Seafile</span>
+                {% endif %}
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="form-actions">
             <button type="submit" class="btn btn-action" {% if not sf_configured %}disabled{% endif %}>
-                Synchroniser les groupes
+                Créer les groupes sélectionnés
             </button>
-        </form>
-    </div>
+        </div>
+    </form>
 
     {% if groups %}
+    <hr style="margin:1.5rem 0;">
+    <h3>Groupes existants dans Seafile</h3>
     <table class="data-table">
         <thead>
             <tr><th>ID</th><th>Nom du groupe</th><th>Créateur</th></tr>
@@ -72,8 +91,6 @@
             {% endfor %}
         </tbody>
     </table>
-    {% else %}
-    <p>Aucun groupe Seafile. Cliquez sur "Synchroniser les groupes" pour créer les groupes correspondant à vos listes.</p>
     {% endif %}
 </div>
 
