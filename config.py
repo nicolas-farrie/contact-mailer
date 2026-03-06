@@ -39,6 +39,9 @@ class Config:
     BOOKSTACK_TOKEN_ID = os.environ.get('BOOKSTACK_TOKEN_ID', '')
     BOOKSTACK_TOKEN_SECRET = os.environ.get('BOOKSTACK_TOKEN_SECRET', '')
 
+    # Upload
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB
+
     # Seafile API
     SEAFILE_URL = os.environ.get('SEAFILE_URL', '')
     SEAFILE_TOKEN = os.environ.get('SEAFILE_TOKEN', '')
