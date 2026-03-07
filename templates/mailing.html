@@ -60,7 +60,17 @@
                       >{{ prefill.body }}</textarea>
             <!-- Editeur Quill pour le mode HTML -->
             <div id="editor-container" style="display:none;">
+                <div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
+                    <button type="button" id="raw-toggle-btn" onclick="toggleRawHtml()"
+                            class="btn btn-small" title="Basculer vers l'édition HTML brut">
+                        &lt;/&gt; HTML brut
+                    </button>
+                </div>
                 <div id="editor"></div>
+                <textarea id="raw-html-body" rows="14" style="display:none;width:100%;
+                          padding:0.5rem;border:1px solid var(--gray-300);border-radius:4px;
+                          font-family:monospace;font-size:0.85rem;"
+                          placeholder="Collez ici votre HTML (ex: depuis BookStack)..."></textarea>
             </div>
             <p class="hint">Variables : {prenom}, {nom}, {email}, {organisation}, {telephone}, {uid}</p>
         </div>
@@ -165,19 +175,44 @@ function toggleFormat() {
     saveDraft();
 }
 
+let rawHtmlMode = false;
+
+function toggleRawHtml() {
+    const editor = document.getElementById('editor');
+    const rawArea = document.getElementById('raw-html-body');
+    const btn = document.getElementById('raw-toggle-btn');
+    rawHtmlMode = !rawHtmlMode;
+    if (rawHtmlMode) {
+        rawArea.value = quill.root.innerHTML;
+        editor.style.display = 'none';
+        rawArea.style.display = 'block';
+        btn.textContent = 'Éditeur visuel';
+        btn.style.fontWeight = 'bold';
+    } else {
+        quill.root.innerHTML = rawArea.value;
+        rawArea.style.display = 'none';
+        editor.style.display = 'block';
+        btn.textContent = '</> HTML brut';
+        btn.style.fontWeight = '';
+    }
+}
+
 // Sync Quill → textarea au submit
 document.getElementById('mailing-form').addEventListener('submit', function() {
     if (isHtmlMode()) {
-        bodyTextarea.value = quill.root.innerHTML;
+        bodyTextarea.value = rawHtmlMode
+            ? document.getElementById('raw-html-body').value
+            : quill.root.innerHTML;
     }
-    // Effacer le brouillon après envoi
     localStorage.removeItem(DRAFT_KEY);
 });
 
 // Sync Quill → textarea pour la preview aussi
 function syncBody() {
     if (isHtmlMode()) {
-        bodyTextarea.value = quill.root.innerHTML;
+        bodyTextarea.value = rawHtmlMode
+            ? document.getElementById('raw-html-body').value
+            : quill.root.innerHTML;
     }
 }
 
