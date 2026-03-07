@@ -809,6 +809,21 @@ def mailing_preview():
         else:
             preview_body += f'\n\n---\nPour vous désabonner : {unsub_url}'
 
+    # Wrapper HTML pour préserver les styles (listes, indentation)
+    if mail_format == 'html' and not preview_body.strip().lower().startswith(('<!doctype', '<html')):
+        preview_body = (
+            '<!DOCTYPE html><html><head><meta charset="utf-8">'
+            '<style>'
+            'body{font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#333;}'
+            'ol,ul{padding-left:2em;margin:0.5em 0;}'
+            'li{margin:0.25em 0;}'
+            'ol ol,ol ul,ul ol,ul ul{margin:0.25em 0;}'
+            'p{margin:0.5em 0;}'
+            '</style></head><body>'
+            + preview_body
+            + '</body></html>'
+        )
+
     return jsonify({
         'subject': preview_subject,
         'body': preview_body,

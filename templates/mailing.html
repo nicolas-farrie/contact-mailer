@@ -98,7 +98,10 @@
         </div>
         <p class="hint" id="preview-contact"></p>
         <div class="preview-subject" id="preview-subject"></div>
-        <div class="preview-body" id="preview-body"></div>
+        <div class="preview-body" id="preview-body">
+            <iframe id="preview-iframe" srcdoc="" style="display:none;width:100%;border:none;min-height:300px;"></iframe>
+            <div id="preview-text"></div>
+        </div>
     </div>
 </div>
 
@@ -294,11 +297,19 @@ function loadPreview() {
         document.getElementById('prev-btn').disabled = (previewIndex <= 0);
         document.getElementById('next-btn').disabled = (previewIndex >= previewTotal - 1);
 
-        const previewBody = document.getElementById('preview-body');
+        const iframe = document.getElementById('preview-iframe');
+        const previewText = document.getElementById('preview-text');
         if (isHtmlMode()) {
-            previewBody.innerHTML = data.body;
+            iframe.srcdoc = data.body;
+            iframe.style.display = 'block';
+            previewText.style.display = 'none';
+            iframe.onload = function() {
+                try { iframe.style.height = iframe.contentDocument.body.scrollHeight + 20 + 'px'; } catch(e) {}
+            };
         } else {
-            previewBody.textContent = data.body;
+            iframe.style.display = 'none';
+            previewText.style.display = 'block';
+            previewText.textContent = data.body;
         }
 
         const panel = document.getElementById('preview-panel');
