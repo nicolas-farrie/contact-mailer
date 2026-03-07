@@ -3,7 +3,7 @@
 {% block container_class %}container-wide{% endblock %}
 
 {% block content %}
-<script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.5/tinymce.min.js"></script>
 
 <div class="page-header">
     <h1>Nouveau mailing</h1>
@@ -134,7 +134,7 @@ function initTinyMCE(onReady) {
     if (tinymce.get('body')) { if (onReady) onReady(); return; }
     tinymce.init({
         selector: '#body',
-        base_url: 'https://cdn.jsdelivr.net/npm/tinymce@6',
+        base_url: 'https://cdn.jsdelivr.net/npm/tinymce@6.8.5',
         suffix: '.min',
         plugins: 'lists code link',
         toolbar: 'undo redo | styles | bold italic underline | bullist numlist | outdent indent | link | code | removeformat',
@@ -167,7 +167,6 @@ function removeTinyMCE() {
 function toggleFormat() {
     if (isHtmlMode()) {
         const current = bodyTextarea.value;
-        bodyTextarea.style.display = 'none';
         initTinyMCE(function() {
             if (current) tinymce.get('body').setContent(current);
         });
@@ -234,7 +233,6 @@ const hasPrefill = {{ 'true' if prefill.subject else 'false' }};
 if (!hasPrefill) { restoreDraft(); }
 
 if (isHtmlMode()) {
-    bodyTextarea.style.display = 'none';
     initTinyMCE();
 }
 

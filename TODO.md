@@ -40,6 +40,12 @@
 - [x] Favicon SVG (onglet navigateur + icône mobile)
 - [x] Sélection des contacts à l'envoi d'un mailing (page de confirmation avec cases à cocher)
 - [x] Réutilisation historique mailing : chargement complet (sujet, corps, liste) via campaign_id
+- [x] Intégration API Seafile : push contacts → users, listes → groupes, mots de passe temporaires en DB
+- [x] Seafile : envoi mailing d'invitation avec variables {seafile_password}, {seafile_url}, message personnalisé
+- [x] Seafile : régénération mots de passe avec sélection de contacts par liste
+- [x] Éditeur HTML : remplacement Quill par TinyMCE (self-hosted jsDelivr, support listes imbriquées)
+- [x] Preview mailing : rendu HTML via iframe srcdoc (isolation CSS, listes correctement rendues)
+- [x] Pièces jointes : limite 5 Mo (MAX_CONTENT_LENGTH Flask + client_max_body_size nginx)
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
