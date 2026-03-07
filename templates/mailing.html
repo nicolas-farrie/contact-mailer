@@ -3,8 +3,7 @@
 {% block container_class %}container-wide{% endblock %}
 
 {% block content %}
-<link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js" referrerpolicy="origin"></script>
 
 <div class="page-header">
     <h1>Nouveau mailing</h1>
@@ -58,20 +57,7 @@
             <textarea id="body" name="body" rows="12"
                       placeholder="Bonjour {prenom},&#10;&#10;Nous vous invitons à...&#10;&#10;Cordialement,&#10;L'équipe"
                       >{{ prefill.body }}</textarea>
-            <!-- Editeur Quill pour le mode HTML -->
-            <div id="editor-container" style="display:none;">
-                <div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
-                    <button type="button" id="raw-toggle-btn" onclick="toggleRawHtml()"
-                            class="btn btn-small" title="Basculer vers l'édition HTML brut">
-                        &lt;/&gt; HTML brut
-                    </button>
-                </div>
-                <div id="editor"></div>
-                <textarea id="raw-html-body" rows="14" style="display:none;width:100%;
-                          padding:0.5rem;border:1px solid var(--gray-300);border-radius:4px;
-                          font-family:monospace;font-size:0.85rem;"
-                          placeholder="Collez ici votre HTML (ex: depuis BookStack)..."></textarea>
-            </div>
+            <!-- TinyMCE s'attache directement au textarea #body en mode HTML -->
             <p class="hint">Variables : {prenom}, {nom}, {email}, {organisation}, {telephone}, {uid}</p>
         </div>
 
@@ -130,100 +116,87 @@
 </div>
 
 <script>
-// === Quill ===
-const quill = new Quill('#editor', {
-    theme: 'snow',
-    modules: {
-        toolbar: [
-            [{ header: [1, 2, 3, false] }],
-            ['bold', 'italic', 'underline', 'strike'],
-            ['link'],
-            [{ list: 'ordered' }, { list: 'bullet' }],
-            ['blockquote'],
-            [{ color: [] }],
-            ['clean']
-        ]
-    },
-    placeholder: 'Rédigez votre message HTML...'
-});
-
+// === TinyMCE ===
 const bodyTextarea = document.getElementById('body');
-const editorContainer = document.getElementById('editor-container');
 const DRAFT_KEY = 'mailing_draft';
+let tinyReady = false;
 
 function isHtmlMode() {
     return document.querySelector('input[name="format"][value="html"]').checked;
 }
 
+function getTinyContent() {
+    const ed = tinymce.get('body');
+    return ed ? ed.getContent() : bodyTextarea.value;
+}
+
+function initTinyMCE(onReady) {
+    if (tinymce.get('body')) { if (onReady) onReady(); return; }
+    tinymce.init({
+        selector: '#body',
+        base_url: 'https://cdn.jsdelivr.net/npm/tinymce@6',
+        suffix: '.min',
+        plugins: 'lists code link',
+        toolbar: 'undo redo | styles | bold italic underline | bullist numlist | outdent indent | link | code | removeformat',
+        menubar: false,
+        height: 420,
+        promotion: false,
+        branding: false,
+        content_style: [
+            'body{font-family:Arial,sans-serif;font-size:14px;line-height:1.6;}',
+            'ol{list-style-type:decimal;} ul{list-style-type:disc;}',
+            'ul ul{list-style-type:circle;} ul ul ul{list-style-type:square;}'
+        ].join(''),
+        setup: function(editor) {
+            editor.on('input change', saveDraft);
+        },
+        init_instance_callback: function() {
+            tinyReady = true;
+            if (onReady) onReady();
+        }
+    });
+}
+
+function removeTinyMCE() {
+    const ed = tinymce.get('body');
+    if (ed) { bodyTextarea.value = ed.getContent(); tinymce.remove('#body'); }
+    tinyReady = false;
+    bodyTextarea.style.display = 'block';
+}
+
 function toggleFormat() {
     if (isHtmlMode()) {
-        const text = bodyTextarea.value;
-        if (text && quill.getText().trim() === '') {
-            const html = text.split('\n').map(l => '<p>' + (l || '<br>') + '</p>').join('');
-            quill.root.innerHTML = html;
-        }
+        const current = bodyTextarea.value;
         bodyTextarea.style.display = 'none';
-        editorContainer.style.display = 'block';
+        initTinyMCE(function() {
+            if (current) tinymce.get('body').setContent(current);
+        });
     } else {
-        const quillText = quill.getText().trim();
-        if (quillText && !bodyTextarea.value.trim()) {
-            bodyTextarea.value = quillText;
-        }
-        editorContainer.style.display = 'none';
-        bodyTextarea.style.display = 'block';
+        removeTinyMCE();
     }
     saveDraft();
 }
 
-let rawHtmlMode = false;
-
-function toggleRawHtml() {
-    const editor = document.getElementById('editor');
-    const rawArea = document.getElementById('raw-html-body');
-    const btn = document.getElementById('raw-toggle-btn');
-    rawHtmlMode = !rawHtmlMode;
-    if (rawHtmlMode) {
-        rawArea.value = quill.root.innerHTML;
-        editor.style.display = 'none';
-        rawArea.style.display = 'block';
-        btn.textContent = 'Éditeur visuel';
-        btn.style.fontWeight = 'bold';
-    } else {
-        quill.root.innerHTML = rawArea.value;
-        rawArea.style.display = 'none';
-        editor.style.display = 'block';
-        btn.textContent = '</> HTML brut';
-        btn.style.fontWeight = '';
+function syncBody() {
+    if (isHtmlMode() && tinyReady) {
+        bodyTextarea.value = getTinyContent();
     }
 }
 
-// Sync Quill → textarea au submit
+// Submit
 document.getElementById('mailing-form').addEventListener('submit', function() {
-    if (isHtmlMode()) {
-        bodyTextarea.value = rawHtmlMode
-            ? document.getElementById('raw-html-body').value
-            : quill.root.innerHTML;
-    }
+    syncBody();
     localStorage.removeItem(DRAFT_KEY);
 });
 
-// Sync Quill → textarea pour la preview aussi
-function syncBody() {
-    if (isHtmlMode()) {
-        bodyTextarea.value = rawHtmlMode
-            ? document.getElementById('raw-html-body').value
-            : quill.root.innerHTML;
-    }
-}
-
-// === Brouillon (localStorage) ===
+// === Brouillon ===
 function saveDraft() {
     const draft = {
         liste_id: document.getElementById('liste_id').value,
         subject: document.getElementById('subject').value,
         format: isHtmlMode() ? 'html' : 'text',
-        body_text: bodyTextarea.value,
-        body_html: quill.root.innerHTML,
+        body_text: isHtmlMode() ? '' : bodyTextarea.value,
+        body_html: isHtmlMode() ? getTinyContent() : '',
         include_unsubscribe: document.querySelector('input[name="include_unsubscribe"]').checked
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -240,7 +213,6 @@ function restoreDraft() {
             document.querySelector(`input[name="format"][value="${draft.format}"]`).checked = true;
         }
         if (draft.format === 'html' && draft.body_html) {
-            quill.root.innerHTML = draft.body_html;
             bodyTextarea.value = draft.body_html;
         } else if (draft.body_text) {
             bodyTextarea.value = draft.body_text;
@@ -249,33 +221,21 @@ function restoreDraft() {
             document.querySelector('input[name="include_unsubscribe"]').checked = draft.include_unsubscribe;
         }
         return true;
-    } catch(e) {
-        return false;
-    }
+    } catch(e) { return false; }
 }
 
-// Sauvegarder régulièrement
 document.getElementById('subject').addEventListener('input', saveDraft);
 bodyTextarea.addEventListener('input', saveDraft);
-quill.on('text-change', saveDraft);
 document.getElementById('liste_id').addEventListener('change', saveDraft);
 document.querySelector('input[name="include_unsubscribe"]').addEventListener('change', saveDraft);
 
 // === Init ===
-// Restaurer le brouillon seulement si pas de prefill (réutilisation)
 const hasPrefill = {{ 'true' if prefill.subject else 'false' }};
-if (!hasPrefill) {
-    restoreDraft();
-}
+if (!hasPrefill) { restoreDraft(); }
 
-// Afficher le bon éditeur selon le mode
 if (isHtmlMode()) {
-    const currentBody = bodyTextarea.value;
     bodyTextarea.style.display = 'none';
-    editorContainer.style.display = 'block';
-    if (currentBody && quill.getText().trim() === '') {
-        quill.root.innerHTML = currentBody;
-    }
+    initTinyMCE();
 }
 
 // === Preview ===
