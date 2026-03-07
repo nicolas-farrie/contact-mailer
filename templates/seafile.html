@@ -79,7 +79,7 @@ function downloadPasswords() {
         </div>
         <div class="form-group">
             <label for="inv_body">Corps du mail (HTML)</label>
-            <p class="hint">Variables disponibles : <code>{prenom}</code>, <code>{nom}</code>, <code>{email}</code>, <code>{seafile_password}</code>, <code>{seafile_url}</code></p>
+            <p class="hint">Variables disponibles : <code>{prenom}</code>, <code>{nom}</code>, <code>{email}</code>, <code>{seafile_password}</code>, <code>{seafile_url}</code>, <code>{message_personnalise}</code></p>
             <textarea id="inv_body" name="body" rows="10" required
                       style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:4px;font-family:monospace;font-size:0.875rem;"><p>Bonjour {prenom},</p>
 
@@ -93,7 +93,16 @@ function downloadPasswords() {
 
 <p>Merci de changer votre mot de passe lors de votre première connexion.</p>
 
+{message_personnalise}
+
 <p>Cordialement</p></textarea>
+        </div>
+        <div class="form-group">
+            <label for="inv_message_perso">Message personnalisé (optionnel)</label>
+            <p class="hint">Ce texte remplace <code>{message_personnalise}</code> dans le corps du mail. HTML accepté.</p>
+            <textarea id="inv_message_perso" name="message_personnalise" rows="4"
+                      placeholder="Ex : N'hésitez pas à nous contacter si vous avez des questions..."
+                      style="width:100%;padding:0.5rem;border:1px solid var(--gray-300);border-radius:4px;"></textarea>
         </div>
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">
@@ -110,24 +119,81 @@ function downloadPasswords() {
 <!-- Régénérer mots de passe -->
 <div class="form-card">
     <h2>Régénérer les mots de passe</h2>
-    <p>Pour les contacts d'une liste déjà présents dans Seafile mais sans invitation en attente, génère de nouveaux mots de passe temporaires via l'API.</p>
+    <p>Pour les contacts d'une liste déjà présents dans Seafile, génère de nouveaux mots de passe temporaires via l'API.</p>
     <form method="POST" action="{{ url_for('seafile_reset_passwords') }}">
         <div class="form-group">
             <label for="reset_liste_id">Liste de contacts</label>
-            <select id="reset_liste_id" name="liste_id" required>
+            <select id="reset_liste_id" name="liste_id" required {% if not sf_configured %}disabled{% endif %}>
                 <option value="">-- Sélectionner une liste --</option>
                 {% for liste in listes %}
                 <option value="{{ liste.id }}">{{ liste.nom }} ({{ liste.count }} contacts)</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="form-actions">
-            <button type="submit" class="btn btn-action" {% if not sf_configured %}disabled{% endif %}>
-                Régénérer les mots de passe
+
+        <div id="reset-contacts-container" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                <label>Contacts à régénérer</label>
+                <span>
+                    <a href="#" onclick="toggleAll(true);return false;" style="font-size:0.875rem;">Tout cocher</a> /
+                    <a href="#" onclick="toggleAll(false);return false;" style="font-size:0.875rem;">Tout décocher</a>
+                </span>
+            </div>
+            <div id="reset-contacts-list"
+                 style="max-height:250px;overflow-y:auto;border:1px solid var(--gray-300);border-radius:4px;padding:0.5rem;"></div>
+        </div>
+
+        <div class="form-actions" style="margin-top:1rem;">
+            <button type="submit" id="reset-submit-btn" class="btn btn-action" disabled>
+                Régénérer les mots de passe sélectionnés
             </button>
         </div>
     </form>
 </div>
+
+<script>
+document.getElementById('reset_liste_id').addEventListener('change', function() {
+    var listeId = this.value;
+    var container = document.getElementById('reset-contacts-container');
+    var listDiv = document.getElementById('reset-contacts-list');
+    var btn = document.getElementById('reset-submit-btn');
+
+    if (!listeId) {
+        container.style.display = 'none';
+        btn.disabled = true;
+        return;
+    }
+
+    listDiv.innerHTML = '<em>Chargement...</em>';
+    container.style.display = 'block';
+
+    fetch('/seafile/contacts/' + listeId)
+        .then(r => r.json())
+        .then(contacts => {
+            if (!contacts.length) {
+                listDiv.innerHTML = '<em>Aucun contact dans cette liste.</em>';
+                btn.disabled = true;
+                return;
+            }
+            listDiv.innerHTML = contacts.map(c => `
+                <label style="display:flex;align-items:center;gap:0.5rem;padding:0.25rem 0;cursor:pointer;">
+                    <input type="checkbox" name="contact_ids" value="${c.id}" checked>
+                    <span>${c.prenom} ${c.nom} &lt;${c.email}&gt;</span>
+                    ${c.has_pending_pwd ? '<span class="tag" style="font-size:0.75rem;background:#fef3c7;">invitation en attente</span>' : ''}
+                </label>
+            `).join('');
+            btn.disabled = false;
+        })
+        .catch(() => {
+            listDiv.innerHTML = '<em style="color:red;">Erreur lors du chargement.</em>';
+        });
+});
+
+function toggleAll(checked) {
+    document.querySelectorAll('#reset-contacts-list input[type=checkbox]')
+        .forEach(cb => cb.checked = checked);
+}
+</script>
 
 <!-- Sync groupes -->
 <div class="form-card">

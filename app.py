@@ -1577,10 +1577,24 @@ def seafile_push():
         return redirect(url_for('seafile'))
 
 
+@app.route('/seafile/contacts/<int:liste_id>')
+@admin_required
+def seafile_liste_contacts(liste_id):
+    """Retourne les contacts d'une liste en JSON (pour la sélection AJAX)."""
+    liste = Liste.query.get_or_404(liste_id)
+    return jsonify([{
+        'id': c.id,
+        'prenom': c.prenom,
+        'nom': c.nom,
+        'email': c.email,
+        'has_pending_pwd': bool(c.seafile_temp_pwd),
+    } for c in liste.contacts])
+
+
 @app.route('/seafile/reset-passwords', methods=['POST'])
 @admin_required
 def seafile_reset_passwords():
-    """Régénère les mots de passe Seafile pour les contacts d'une liste sans invitation en attente."""
+    """Régénère les mots de passe Seafile pour les contacts sélectionnés d'une liste."""
     from seafile import SeafileClient, generate_password
 
     if not Config.SEAFILE_URL:
@@ -1588,14 +1602,16 @@ def seafile_reset_passwords():
         return redirect(url_for('seafile'))
 
     liste_id = request.form.get('liste_id', type=int)
+    contact_ids = set(request.form.getlist('contact_ids', type=int))
+
     if not liste_id:
         flash('Sélectionnez une liste', 'error')
         return redirect(url_for('seafile'))
 
     liste = Liste.query.get_or_404(liste_id)
-    contacts_sans_pwd = [c for c in liste.contacts if not c.seafile_temp_pwd]
-    if not contacts_sans_pwd:
-        flash('Tous les contacts de cette liste ont déjà un mot de passe en attente', 'info')
+    contacts = [c for c in liste.contacts if not contact_ids or c.id in contact_ids]
+    if not contacts:
+        flash('Aucun contact sélectionné', 'error')
         return redirect(url_for('seafile'))
 
     try:
@@ -1608,7 +1624,7 @@ def seafile_reset_passwords():
 
         updated = 0
         not_found = 0
-        for contact in contacts_sans_pwd:
+        for contact in contacts:
             internal_email = contact_to_internal.get(contact.email.strip().lower())
             if internal_email:
                 pwd = generate_password()
@@ -1639,6 +1655,7 @@ def seafile_send_invitations():
 
     subject = request.form.get('subject', '').strip()
     body = request.form.get('body', '').strip()
+    message_personnalise = request.form.get('message_personnalise', '').strip()
 
     if not subject or not body:
         flash('Sujet et corps du mail requis', 'error')
@@ -1658,6 +1675,7 @@ def seafile_send_invitations():
     for contact in contacts:
         contact_dict = contact.to_dict()
         contact_dict['seafile_url'] = Config.SEAFILE_URL
+        contact_dict['message_personnalise'] = message_personnalise
         queue.add(contact_dict, campaign_id)
 
     # Vider les mots de passe après mise en queue
