@@ -121,8 +121,11 @@ class EmailTemplate:
                 '<style>'
                 'body{font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#333;}'
                 'ol,ul{padding-left:2em;margin:0.5em 0;}'
-                'li{margin:0.25em 0;}'
-                'ol ol,ol ul,ul ol,ul ul{margin:0.25em 0;}'
+                'ol{list-style-type:decimal;}'
+                'ul{list-style-type:disc;}'
+                'ul ul{list-style-type:circle;}'
+                'ul ul ul{list-style-type:square;}'
+                'li,li.null{margin:0.25em 0;list-style-position:outside;}'
                 'p{margin:0.5em 0;}'
                 '</style></head><body>'
                 + body_html
