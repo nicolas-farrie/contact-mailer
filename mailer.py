@@ -112,6 +112,23 @@ class EmailTemplate:
                     f'Pour vous désabonner : <a href="{unsubscribe_url}">cliquer ici</a></p>'
                 )
 
+        # Envelopper le HTML dans un document complet si ce n'est pas déjà le cas
+        # (nécessaire pour les styles de listes, polices, etc.)
+        if body_html and not body_html.strip().lower().startswith('<!doctype') \
+                and not body_html.strip().lower().startswith('<html'):
+            body_html = (
+                '<!DOCTYPE html><html><head><meta charset="utf-8">'
+                '<style>'
+                'body{font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#333;}'
+                'ol,ul{padding-left:2em;margin:0.5em 0;}'
+                'li{margin:0.25em 0;}'
+                'ol ol,ol ul,ul ol,ul ul{margin:0.25em 0;}'
+                'p{margin:0.5em 0;}'
+                '</style></head><body>'
+                + body_html
+                + '</body></html>'
+            )
+
         return (subject, body_text, body_html)
 
 
