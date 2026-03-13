@@ -92,10 +92,37 @@ class EmailTemplate:
         def replace_vars(text: str, data: dict) -> str:
             if not text:
                 return ''
-            result = text
-            for key, value in data.items():
-                result = result.replace(f'{{{key}}}', str(value or ''))
-                result = result.replace(f'{{{{ {key} }}}}', str(value or ''))
+
+            # Pass 1 : variables simples {varname}
+            def replace_simple(m):
+                return str(data.get(m.group(1)) or '')
+
+            result = re.sub(r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}', replace_simple, text)
+
+            # Pass 2 : conditionnels {condition:if_true[:if_false]}
+            # condition : field (truthy) | field==val | field!=val
+            def replace_cond(m):
+                condition = m.group(1).strip()
+                if_true  = m.group(2) or ''
+                if_false = m.group(3) or ''
+
+                if '==' in condition:
+                    field, val = condition.split('==', 1)
+                    test = str(data.get(field.strip()) or '') == val.strip()
+                elif '!=' in condition:
+                    field, val = condition.split('!=', 1)
+                    test = str(data.get(field.strip()) or '') != val.strip()
+                else:
+                    test = bool(data.get(condition))
+
+                return if_true if test else if_false
+
+            result = re.sub(
+                r'\{([a-zA-Z_][a-zA-Z0-9_]*(?:[!=]=[^:}]*)?):([^:}]*)(?::([^}]*))?\}',
+                replace_cond,
+                result
+            )
+
             return result
 
         subject = replace_vars(self.subject, contact)

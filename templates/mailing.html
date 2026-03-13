@@ -113,6 +113,11 @@
         <li><code>{adresse_rue}</code>, <code>{adresse_complement}</code>, <code>{adresse_ville}</code>, <code>{adresse_cp}</code>, <code>{adresse_region}</code>, <code>{adresse_pays}</code> - Adresse</li>
         <li><code>{uid}</code> - Identifiant unique du contact</li>
     </ul>
+    <p style="margin-top:0.75em;">
+        <strong>Conditions :</strong> <code>{champ:valeur si rempli:valeur si vide}</code> —
+        ex. <code>{prenom:Bonjour {prenom},: Bonjour,}</code> ou avec opérateur <code>{civilite==M:Monsieur:Madame}</code>.
+        Le troisième bloc (après le 2e <code>:</code>) est optionnel.
+    </p>
 </div>
 
 <script>

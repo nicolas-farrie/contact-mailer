@@ -46,6 +46,7 @@
 - [x] Éditeur HTML : remplacement Quill par TinyMCE (self-hosted jsDelivr, support listes imbriquées)
 - [x] Preview mailing : rendu HTML via iframe srcdoc (isolation CSS, listes correctement rendues)
 - [x] Pièces jointes : limite 5 Mo (MAX_CONTENT_LENGTH Flask + client_max_body_size nginx)
+- [x] Parser mailing : conditions {champ:if_true:if_false} et {champ==val:if_true:if_false}
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
