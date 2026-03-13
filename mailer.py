@@ -108,10 +108,10 @@ class EmailTemplate:
 
                 if '==' in condition:
                     field, val = condition.split('==', 1)
-                    test = str(data.get(field.strip()) or '') == val.strip()
+                    test = str(data.get(field.strip()) or '').lower() == val.strip().lower()
                 elif '!=' in condition:
                     field, val = condition.split('!=', 1)
-                    test = str(data.get(field.strip()) or '') != val.strip()
+                    test = str(data.get(field.strip()) or '').lower() != val.strip().lower()
                 else:
                     test = bool(data.get(condition))
 
