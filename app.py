@@ -153,6 +153,8 @@ def contact_new():
         contact = Contact(
             nom=request.form.get('nom', '').strip(),
             prenom=request.form.get('prenom', '').strip(),
+            genre=request.form.get('genre', '').strip(),
+            titre=request.form.get('titre', '').strip(),
             email=request.form.get('email', '').strip(),
             telephone=request.form.get('telephone', '').strip(),
             organisation=request.form.get('organisation', '').strip(),
@@ -196,6 +198,8 @@ def contact_edit(id):
         back_liste = request.form.get('back_liste', '') or None
         contact.nom = request.form.get('nom', '').strip()
         contact.prenom = request.form.get('prenom', '').strip()
+        contact.genre = request.form.get('genre', '').strip()
+        contact.titre = request.form.get('titre', '').strip()
         contact.email = request.form.get('email', '').strip()
         contact.telephone = request.form.get('telephone', '').strip()
         contact.organisation = request.form.get('organisation', '').strip()
@@ -425,6 +429,8 @@ def _extract_fields_from_row(row):
         'email': email_val,
         'nom': nom,
         'prenom': prenom,
+        'genre': row.get('Genre', row.get('genre', '')).strip(),
+        'titre': row.get('Titre', row.get('titre', '')).strip(),
         'telephone': telephone,
         'organisation': row.get('Organisation', row.get('organisation', '')).strip(),
         'adresse_rue': row.get('Rue', row.get('adresse_rue', '')).strip(),
@@ -516,6 +522,10 @@ def _import_contact_from_row(row, update_existing=False, source='Import'):
             existing.nom = fields['nom']
         if fields['prenom']:
             existing.prenom = fields['prenom']
+        if fields['genre']:
+            existing.genre = fields['genre']
+        if fields['titre']:
+            existing.titre = fields['titre']
         if fields['telephone']:
             existing.telephone = fields['telephone']
         if fields['organisation']:
@@ -545,6 +555,8 @@ def _import_contact_from_row(row, update_existing=False, source='Import'):
     kwargs = dict(
         nom=fields['nom'],
         prenom=fields['prenom'],
+        genre=fields['genre'],
+        titre=fields['titre'],
         email=fields['email'],
         telephone=fields['telephone'],
         organisation=fields['organisation'],
@@ -706,13 +718,14 @@ def export_contacts():
 
     output = io.StringIO()
     writer = csv.writer(output, delimiter='\t')
-    writer.writerow(['UID', 'Nom', 'Prenom', 'Email', 'Telephone', 'Organisation',
+    writer.writerow(['UID', 'Nom', 'Prenom', 'Genre', 'Titre', 'Email', 'Telephone', 'Organisation',
                       'Rue', 'Complement', 'Ville', 'CP', 'Region', 'Pays',
                       'Source', 'Notes', 'Listes'])
 
     for c in contacts:
         writer.writerow([
-            c.uid, c.nom, c.prenom, c.email, c.telephone or '',
+            c.uid, c.nom, c.prenom, c.genre or '', c.titre or '',
+            c.email, c.telephone or '',
             c.organisation or '',
             c.adresse_rue or '', c.adresse_complement or '',
             c.adresse_ville or '', c.adresse_cp or '',

@@ -19,6 +19,8 @@ class Contact(db.Model):
     nom = db.Column(db.String(100), nullable=False)
     prenom = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(200), nullable=False, index=True)
+    genre = db.Column(db.String(20))
+    titre = db.Column(db.String(50))
     telephone = db.Column(db.String(20))
     organisation = db.Column(db.String(200))
     adresse_rue = db.Column(db.String(200))
@@ -53,6 +55,8 @@ class Contact(db.Model):
             'uid': self.uid,
             'nom': self.nom,
             'prenom': self.prenom,
+            'genre': self.genre,
+            'titre': self.titre,
             'email': self.email,
             'telephone': self.telephone,
             'organisation': self.organisation,

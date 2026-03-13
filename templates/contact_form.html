@@ -56,6 +56,17 @@
 
     <div class="form-row">
         <div class="form-group">
+            <label for="genre">Genre</label>
+            <input type="text" id="genre" name="genre" value="{{ contact.genre if contact else '' }}" placeholder="ex: M, F, …">
+        </div>
+        <div class="form-group">
+            <label for="titre">Titre</label>
+            <input type="text" id="titre" name="titre" value="{{ contact.titre if contact else '' }}" placeholder="ex: Dr, Pr, Me, …">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
             <label for="email">Email *</label>
             <input type="email" id="email" name="email" value="{{ contact.email if contact else '' }}" required>
         </div>
