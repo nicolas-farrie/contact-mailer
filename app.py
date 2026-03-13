@@ -791,41 +791,15 @@ def mailing_preview():
     contact = liste.contacts[contact_index]
     contact_dict = contact.to_dict()
 
-    # Remplacer les variables
-    preview_subject = subject
-    preview_body = body
-    for key, value in contact_dict.items():
-        preview_subject = preview_subject.replace(f'{{{key}}}', str(value or ''))
-        preview_body = preview_body.replace(f'{{{key}}}', str(value or ''))
-
-    # Ajouter le footer de désabonnement dans la preview
-    if include_unsubscribe:
-        unsub_url = f"{Config.BASE_URL}/unsubscribe/{contact.uid}"
-        if mail_format == 'html':
-            preview_body += (
-                '<hr><p style="font-size:14px;color:#999;">'
-                f'Pour vous désabonner : <a href="{unsub_url}">cliquer ici</a></p>'
-            )
-        else:
-            preview_body += f'\n\n---\nPour vous désabonner : {unsub_url}'
-
-    # Wrapper HTML pour préserver les styles (listes, indentation)
-    if mail_format == 'html' and not preview_body.strip().lower().startswith(('<!doctype', '<html')):
-        preview_body = (
-            '<!DOCTYPE html><html><head><meta charset="utf-8">'
-            '<style>'
-            'body{font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#333;}'
-            'ol,ul{padding-left:2em;margin:0.5em 0;}'
-            'ol{list-style-type:decimal;}'
-            'ul{list-style-type:disc;}'
-            'ul ul{list-style-type:circle;}'
-            'ul ul ul{list-style-type:square;}'
-            'li,li.null{margin:0.25em 0;list-style-position:outside;}'
-            'p{margin:0.5em 0;}'
-            '</style></head><body>'
-            + preview_body
-            + '</body></html>'
-        )
+    from mailer import EmailTemplate
+    unsub_url = f"{Config.BASE_URL}/unsubscribe/{contact.uid}" if include_unsubscribe else None
+    tpl = EmailTemplate(
+        subject=subject,
+        body_text=body if mail_format == 'text' else '',
+        body_html=body if mail_format == 'html' else None,
+    )
+    preview_subject, preview_body_text, preview_body_html = tpl.render(contact_dict, unsubscribe_url=unsub_url)
+    preview_body = preview_body_html if mail_format == 'html' else preview_body_text
 
     return jsonify({
         'subject': preview_subject,
