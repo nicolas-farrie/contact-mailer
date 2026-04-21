@@ -1,0 +1,16 @@
+venv/
+data/
+.env
+.env.local
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+deploy/
+tools/
+*.md
+Makefile
+docker-compose*.yml
+Dockerfile

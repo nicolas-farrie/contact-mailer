@@ -1,0 +1,17 @@
+# Utilisé en dev local : docker compose -f docker-compose.dev.yml up
+services:
+  app:
+    build: .
+    restart: "no"
+    ports:
+      - "8100:8100"
+    volumes:
+      - ./data:/app/data
+      # Hot-reload du code sans rebuild (pratique en dev)
+      - ./app.py:/app/app.py
+      - ./models.py:/app/models.py
+      - ./mailer.py:/app/mailer.py
+      - ./templates:/app/templates
+      - ./static:/app/static
+    env_file:
+      - .env

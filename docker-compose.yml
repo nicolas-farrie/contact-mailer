@@ -1,0 +1,13 @@
+services:
+  app:
+    # En production : image depuis le registry
+    image: ghcr.io/nicolas-farrie/contact-mailer:latest
+    # En dev local : commenter la ligne image et décommenter build
+    # build: .
+    restart: unless-stopped
+    ports:
+      - "8100:8100"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
