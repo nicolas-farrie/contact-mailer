@@ -47,6 +47,10 @@
 - [x] Preview mailing : rendu HTML via iframe srcdoc (isolation CSS, listes correctement rendues)
 - [x] Pièces jointes : limite 5 Mo (MAX_CONTENT_LENGTH Flask + client_max_body_size nginx)
 - [x] Parser mailing : conditions {champ:if_true:if_false} et {champ==val:if_true:if_false}
+- [x] Dockerisation : Dockerfile, docker-compose, Makefile, registry ghcr.io, repo contact-mailer-deploy
+- [x] Tri colonnes cliquable (contacts, utilisateurs, historique mailing)
+- [x] Suppression campagne dans l'historique (admin uniquement)
+- [x] Navigation mailing unifiée (historique/file/nouveau sur les 3 pages), entrée par l'historique
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
@@ -69,6 +73,7 @@
 - [x] Spinner overlay "Envoi en cours" sur le bouton de lancement de campagne
 - [x] Pièces jointes dans les mailings (upload, stockage, envoi MIMEBase)
 - [x] Affichage du message dans la file d'attente : toggle afficher/masquer, rendu HTML via iframe
+- [ ] Historique mailing : affichage du détail d'une campagne (corps du mail, liste, pièces jointes) — clic sur ligne ou bouton dédié
 - [ ] Envoi asynchrone (ne pas bloquer l'interface pendant l'envoi)
 - [ ] Pagination de la liste des contacts
 - [ ] Recherche avancée (filtres multiples)
