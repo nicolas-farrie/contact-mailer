@@ -16,7 +16,7 @@
         <div class="nav-links" id="nav-links">
             <a href="{{ url_for('contacts') }}" {% if request.endpoint == 'contacts' %}class="active"{% endif %}>Contacts</a>
             <a href="{{ url_for('listes') }}" {% if request.endpoint == 'listes' %}class="active"{% endif %}>Listes</a>
-            <a href="{{ url_for('mailing') }}" {% if request.endpoint in ['mailing', 'mailing_queue', 'mailing_history'] %}class="active"{% endif %}>Mailing</a>
+            <a href="{{ url_for('mailing_history') }}" {% if request.endpoint in ['mailing', 'mailing_queue', 'mailing_history'] %}class="active"{% endif %}>Mailing</a>
             {% if current_user.is_admin %}
             <a href="{{ url_for('import_contacts') }}" {% if request.endpoint == 'import_contacts' %}class="active"{% endif %}>Import</a>
             <a href="{{ url_for('users') }}" {% if request.endpoint in ['users', 'user_new', 'user_edit'] %}class="active"{% endif %}>Utilisateurs</a>
@@ -38,6 +38,39 @@
     }
     </script>
     {% endif %}
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.data-table th[data-sort]').forEach(function(th) {
+            th.style.cursor = 'pointer';
+            th.title = 'Cliquer pour trier';
+            th.addEventListener('click', function() { sortByTh(th); });
+        });
+    });
+    function sortByTh(th) {
+        var table = th.closest('table');
+        var tbody = table.querySelector('tbody');
+        var idx = Array.from(th.parentElement.children).indexOf(th);
+        var asc = th.dataset.sortDir !== 'asc';
+        th.dataset.sortDir = asc ? 'asc' : 'desc';
+        table.querySelectorAll('th[data-sort]').forEach(function(t) {
+            t.classList.remove('sort-asc', 'sort-desc');
+        });
+        th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort(function(a, b) {
+            var at = (a.cells[idx] ? a.cells[idx].textContent.trim() : '');
+            var bt = (b.cells[idx] ? b.cells[idx].textContent.trim() : '');
+            return asc ? at.localeCompare(bt, 'fr', {numeric: true}) : bt.localeCompare(at, 'fr', {numeric: true});
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    }
+    </script>
+    <style>
+    th.sort-asc::after  { content: ' ▲'; font-size: 0.7em; opacity: 0.6; }
+    th.sort-desc::after { content: ' ▼'; font-size: 0.7em; opacity: 0.6; }
+    th[data-sort]:hover { background: rgba(0,0,0,0.05); }
+    </style>
 
     <main class="container {% block container_class %}{% endblock %}">
         {% with messages = get_flashed_messages(with_categories=true) %}

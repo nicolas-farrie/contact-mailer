@@ -299,6 +299,11 @@ class MailQueue:
             self.queue = []
         self.save()
 
+    def delete_campaign(self, campaign_id: str):
+        self.queue = [i for i in self.queue if i['campaign_id'] != campaign_id]
+        self.campaigns.pop(campaign_id, None)
+        self.save()
+
 
 class Mailer:
     """Envoi d'emails avec rate-limiting"""

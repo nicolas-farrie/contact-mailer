@@ -20,4 +20,4 @@ RUN mkdir -p data/attachments
 
 EXPOSE 8100
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8100", "--workers", "2", "--timeout", "300", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8100", "--workers", "2", "--timeout", "300", "--preload", "app:app"]

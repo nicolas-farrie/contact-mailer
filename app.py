@@ -780,6 +780,17 @@ def mailing_history():
     return render_template('mailing_history.html', campaigns=campaigns)
 
 
+@app.route('/mailing/history/delete/<campaign_id>', methods=['POST'])
+@login_required
+@admin_required
+def mailing_history_delete(campaign_id):
+    from mailer import MailQueue
+    queue = MailQueue()
+    queue.delete_campaign(campaign_id)
+    flash('Campagne supprimée.', 'success')
+    return redirect(url_for('mailing_history'))
+
+
 @app.route('/mailing/preview', methods=['POST'])
 @login_required
 def mailing_preview():
