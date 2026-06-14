@@ -328,6 +328,22 @@ select:focus {
     cursor: pointer;
 }
 
+.submission-attachments-list {
+    margin: 0.5rem 0 0;
+    padding-left: 1.25rem;
+}
+
+.submission-attachments-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.submission-attachments-list .checkbox-label {
+    display: inline-flex;
+}
+
 /* === DATA TABLE === */
 .data-table {
     width: 100%;

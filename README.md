@@ -208,6 +208,10 @@ IMAP_USER=demande-diffusion@votre-domaine.com
 IMAP_PASSWORD=...
 IMAP_FOLDER=INBOX
 IMAP_PROCESSED_FOLDER=Traite
+# Optionnel : ne traiter que les messages dont le sujet contient cette chaîne
+IMAP_SUBJECT_FILTER=
+# Optionnel : ne traiter que les messages adressés à cet alias (en-tête To)
+IMAP_TO_FILTER=
 ```
 
 Fonctionnement :
@@ -223,6 +227,18 @@ Fonctionnement :
   une table en base.
 - Aucune dépendance supplémentaire : utilise uniquement `imaplib`/`email` (bibliothèque standard
   Python).
+- Avec une adresse dédiée, tous les messages reçus sont considérés comme des demandes. Si la
+  boîte est partagée avec d'autres usages (ou pour des tests sur une boîte existante), renseignez
+  `IMAP_SUBJECT_FILTER` (ex: `mailing:`) : seuls les messages dont le sujet contient cette chaîne
+  seront listés dans Demandes.
+- Si la boîte reçoit plusieurs alias (ex: `contact@` et `diffusion@` qui pointent vers la même
+  boîte), renseignez `IMAP_TO_FILTER` (ex: `diffusion@votre-domaine.com`) : seuls les messages
+  adressés à cet alias seront listés dans Demandes. Combinable avec `IMAP_SUBJECT_FILTER`
+  (les deux filtres sont alors cumulatifs : il faut correspondre aux deux).
+  La recherche IMAP `TO` porte sur l'en-tête `To:` du message — si votre hébergeur réécrit
+  cet en-tête lors de la redirection d'alias (catch-all), vérifiez sur un message de test
+  qu'il contient bien l'alias attendu (sinon `IMAP_TO_FILTER` ne matchera jamais et
+  aucune demande n'apparaîtra).
 
 ## Licence
 

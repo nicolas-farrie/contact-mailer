@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, Contact, Liste, User, BookstackRole
@@ -766,11 +766,17 @@ def mailing():
             }
 
     # Pré-remplissage depuis une demande de diffusion (boîte IMAP)
+    # Stocké sur disque (et non en session) car le corps peut contenir des
+    # images encodées en base64, trop volumineuses pour un cookie de session.
     submission_attachments = []
     submission_id = None
-    if request.args.get('from_submission'):
-        data = session.pop('submission_prefill', None)
-        if data:
+    from_submission = request.args.get('from_submission')
+    if from_submission:
+        import json
+        from pathlib import Path
+        prefill_path = Path(f'data/attachments/submission_{from_submission}/_prefill.json')
+        if prefill_path.exists():
+            data = json.loads(prefill_path.read_text(encoding='utf-8'))
             prefill = {
                 'subject': data.get('subject', ''),
                 'body': data.get('body', ''),
@@ -778,7 +784,7 @@ def mailing():
                 'liste_id': '',
             }
             submission_attachments = data.get('attachments', [])
-            submission_id = data.get('submission_id')
+            submission_id = from_submission
 
     return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill,
                            submission_attachments=submission_attachments, submission_id=submission_id)
@@ -829,7 +835,11 @@ def mailing_submissions():
 @app.route('/mailing/submissions/<uid>/use', methods=['POST'])
 @login_required
 def mailing_submission_use(uid):
-    """Pré-remplit le formulaire mailing depuis une demande, puis archive le message"""
+    """Pré-remplit le formulaire mailing depuis une demande.
+
+    Le message n'est marqué comme traité que lorsque le mailing est
+    effectivement mis en file d'envoi (cf. mailing_add_to_queue), afin
+    qu'une demande abandonnée en cours de route reste visible."""
     import imap_submissions
     from werkzeug.utils import secure_filename
     from pathlib import Path
@@ -841,29 +851,30 @@ def mailing_submission_use(uid):
             return redirect(url_for('mailing_submissions'))
 
         # Sauvegarder les pièces jointes sur disque
+        import json
+        attach_dir = Path(f'data/attachments/submission_{uid}')
+        attach_dir.mkdir(parents=True, exist_ok=True)
         saved_attachments = []
-        if sub['attachments']:
-            attach_dir = Path(f'data/attachments/submission_{uid}')
-            attach_dir.mkdir(parents=True, exist_ok=True)
-            for a in sub['attachments']:
-                filename = secure_filename(a['filename'])
-                if filename:
-                    (attach_dir / filename).write_bytes(a['payload'])
-                    saved_attachments.append(filename)
+        for a in sub['attachments']:
+            filename = secure_filename(a['filename'])
+            if filename:
+                (attach_dir / filename).write_bytes(a['payload'])
+                saved_attachments.append(filename)
 
         body = sub['body_html'] or sub['body_text']
         fmt = 'html' if sub['body_html'] else 'text'
 
-        session['submission_prefill'] = {
+        # Pré-remplissage stocké sur disque (peut être volumineux : images
+        # encodées en base64), pas en session
+        prefill_data = {
             'subject': sub['subject'],
             'body': body,
             'format': fmt,
             'attachments': saved_attachments,
-            'submission_id': uid,
         }
+        (attach_dir / '_prefill.json').write_text(json.dumps(prefill_data), encoding='utf-8')
 
-        imap_submissions.mark_processed(Config, uid)
-        return redirect(url_for('mailing', from_submission=1))
+        return redirect(url_for('mailing', from_submission=uid))
     except Exception as e:
         flash(f'Erreur lors de la lecture du message : {e}', 'error')
         return redirect(url_for('mailing_submissions'))
@@ -990,9 +1001,13 @@ def mailing_send():
     # Sauvegarder les pièces jointes sur disque
     from werkzeug.utils import secure_filename
     from pathlib import Path
+    import shutil
     attachment_paths = []
     uploaded_files = request.files.getlist('attachments')
-    if uploaded_files and uploaded_files[0].filename:
+    submission_id = request.form.get('submission_id') or None
+    # Pièces jointes de la demande explicitement validées par l'utilisateur
+    included_submission_attachments = set(request.form.getlist('submission_attachments'))
+    if (uploaded_files and uploaded_files[0].filename) or included_submission_attachments:
         attach_dir = Path(f'data/attachments/{campaign_id}')
         attach_dir.mkdir(parents=True, exist_ok=True)
         for f in uploaded_files:
@@ -1003,13 +1018,24 @@ def mailing_send():
                     f.save(str(filepath))
                     attachment_paths.append(str(filepath))
 
+        # Reprendre les pièces jointes de la demande de diffusion validées par l'utilisateur
+        if submission_id and included_submission_attachments:
+            submission_dir = Path(f'data/attachments/submission_{submission_id}')
+            if submission_dir.is_dir():
+                for f in submission_dir.iterdir():
+                    if f.is_file() and f.name in included_submission_attachments:
+                        dest = attach_dir / f.name
+                        shutil.copy(str(f), str(dest))
+                        attachment_paths.append(str(dest))
+
     # Sauvegarder le template (sans encore peupler la queue)
     queue = MailQueue()
     queue.set_campaign_template(campaign_id, subject, body, mail_format,
                                 sent_by=current_user.username,
                                 include_unsubscribe=include_unsubscribe,
                                 attachments=attachment_paths or None,
-                                liste_id=liste_id)
+                                liste_id=liste_id,
+                                submission_id=submission_id)
 
     return redirect(url_for('mailing_confirm', campaign=campaign_id))
 
@@ -1060,6 +1086,18 @@ def mailing_add_to_queue():
     selected = [c for c in liste.contacts if c.id in contact_ids and not c.is_unsubscribed]
     for contact in selected:
         queue.add(contact.to_dict(), campaign_id)
+
+    # Si ce mailing provient d'une demande de diffusion, on la marque traitée
+    # maintenant qu'elle a réellement été mise en file d'envoi
+    submission_id = tpl.get('submission_id')
+    if submission_id:
+        import imap_submissions
+        import shutil
+        try:
+            imap_submissions.mark_processed(Config, submission_id)
+        except Exception as e:
+            flash(f'Campagne créée, mais erreur lors du classement de la demande : {e}', 'error')
+        shutil.rmtree(f'data/attachments/submission_{submission_id}', ignore_errors=True)
 
     flash(f'Campagne "{campaign_id}" créée avec {len(selected)} contacts.', 'success')
     return redirect(url_for('mailing_queue', campaign=campaign_id))

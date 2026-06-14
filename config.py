@@ -53,3 +53,9 @@ class Config:
     IMAP_PASSWORD = os.environ.get('IMAP_PASSWORD', '')
     IMAP_FOLDER = os.environ.get('IMAP_FOLDER', 'INBOX')
     IMAP_PROCESSED_FOLDER = os.environ.get('IMAP_PROCESSED_FOLDER', 'Traite')
+    # Filtre optionnel : seuls les messages dont le sujet contient cette chaîne
+    # sont considérés comme des demandes (laisser vide = tous les messages du dossier)
+    IMAP_SUBJECT_FILTER = os.environ.get('IMAP_SUBJECT_FILTER', '')
+    # Filtre optionnel : seuls les messages adressés à cet alias (en-tête To)
+    # sont considérés comme des demandes (laisser vide = tous les messages du dossier)
+    IMAP_TO_FILTER = os.environ.get('IMAP_TO_FILTER', '')

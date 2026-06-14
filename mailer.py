@@ -5,13 +5,42 @@ import smtplib
 import ssl
 import time
 import email
+import base64
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
-from email.utils import formataddr
+from email.utils import formataddr, make_msgid
 from pathlib import Path
 from datetime import datetime
 import re
 import json
+
+
+_DATA_URI_RE = re.compile(r'data:(image/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)')
+
+
+def _extract_inline_images(body_html):
+    """Remplace les images en data URI dans le HTML par des références cid:
+    et retourne les parts MIME image correspondantes (à attacher en multipart/related).
+
+    Nécessaire car un body HTML contenant une grosse data URI dépasse la taille
+    de clip de la plupart des webmails (ex: ~102 Ko sur Gmail), ce qui fait
+    disparaître tout le contenu visible du message."""
+    images = []
+    if not body_html:
+        return body_html, images
+
+    def replace(m):
+        content_type, data = m.group(1), m.group(2)
+        cid = make_msgid()[1:-1]
+        img = MIMEImage(base64.b64decode(data), _subtype=content_type.split('/', 1)[1])
+        img.add_header('Content-ID', f'<{cid}>')
+        img.add_header('Content-Disposition', 'inline')
+        images.append(img)
+        return f'cid:{cid}'
+
+    new_html = _DATA_URI_RE.sub(replace, body_html)
+    return new_html, images
 
 
 class EmailTemplate:
@@ -193,7 +222,8 @@ class MailQueue:
 
     def set_campaign_template(self, campaign_id: str, subject: str, body: str, format: str = 'text',
                               sent_by: str = None, include_unsubscribe: bool = False,
-                              attachments: list = None, liste_id: int = None):
+                              attachments: list = None, liste_id: int = None,
+                              submission_id: str = None):
         """Stocke le sujet, corps et format du mail pour une campagne"""
         data = {'subject': subject, 'body': body, 'format': format,
                 'include_unsubscribe': include_unsubscribe}
@@ -203,6 +233,8 @@ class MailQueue:
             data['attachments'] = attachments
         if liste_id:
             data['liste_id'] = liste_id
+        if submission_id:
+            data['submission_id'] = submission_id
         self.campaigns[campaign_id] = data
         self.save()
 
@@ -321,15 +353,19 @@ class Mailer:
     def send_single(self, to_email: str, subject: str, body_text: str, body_html: str = None,
                      unsubscribe_url: str = None, attachments: list = None) -> bool:
         """Envoie un email unique. Retourne True si succès."""
-        from email.utils import formatdate, make_msgid
+        from email.utils import formatdate
         from email.mime.base import MIMEBase
         from email import encoders as email_encoders
 
         has_attachments = bool(attachments)
+        body_html, inline_images = _extract_inline_images(body_html)
+        has_inline_images = bool(inline_images)
 
         try:
             if has_attachments:
                 msg = MIMEMultipart('mixed')
+            elif body_html and has_inline_images:
+                msg = MIMEMultipart('related')
             elif body_html:
                 msg = MIMEMultipart('alternative')
             else:
@@ -346,15 +382,33 @@ class Mailer:
                 msg['List-Unsubscribe'] = f'<{unsubscribe_url}>'
                 msg['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
 
-            if has_attachments:
-                # Partie texte/html
-                if body_html:
+            if body_html:
+                if has_inline_images:
+                    alt = MIMEMultipart('alternative')
+                    alt.attach(MIMEText(body_text, 'plain', 'utf-8'))
+                    alt.attach(MIMEText(body_html, 'html', 'utf-8'))
+                    if has_attachments:
+                        related = MIMEMultipart('related')
+                        related.attach(alt)
+                        for img in inline_images:
+                            related.attach(img)
+                        msg.attach(related)
+                    else:
+                        msg.attach(alt)
+                        for img in inline_images:
+                            msg.attach(img)
+                elif has_attachments:
                     alt = MIMEMultipart('alternative')
                     alt.attach(MIMEText(body_text, 'plain', 'utf-8'))
                     alt.attach(MIMEText(body_html, 'html', 'utf-8'))
                     msg.attach(alt)
                 else:
                     msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
+                    msg.attach(MIMEText(body_html, 'html', 'utf-8'))
+            elif has_attachments:
+                msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
+
+            if has_attachments:
                 # Pièces jointes
                 for filepath in attachments:
                     filepath = Path(filepath)
@@ -366,9 +420,6 @@ class Mailer:
                     email_encoders.encode_base64(part)
                     part.add_header('Content-Disposition', f'attachment; filename="{filepath.name}"')
                     msg.attach(part)
-            elif body_html:
-                msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
-                msg.attach(MIMEText(body_html, 'html', 'utf-8'))
 
             context = ssl.create_default_context()
 

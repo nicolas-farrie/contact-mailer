@@ -5,6 +5,7 @@ pour demander la diffusion d'un message à une liste. Un utilisateur de l'app co
 ces demandes, les utilise comme brouillon pour un mailing, puis le message est déplacé
 vers un dossier "Traité" (état géré par les dossiers IMAP, pas de table en DB).
 """
+import base64
 import imaplib
 import email
 from email.header import decode_header
@@ -30,15 +31,29 @@ def _connect(config):
     return conn
 
 
+def _search_criteria(config):
+    """Critère de recherche IMAP : tous les messages, ou ceux qui correspondent
+    aux filtres IMAP_TO_FILTER (alias destinataire) et/ou IMAP_SUBJECT_FILTER
+    (sujet) configurés."""
+    criteria = []
+    if config.IMAP_TO_FILTER:
+        criteria += ['TO', f'"{config.IMAP_TO_FILTER}"']
+    if config.IMAP_SUBJECT_FILTER:
+        criteria += ['SUBJECT', f'"{config.IMAP_SUBJECT_FILTER}"']
+    return criteria or ['ALL']
+
+
 def _extract_body_and_attachments(msg):
     body_text = ''
     body_html = ''
     attachments = []
+    inline_images = {}  # Content-ID (sans < >) -> (content_type, payload)
 
     if msg.is_multipart():
         for part in msg.walk():
             content_type = part.get_content_type()
             disposition = part.get_content_disposition()
+            content_id = (part.get('Content-ID') or '').strip('<>')
 
             if disposition == 'attachment':
                 filename = _decode(part.get_filename())
@@ -50,6 +65,10 @@ def _extract_body_and_attachments(msg):
                         'size': len(payload),
                         'payload': payload,
                     })
+            elif content_type.startswith('image/') and content_id:
+                payload = part.get_payload(decode=True)
+                if payload:
+                    inline_images[content_id] = (content_type, payload)
             elif content_type == 'text/plain' and not body_text:
                 charset = part.get_content_charset() or 'utf-8'
                 body_text = part.get_payload(decode=True).decode(charset, errors='replace')
@@ -65,6 +84,12 @@ def _extract_body_and_attachments(msg):
         else:
             body_text = content
 
+    # Remplacer les références cid: par des data URI pour affichage direct
+    # dans l'éditeur et conservation dans le mail envoyé
+    for cid, (content_type, payload) in inline_images.items():
+        data_uri = f'data:{content_type};base64,{base64.b64encode(payload).decode("ascii")}'
+        body_html = body_html.replace(f'cid:{cid}', data_uri)
+
     return body_text, body_html, attachments
 
 
@@ -73,7 +98,7 @@ def fetch_submissions(config):
     conn = _connect(config)
     try:
         conn.select(config.IMAP_FOLDER)
-        status, data = conn.search(None, 'ALL')
+        status, data = conn.search(None, *_search_criteria(config))
         if status != 'OK':
             return []
 
@@ -160,7 +185,7 @@ def count_pending(config):
     conn = _connect(config)
     try:
         conn.select(config.IMAP_FOLDER)
-        status, data = conn.search(None, 'ALL')
+        status, data = conn.search(None, *_search_criteria(config))
         if status != 'OK':
             return 0
         return len(data[0].split())

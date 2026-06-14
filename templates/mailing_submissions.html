@@ -25,9 +25,9 @@
     <h3>Fonctionnement</h3>
     <ul>
         <li>Les messages reçus sur la boîte dédiée apparaissent ci-dessous</li>
-        <li><strong>Utiliser</strong> : pré-remplit un nouveau mailing avec le sujet et le corps du message, puis archive la demande</li>
+        <li><strong>Utiliser</strong> : pré-remplit un nouveau mailing avec le sujet et le corps du message. La demande reste visible ici tant que le mailing n'est pas mis en file d'envoi (en cas d'abandon, rien n'est perdu)</li>
         <li><strong>Archiver</strong> : marque la demande comme traitée sans créer de mailing</li>
-        <li>Les demandes archivées sont déplacées vers le dossier "{{ config.IMAP_PROCESSED_FOLDER }}" de la boîte</li>
+        <li>Les demandes traitées (utilisées et envoyées, ou archivées) sont déplacées vers le dossier "{{ config.IMAP_PROCESSED_FOLDER }}" de la boîte</li>
     </ul>
 </div>
 

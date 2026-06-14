@@ -84,4 +84,5 @@
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
   - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
-  do
+  dopris
+  - em
