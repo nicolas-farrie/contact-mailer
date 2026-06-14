@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, Contact, Liste, User, BookstackRole
@@ -765,7 +765,23 @@ def mailing():
                 'liste_id': tpl.get('liste_id', ''),
             }
 
-    return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill)
+    # Pré-remplissage depuis une demande de diffusion (boîte IMAP)
+    submission_attachments = []
+    submission_id = None
+    if request.args.get('from_submission'):
+        data = session.pop('submission_prefill', None)
+        if data:
+            prefill = {
+                'subject': data.get('subject', ''),
+                'body': data.get('body', ''),
+                'format': data.get('format', 'text'),
+                'liste_id': '',
+            }
+            submission_attachments = data.get('attachments', [])
+            submission_id = data.get('submission_id')
+
+    return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill,
+                           submission_attachments=submission_attachments, submission_id=submission_id)
 
 
 @app.route('/mailing/history')
@@ -789,6 +805,90 @@ def mailing_history_delete(campaign_id):
     queue.delete_campaign(campaign_id)
     flash('Campagne supprimée.', 'success')
     return redirect(url_for('mailing_history'))
+
+
+@app.route('/mailing/submissions')
+@login_required
+def mailing_submissions():
+    """Liste les demandes de diffusion reçues sur la boîte IMAP dédiée"""
+    imap_configured = bool(Config.IMAP_HOST and Config.IMAP_USER)
+    submissions = []
+    error = None
+
+    if imap_configured:
+        import imap_submissions
+        try:
+            submissions = imap_submissions.fetch_submissions(Config)
+        except Exception as e:
+            error = str(e)
+
+    return render_template('mailing_submissions.html', submissions=submissions,
+                           imap_configured=imap_configured, error=error)
+
+
+@app.route('/mailing/submissions/<uid>/use', methods=['POST'])
+@login_required
+def mailing_submission_use(uid):
+    """Pré-remplit le formulaire mailing depuis une demande, puis archive le message"""
+    import imap_submissions
+    from werkzeug.utils import secure_filename
+    from pathlib import Path
+
+    try:
+        sub = imap_submissions.get_submission(Config, uid)
+        if not sub:
+            flash('Message introuvable (déjà traité ?)', 'error')
+            return redirect(url_for('mailing_submissions'))
+
+        # Sauvegarder les pièces jointes sur disque
+        saved_attachments = []
+        if sub['attachments']:
+            attach_dir = Path(f'data/attachments/submission_{uid}')
+            attach_dir.mkdir(parents=True, exist_ok=True)
+            for a in sub['attachments']:
+                filename = secure_filename(a['filename'])
+                if filename:
+                    (attach_dir / filename).write_bytes(a['payload'])
+                    saved_attachments.append(filename)
+
+        body = sub['body_html'] or sub['body_text']
+        fmt = 'html' if sub['body_html'] else 'text'
+
+        session['submission_prefill'] = {
+            'subject': sub['subject'],
+            'body': body,
+            'format': fmt,
+            'attachments': saved_attachments,
+            'submission_id': uid,
+        }
+
+        imap_submissions.mark_processed(Config, uid)
+        return redirect(url_for('mailing', from_submission=1))
+    except Exception as e:
+        flash(f'Erreur lors de la lecture du message : {e}', 'error')
+        return redirect(url_for('mailing_submissions'))
+
+
+@app.route('/mailing/submissions/<uid>/archive', methods=['POST'])
+@login_required
+def mailing_submission_archive(uid):
+    """Archive une demande sans l'utiliser"""
+    import imap_submissions
+    try:
+        imap_submissions.mark_processed(Config, uid)
+        flash('Demande archivée.', 'success')
+    except Exception as e:
+        flash(f'Erreur : {e}', 'error')
+    return redirect(url_for('mailing_submissions'))
+
+
+@app.route('/mailing/submission-attachment/<submission_id>/<filename>')
+@login_required
+def mailing_submission_attachment(submission_id, filename):
+    """Téléchargement d'une pièce jointe extraite d'une demande de diffusion"""
+    from pathlib import Path
+    attach_dir = Path(f'data/attachments/submission_{submission_id}').absolute()
+    return send_from_directory(attach_dir, filename, as_attachment=True)
 
 
 @app.route('/mailing/preview', methods=['POST'])

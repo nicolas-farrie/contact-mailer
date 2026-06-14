@@ -45,3 +45,11 @@ class Config:
     # Seafile API
     SEAFILE_URL = os.environ.get('SEAFILE_URL', '')
     SEAFILE_TOKEN = os.environ.get('SEAFILE_TOKEN', '')
+
+    # IMAP - boîte de réception des demandes de diffusion
+    IMAP_HOST = os.environ.get('IMAP_HOST', '')
+    IMAP_PORT = int(os.environ.get('IMAP_PORT', 993))
+    IMAP_USER = os.environ.get('IMAP_USER', '')
+    IMAP_PASSWORD = os.environ.get('IMAP_PASSWORD', '')
+    IMAP_FOLDER = os.environ.get('IMAP_FOLDER', 'INBOX')
+    IMAP_PROCESSED_FOLDER = os.environ.get('IMAP_PROCESSED_FOLDER', 'Traite')

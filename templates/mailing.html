@@ -10,13 +10,27 @@
     <div>
         <a href="{{ url_for('mailing_history') }}" class="btn">Historique</a>
         <a href="{{ url_for('mailing_queue') }}" class="btn">File d'attente</a>
-
+        <a href="{{ url_for('mailing_submissions') }}" class="btn">Demandes</a>
     </div>
 </div>
 
 {% if not smtp_configured %}
 <div class="alert alert-error">
     <strong>SMTP non configuré.</strong> Ajoutez les variables SMTP_HOST, SMTP_USER, etc. dans votre fichier .env
+</div>
+{% endif %}
+
+{% if submission_id %}
+<div class="alert alert-info">
+    <strong>Brouillon issu d'une demande de diffusion.</strong> Relisez et adaptez le sujet, le message et la liste de destinataires avant l'envoi.
+    {% if submission_attachments %}
+    <p>Pièces jointes de la demande (à télécharger puis joindre ci-dessous si besoin) :</p>
+    <ul>
+        {% for filename in submission_attachments %}
+        <li><a href="{{ url_for('mailing_submission_attachment', submission_id=submission_id, filename=filename) }}">{{ filename }}</a></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
 </div>
 {% endif %}
 

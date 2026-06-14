@@ -10,7 +10,9 @@ services:
       # Hot-reload du code sans rebuild (pratique en dev)
       - ./app.py:/app/app.py
       - ./models.py:/app/models.py
+      - ./config.py:/app/config.py
       - ./mailer.py:/app/mailer.py
+      - ./imap_submissions.py:/app/imap_submissions.py
       - ./templates:/app/templates
       - ./static:/app/static
     env_file:

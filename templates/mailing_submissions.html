@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Demandes de diffusion - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Demandes de diffusion {% if submissions %}<span class="count">({{ submissions|length }})</span>{% endif %}</h1>
+    <div>
+        <a href="{{ url_for('mailing_history') }}" class="btn">Historique</a>
+        <a href="{{ url_for('mailing_queue') }}" class="btn">File d'attente</a>
+        <a href="{{ url_for('mailing') }}" class="btn btn-primary">+ Nouveau mailing</a>
+    </div>
+</div>
+
+{% if not imap_configured %}
+<div class="alert alert-error">
+    <strong>Boîte de demandes non configurée.</strong> Ajoutez IMAP_HOST, IMAP_USER, IMAP_PASSWORD dans votre fichier .env
+</div>
+{% elif error %}
+<div class="alert alert-error">
+    <strong>Erreur de connexion IMAP :</strong> {{ error }}
+</div>
+{% endif %}
+
+<div class="info-box">
+    <h3>Fonctionnement</h3>
+    <ul>
+        <li>Les messages reçus sur la boîte dédiée apparaissent ci-dessous</li>
+        <li><strong>Utiliser</strong> : pré-remplit un nouveau mailing avec le sujet et le corps du message, puis archive la demande</li>
+        <li><strong>Archiver</strong> : marque la demande comme traitée sans créer de mailing</li>
+        <li>Les demandes archivées sont déplacées vers le dossier "{{ config.IMAP_PROCESSED_FOLDER }}" de la boîte</li>
+    </ul>
+</div>
+
+{% if submissions %}
+<div class="table-responsive">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th data-sort>Date</th>
+            <th data-sort>De</th>
+            <th data-sort>Sujet</th>
+            <th>Pièces jointes</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in submissions %}
+        <tr>
+            <td style="white-space:nowrap">{{ s.date }}</td>
+            <td>{{ s.from_name or s.from_email }}{% if s.from_name %} <span class="hint">&lt;{{ s.from_email }}&gt;</span>{% endif %}</td>
+            <td class="campaign-subject">{{ s.subject or '(sans sujet)' }}</td>
+            <td>
+                {% for a in s.attachments %}
+                <span class="badge badge-pending" title="{{ a.size }} octets">{{ a.filename }}</span>
+                {% endfor %}
+            </td>
+            <td class="actions-cell">
+                <form method="POST" action="{{ url_for('mailing_submission_use', uid=s.uid) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-primary">Utiliser pour un mailing</button>
+                </form>
+                <form method="POST" action="{{ url_for('mailing_submission_archive', uid=s.uid) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-secondary"
+                            onclick="return confirm('Archiver cette demande sans créer de mailing ?')">Archiver</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif imap_configured and not error %}
+<div class="empty-state">
+    <p>Aucune demande en attente.</p>
+</div>
+{% endif %}
+
+<style>
+.campaign-subject {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.25rem;
+}
+.badge-pending { background: #fef3c7; color: #92400e; }
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+.actions-cell {
+    white-space: nowrap;
+}
+.actions-cell .btn {
+    margin-right: 0.25rem;
+}
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--gray-500);
+}
+</style>
+{% endblock %}

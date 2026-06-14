@@ -54,6 +54,7 @@
 - [x] Édition utilisateur : remplissage auto nom/prénom/email depuis la fiche contact liée (avec confirmation si déjà rempli)
 - [x] Pages BookStack/Seafile : affichage de l'instance connectée dans le titre
 - [x] README : documentation configuration BookStack/Seafile + avertissement caractères parasites .env
+- [x] Demandes de diffusion : boîte IMAP dédiée, page "Demandes" (4e bouton nav mailing), pré-remplissage mailing depuis une demande, archivage (dossier IMAP "Traité")
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)

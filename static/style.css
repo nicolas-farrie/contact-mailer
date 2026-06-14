@@ -130,6 +130,11 @@ a:hover {
     color: #991b1b;
 }
 
+.alert-info {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
 /* === PAGE HEADER === */
 .page-header {
     display: flex;

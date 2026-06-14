@@ -37,6 +37,8 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 - **Copie expéditeur** : une copie de chaque campagne est envoyée au sender
 - **Rate-limiting** configurable (emails/minute)
 - Envoi via SMTP existant (pas de serveur mail à configurer)
+- **Demandes de diffusion** : les contacts peuvent demander la diffusion d'un message via une boîte email
+  dédiée ; les utilisateurs relisent et adaptent ces demandes avant envoi (pas de réponse automatique)
 
 ### Désabonnement (RGPD)
 - Lien de désabonnement dans chaque email (activable par campagne)
@@ -192,6 +194,35 @@ L'URL configurée est affichée dans le titre des pages BookStack/Seafile, prati
 > grep -n "SEAFILE_URL\|BOOKSTACK_URL" .env | cat -A
 > ```
 > Une ligne propre se termine par `$` juste après l'URL.
+
+## Demandes de diffusion (boîte IMAP dédiée)
+
+Pour permettre à vos contacts de demander la diffusion d'un message sans mettre en place un système
+de type liste de diffusion (réponse automatique à tous), Contact Mailer peut surveiller une boîte
+email dédiée par IMAP :
+
+```env
+IMAP_HOST=imap.example.com
+IMAP_PORT=993
+IMAP_USER=demande-diffusion@votre-domaine.com
+IMAP_PASSWORD=...
+IMAP_FOLDER=INBOX
+IMAP_PROCESSED_FOLDER=Traite
+```
+
+Fonctionnement :
+- Un contact écrit à l'adresse dédiée (ex: `demande-diffusion@votre-domaine.com`) pour demander
+  l'envoi d'un message à une liste.
+- Les messages reçus apparaissent dans **Mailing → Demandes**, accessible à tous les utilisateurs.
+- **Utiliser pour un mailing** pré-remplit un nouveau mailing (sujet, corps, pièces jointes) à partir
+  de la demande — **à relire et adapter avant envoi** (notamment la liste de destinataires, qui n'est
+  jamais pré-sélectionnée).
+- **Archiver** marque la demande comme traitée sans créer de mailing.
+- Dans les deux cas, le message est déplacé vers le dossier IMAP `IMAP_PROCESSED_FOLDER` (créé
+  automatiquement si besoin) : l'état des demandes est géré par les dossiers de la boîte, pas par
+  une table en base.
+- Aucune dépendance supplémentaire : utilise uniquement `imaplib`/`email` (bibliothèque standard
+  Python).
 
 ## Licence
 

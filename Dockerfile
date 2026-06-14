@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copier le code applicatif
-COPY app.py models.py config.py mailer.py bookstack.py seafile.py vcard_converter.py ./
+COPY app.py models.py config.py mailer.py bookstack.py seafile.py vcard_converter.py imap_submissions.py ./
 COPY templates/ templates/
 COPY static/ static/
 
