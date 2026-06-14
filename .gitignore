@@ -20,3 +20,4 @@ data/
 # Test files
 test_*
 .github-token.txt
+pycharm-dockerisation_token.txt
