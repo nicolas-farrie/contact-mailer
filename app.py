@@ -1196,13 +1196,15 @@ def user_edit(id):
 
         if not username:
             flash('Identifiant requis', 'error')
-            return render_template('user_form.html', user=user)
+            contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+            return render_template('user_form.html', user=user, contacts=contacts)
 
         # Vérifier unicité du username si changé
         if username != user.username:
             if User.query.filter_by(username=username).first():
                 flash(f'L\'identifiant "{username}" existe déjà', 'error')
-                return render_template('user_form.html', user=user)
+                contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+                return render_template('user_form.html', user=user, contacts=contacts)
 
         if role not in ('admin', 'user'):
             role = 'user'

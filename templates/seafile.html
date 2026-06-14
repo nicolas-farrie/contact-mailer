@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Seafile</h1>
+    <h1>Seafile{% if config.SEAFILE_URL %} : {{ config.SEAFILE_URL|replace('https://', '')|replace('http://', '') }}{% endif %}</h1>
 </div>
 
 {% if not sf_configured %}

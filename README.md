@@ -159,6 +159,40 @@ BASE_URL=https://votre-domaine.com
 | 587  | true        | STARTTLS  |
 | 465  | false       | SSL/TLS   |
 
+## Configuration des intégrations API (BookStack / Seafile)
+
+Ces intégrations sont optionnelles : si les variables ne sont pas définies, les menus correspondants restent masqués.
+
+### BookStack
+
+```env
+BOOKSTACK_URL=https://wiki.example.com
+BOOKSTACK_TOKEN_ID=...
+BOOKSTACK_TOKEN_SECRET=...
+```
+
+Le token API se génère dans BookStack : **Profil → API Tokens**.
+
+### Seafile
+
+```env
+SEAFILE_URL=https://drive.example.com
+SEAFILE_TOKEN=...
+```
+
+Le token API se génère via l'API : `curl -d "username=...&password=..." https://drive.example.com/api2/auth-token/`,
+ou via un compte admin Seafile (**Avatar → Paramètres → Mes tokens API**, si disponible selon la version).
+
+L'URL configurée est affichée dans le titre des pages BookStack/Seafile, pratique si vous gérez plusieurs instances.
+
+> **⚠️ Attention** : en éditant le `.env`, vérifiez l'absence de caractères invisibles ou parasites en fin de ligne
+> (espaces, `>` issus d'un copier-coller depuis un terminal...). Une URL du type `https://drive.example.com   >`
+> ne sera ni affichée correctement, ni acceptée par l'API. Vérification rapide :
+> ```bash
+> grep -n "SEAFILE_URL\|BOOKSTACK_URL" .env | cat -A
+> ```
+> Une ligne propre se termine par `$` juste après l'URL.
+
 ## Licence
 
 Usage privé.

@@ -59,4 +59,33 @@
         <a href="{{ url_for('users') }}" class="btn btn-secondary">Annuler</a>
     </div>
 </form>
+
+<script>
+const contactsData = {
+{% for c in contacts %}
+    "{{ c.id }}": {nom: {{ (c.nom or '')|tojson }}, prenom: {{ (c.prenom or '')|tojson }}, email: {{ (c.email or '')|tojson }}},
+{% endfor %}
+};
+
+document.getElementById('contact_id').addEventListener('change', function() {
+    const c = contactsData[this.value];
+    if (!c) return;
+
+    const fields = [
+        {el: document.getElementById('nom'), value: c.nom},
+        {el: document.getElementById('prenom'), value: c.prenom},
+        {el: document.getElementById('email'), value: c.email}
+    ];
+
+    const hasExistingData = fields.some(f => f.el.value.trim() !== '');
+
+    if (hasExistingData) {
+        if (!confirm('Des informations sont déjà saisies (nom, prénom, email). Les écraser avec celles de la fiche contact ?')) {
+            return;
+        }
+    }
+
+    fields.forEach(f => { f.el.value = f.value || ''; });
+});
+</script>
 {% endblock %}

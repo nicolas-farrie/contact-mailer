@@ -51,10 +51,14 @@
 - [x] Tri colonnes cliquable (contacts, utilisateurs, historique mailing)
 - [x] Suppression campagne dans l'historique (admin uniquement)
 - [x] Navigation mailing unifiée (historique/file/nouveau sur les 3 pages), entrée par l'historique
+- [x] Édition utilisateur : remplissage auto nom/prénom/email depuis la fiche contact liée (avec confirmation si déjà rempli)
+- [x] Pages BookStack/Seafile : affichage de l'instance connectée dans le titre
+- [x] README : documentation configuration BookStack/Seafile + avertissement caractères parasites .env
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
 - [x] Liste des messages déjà envoyés, réutilisation pour nouvel envoi
+- [x] user_edit : erreur 500 sur chemins d'erreur (contacts non passé au template)
 - [x] Bulk actions : "Retirer de la liste" corrigé (formulaires imbriqués), retour au filtre courant, confirmation avant action
 - [x] Historique mailing : réutilisation du texte et de la liste corrigée
 
@@ -78,4 +82,5 @@
 - [ ] Pagination de la liste des contacts
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
-- [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
+  - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
+  do
