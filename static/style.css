@@ -58,6 +58,14 @@ a:hover {
     font-size: 1.1rem;
 }
 
+.version-tag {
+    font-weight: normal;
+    font-size: 0.7rem;
+    color: var(--gray-500);
+    vertical-align: middle;
+    margin-left: 0.25rem;
+}
+
 .nav-links {
     display: flex;
     gap: 1rem;

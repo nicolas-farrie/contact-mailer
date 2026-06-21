@@ -5,6 +5,10 @@ BASE_DIR = Path(__file__).parent.absolute()
 
 
 class Config:
+    # Version de l'image, injectée au build (cf. Dockerfile ARG/ENV, Makefile) —
+    # affichée dans le header pour identifier la version tournant sur chaque instance.
+    APP_VERSION = os.environ.get('APP_VERSION', 'dev')
+
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         'DATABASE_URL',

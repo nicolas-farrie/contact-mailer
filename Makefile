@@ -10,7 +10,7 @@ dev-down:
 
 # ── Build & push ─────────────────────────────────────────────────────────────
 build:
-	docker build -t $(IMAGE):$(VERSION) -t $(IMAGE):latest .
+	docker build --build-arg APP_VERSION=$(VERSION) -t $(IMAGE):$(VERSION) -t $(IMAGE):latest .
 	@echo "Image : $(IMAGE):$(VERSION)"
 
 push: build

@@ -11,7 +11,7 @@
 <body>
     {% if current_user.is_authenticated %}
     <nav class="navbar">
-        <div class="nav-brand">Contact Mailer</div>
+        <div class="nav-brand">Contact Mailer <span class="version-tag" title="Version de l'image déployée">v{{ config.APP_VERSION }}</span></div>
         <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">&#9776;</button>
         <div class="nav-links" id="nav-links">
             <a href="{{ url_for('contacts') }}" {% if request.endpoint == 'contacts' %}class="active"{% endif %}>Contacts</a>

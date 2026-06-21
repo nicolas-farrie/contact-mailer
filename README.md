@@ -107,6 +107,32 @@ Puis pour HTTPS :
 sudo certbot --nginx -d yoursundomain.yourdomain.ext
 ```
 
+## Versioning des images Docker
+
+Pour les déploiements basés sur l'image Docker (`ghcr.io/nicolas-farrie/contact-mailer`), chaque
+instance (un carnet de contacts = un déploiement isolé, ex: une association) doit **pinner un tag
+de version explicite** dans son `docker-compose.yml`, plutôt que `:latest` :
+
+```bash
+# Sur la machine de dev, après avoir validé une version :
+git tag v1.0.0
+git push --tags
+make push   # construit et pousse ghcr.io/.../contact-mailer:v1.0.0 et :latest
+```
+
+```yaml
+# docker-compose.yml de chaque instance
+services:
+  app:
+    image: ghcr.io/nicolas-farrie/contact-mailer:v1.0.0   # tag figé, pas :latest
+```
+
+Ceci permet à chaque instance d'évoluer indépendamment (une association peut rester sur une
+version antérieure tant que la mise à jour n'a pas été testée/voulue pour elle), et impose de
+relire `docker-compose.yml`/`.env` à chaque montée de version plutôt que de l'appliquer
+automatiquement. La version effectivement déployée est visible dans l'application, dans le
+header (à côté du nom "Contact Mailer").
+
 ## Déploiement multi-instance
 
 L'architecture multi-instance permet d'héberger plusieurs carnets de contacts isolés sur un même serveur. Chaque carnet = une instance Flask séparée avec sa propre base SQLite, son propre `.env`, et son propre service systemd.
