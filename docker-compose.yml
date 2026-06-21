@@ -6,7 +6,10 @@ services:
     # build: .
     restart: unless-stopped
     ports:
-      - "8100:8100"
+      # Toujours restreindre à 127.0.0.1 : Docker publie les ports via iptables,
+      # ce qui contourne UFW (qui ne filtre pas la chaîne DOCKER). Nginx
+      # reverse-proxy ce port loopback en HTTPS.
+      - "127.0.0.1:8100:8100"
     volumes:
       - ./data:/app/data
     env_file:

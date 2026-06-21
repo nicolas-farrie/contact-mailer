@@ -4,7 +4,8 @@ services:
     build: .
     restart: "no"
     ports:
-      - "8100:8100"
+      # Cf. docker-compose.yml : restreindre à 127.0.0.1 (Docker contourne UFW sinon)
+      - "127.0.0.1:8100:8100"
     volumes:
       - ./data:/app/data
       # Hot-reload du code sans rebuild (pratique en dev)
