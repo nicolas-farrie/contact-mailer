@@ -11,11 +11,6 @@ venv/
 data/
 *.eml
 
-# Docker (fichiers propres à chaque instance, non versionnés)
-docker-compose.yml
-.backups/
-backup.sh
-
 # IDE
 .vscode/
 .idea/
