@@ -59,13 +59,28 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 - Données stockées localement (SQLite)
 - Aucun service externe requis
 
+## Déploiement Docker
+
+Les fichiers de déploiement Docker sont dans `docker/` :
+
+| Fichier | Description |
+|---------|-------------|
+| `docker/docker-compose.example.yml` | Template, à copier en `docker-compose.yml` à la racine |
+| `docker/.env.example` | Template de configuration, à copier en `.env` |
+| `docker/nginx.example.conf` | Exemple de reverse proxy Nginx |
+| `docker/update.sh` | Script interactif 7 étapes : backup → pull → vérif .env → restart → test HTTP |
+| `docker/backup.sh.example` | Script de sauvegarde (dump SQLite + rsync distant), à copier en `backup.sh` |
+
+`docker-compose.yml`, `.env`, `backup.sh` et `.backups/` sont dans `.gitignore` — propres à chaque
+instance, jamais écrasés par un `git pull`.
+
 ## Stack technique
 
 - **Backend** : Python 3, Flask, SQLAlchemy
 - **Base de données** : SQLite
 - **Frontend** : HTML/CSS, JavaScript vanilla
 - **Envoi** : SMTP (compatible tout fournisseur)
-- **Déploiement** : Gunicorn + Nginx + systemd
+- **Déploiement** : Gunicorn + Nginx + systemd (bare-metal) ou Docker + Nginx
 
 ## Scripts d'administration (tools/)
 

@@ -1,0 +1,24 @@
+services:
+  app:
+    image: ghcr.io/nicolas-farrie/contact-mailer:latest
+    restart: unless-stopped
+    ports:
+      # IMPORTANT : toujours restreindre à l'interface loopback (127.0.0.1).
+      # Sans ça, Docker publie le port directement via iptables, ce qui
+      # CONTOURNE UFW (UFW ne filtre pas la chaîne DOCKER) et expose le
+      # container sur Internet même si UFW semble bloquer le port.
+      # Nginx (sur l'hôte) reverse-proxy ensuite ce port loopback en HTTPS.
+      #
+      # Plusieurs instances sur le même serveur (multi-association) : seul le port côté
+      # hôte (à gauche) doit être unique, ex. "127.0.0.1:8101:8100" pour une 2e instance.
+      # Chaque container a son propre réseau isolé : le port interne (à droite, 8100)
+      # peut rester identique partout, pas besoin de le changer ni de toucher à `command`.
+      - "127.0.0.1:8100:8100"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    # Override optionnel des paramètres gunicorn de l'image (ex: plus de workers pour
+    # une instance à fort trafic). Sans rapport avec le port — ne pas utiliser ça pour
+    # gérer le multi-instance, juste pour ajuster --workers/--timeout au besoin.
+    # command: ["gunicorn", "--bind", "0.0.0.0:8100", "--workers", "4", "--timeout", "300", "--preload", "app:app"]

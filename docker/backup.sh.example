@@ -1,0 +1,81 @@
+#!/bin/bash
+# Backup contact-mailer : dump SQLite + sync data/ vers un hôte distant.
+#
+# Installation :
+#   cp deploy/backup.sh.example backup.sh
+#   chmod +x backup.sh
+#   nano backup.sh   # adapter REMOTE, REMOTE_PATH, WEBHOOK_URL (sections ci-dessous)
+#   crontab -e
+#     0 3 * * * /srv/docker/<nom-instance>/backup.sh
+set -euo pipefail
+
+# ── Configuration ────────────────────────────────────────────────────────────
+# INSTANCE et DATA_DIR sont déduits automatiquement de l'emplacement du script
+# (donc pas besoin de les adapter si ce script reste à la racine de l'instance,
+# ex: /srv/docker/contact-mailer-adreic34/backup.sh).
+INSTANCE="$(basename "$(cd "$(dirname "$0")" && pwd)")"
+DATA_DIR="$(cd "$(dirname "$0")" && pwd)/data"
+
+# ── À adapter ────────────────────────────────────────────────────────────────
+# Alias SSH (configuré dans ~/.ssh/config) de l'hôte de sauvegarde
+REMOTE="backup-host"
+# Chemin distant où stocker les sauvegardes de cette instance
+REMOTE_PATH="/srv/samba/backup/contact-mailer/${INSTANCE}"
+# URL du webhook entrant Mattermost/Slack pour notification (laisser vide pour désactiver)
+WEBHOOK_URL=""
+
+DATE=$(date +%Y-%m-%d)
+LOG="/var/log/backup-${INSTANCE}.log"
+TMP="/tmp/${INSTANCE}-db-${DATE}.sql"
+
+# ── Notification ─────────────────────────────────────────────────────────────
+notify() {
+    [ -z "$WEBHOOK_URL" ] && return 0
+    local icon=$1 title=$2 body=$3
+    curl -s -o /dev/null -X POST "$WEBHOOK_URL" \
+        -H 'Content-Type: application/json' \
+        -d "{\"text\": \"${icon} **[Backup ${INSTANCE}]** ${title}\\n${body}\"}" || true
+}
+
+exec >> "$LOG" 2>&1
+trap 'notify "🔴" "ECHEC" "Backup interrompu ligne $LINENO — consulter $LOG"
+      echo "=== $(date +%H:%M) ECHEC ligne $LINENO ==="' ERR
+
+echo "=== $(date '+%Y-%m-%d %H:%M') début ==="
+
+# ── Étape 1 : vérification DB SQLite ────────────────────────────────────────
+echo "[1/3] vérification DB SQLite..."
+DB_FILE="$DATA_DIR/contacts.db"
+if [ ! -s "$DB_FILE" ]; then
+    notify "🔴" "ECHEC — DB absente ou vide" "Fichier $DB_FILE introuvable ou vide"
+    exit 1
+fi
+# Dump SQLite propre (évite de copier un fichier en cours d'écriture)
+sqlite3 "$DB_FILE" ".dump" > "$TMP"
+if [ ! -s "$TMP" ]; then
+    notify "🔴" "ECHEC — dump SQLite vide" "Le dump de contacts.db est vide"
+    rm -f "$TMP"
+    exit 1
+fi
+DUMP_SIZE=$(du -sh "$TMP" | cut -f1)
+echo "      dump OK — $DUMP_SIZE"
+
+# ── Étape 2 : transfert dump + rotation 30 jours ────────────────────────────
+echo "[2/3] transfert dump → ${REMOTE}..."
+ssh "$REMOTE" "mkdir -p $REMOTE_PATH/db-dumps"
+rsync -a "$TMP" "$REMOTE:$REMOTE_PATH/db-dumps/"
+rm -f "$TMP"
+ssh "$REMOTE" "find $REMOTE_PATH/db-dumps -name '*.sql' -mtime +30 -delete"
+
+# ── Étape 3 : rsync data (db + pièces jointes) ──────────────────────────────
+echo "[3/3] sync data → ${REMOTE}..."
+ssh "$REMOTE" "mkdir -p $REMOTE_PATH/data"
+RSYNC_STATS=$(rsync -a --stats "$DATA_DIR/" "$REMOTE:$REMOTE_PATH/data/" \
+    | grep -E "Number of files|Number of created|Number of deleted|Total transferred" | tr '\n' ' ')
+echo "      $RSYNC_STATS"
+
+# ── Succès ───────────────────────────────────────────────────────────────────
+if [ "$(date +%u)" -eq 7 ]; then
+    notify "✅" "Backup OK — résumé hebdomadaire" "Dump: ${DUMP_SIZE} | ${RSYNC_STATS}"
+fi
+echo "=== $(date +%H:%M) succès | dump: ${DUMP_SIZE} ==="
