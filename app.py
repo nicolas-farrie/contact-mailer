@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, Contact, Liste, User, BookstackRole
@@ -66,6 +66,51 @@ def init_db():
             )
             db.session.add(admin)
             db.session.commit()
+
+
+# === PWA MANIFEST ===
+
+@app.route('/manifest.json')
+def pwa_manifest():
+    instance_name = app.config.get('INSTANCE_NAME')
+    name = instance_name or 'Contact Mailer'
+    color = app.config.get('INSTANCE_COLOR', '#579d48')
+    if instance_name:
+        icons = [
+            {'src': url_for('pwa_icon', size=192), 'sizes': '192x192', 'type': 'image/svg+xml'},
+            {'src': url_for('pwa_icon', size=512), 'sizes': '512x512', 'type': 'image/svg+xml'},
+        ]
+    else:
+        icons = [
+            {'src': url_for('static', filename='contact-mailer.png'), 'sizes': '512x512', 'type': 'image/png'},
+        ]
+    manifest = {
+        'name': name,
+        'short_name': name,
+        'start_url': '/',
+        'display': 'standalone',
+        'background_color': color,
+        'theme_color': color,
+        'icons': icons,
+    }
+    return jsonify(manifest)
+
+
+@app.route('/icon-<int:size>.svg')
+def pwa_icon(size):
+    name = app.config.get('INSTANCE_NAME') or 'CM'
+    color = app.config.get('INSTANCE_COLOR', '#2563eb')
+    words = name.split()
+    initials = (words[0][0] + words[1][0]).upper() if len(words) >= 2 else name[:2].upper()
+    font_size = size * 0.38
+    cx = size / 2
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">
+  <rect width="{size}" height="{size}" rx="{size * 0.18}" fill="{color}"/>
+  <text x="{cx}" y="{cx}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif"
+        font-size="{font_size}" font-weight="600" fill="white"
+        text-anchor="middle" dominant-baseline="central">{initials}</text>
+</svg>'''
+    return Response(svg, mimetype='image/svg+xml')
 
 
 # === AUTHENTIFICATION ===

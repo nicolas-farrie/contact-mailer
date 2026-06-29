@@ -5,8 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Contact Mailer{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='contact-mailer.svg') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='contact-mailer.svg') }}">
+    <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
+    {% if config.INSTANCE_NAME %}
+    <meta name="theme-color" content="{{ config.INSTANCE_COLOR or '#2563eb' }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('pwa_icon', size=192) }}">
+    <link rel="apple-touch-icon" href="{{ url_for('pwa_icon', size=192) }}">
+    {% else %}
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='contact-mailer.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='contact-mailer.png') }}">
+    {% endif %}
 </head>
 <body>
     {% if current_user.is_authenticated %}
