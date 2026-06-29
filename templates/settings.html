@@ -111,8 +111,8 @@
                     {% for c in deleted_contacts %}
                     <tr>
                         <td><input type="checkbox" name="contact_ids" value="{{ c.id }}" class="trash-cb"></td>
-                        <td>{{ c.nom }} {{ c.prenom }}</td>
-                        <td>{{ c.email }}</td>
+                        <td>{{ (c.nom ~ ' ' ~ c.prenom)|trim or '(sans nom) #' ~ c.id }}</td>
+                        <td>{{ c.email or '—' }}</td>
                         <td>{{ c.deleted_at.strftime('%d/%m/%Y %H:%M') if c.deleted_at else '—' }}</td>
                         <td>{{ c.deleted_by.display_name if c.deleted_by else '—' }}</td>
                     </tr>
