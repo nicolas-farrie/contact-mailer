@@ -11,6 +11,9 @@ venv/
 data/
 *.eml
 
+# Uploads utilisateurs (images de fond de connexion, etc.)
+static/uploads/
+
 # IDE
 .vscode/
 .idea/

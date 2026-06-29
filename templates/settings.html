@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Paramètres - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Paramètres</h1>
+</div>
+
+<div class="settings-page">
+
+    <!-- Général -->
+    <section class="card settings-section">
+        <h2>Général</h2>
+        <p class="settings-hint">Paramètres globaux de l'application.</p>
+        <form method="POST" action="{{ url_for('settings') }}">
+            <input type="hidden" name="section" value="general">
+            <div class="form-group">
+                <label for="app_name">Nom de l'application</label>
+                <input type="text" id="app_name" name="app_name" value="{{ app_name }}" maxlength="60" style="max-width: 360px;">
+                <p class="field-help">Affiché dans la barre de navigation et sur la page de connexion.</p>
+            </div>
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </form>
+    </section>
+
+    <!-- Apparence de la connexion -->
+    <section class="card settings-section">
+        <h2>Apparence de la page de connexion</h2>
+        <p class="settings-hint">Personnalisez l'image de fond affichée derrière le formulaire de connexion.</p>
+
+        <div class="settings-grid">
+            <!-- Aperçu -->
+            <div>
+                <div class="login-preview">
+                    {% if login_bg_url %}
+                    <img src="{{ login_bg_url }}" alt="Aperçu du fond de connexion">
+                    <div class="login-preview-overlay" style="background: rgba(17,24,39,{{ login_overlay if login_overlay is not none else 0.35 }});"></div>
+                    <div class="login-preview-card"></div>
+                    {% else %}
+                    <span class="login-preview-empty">Aucune image — fond neutre par défaut</span>
+                    {% endif %}
+                </div>
+                <p class="login-preview-label">Aperçu</p>
+            </div>
+
+            <!-- Contrôles -->
+            <div>
+                <form method="POST" action="{{ url_for('settings') }}" enctype="multipart/form-data">
+                    <input type="hidden" name="section" value="login_appearance">
+                    <div class="form-group">
+                        <label for="login_bg">Image de fond</label>
+                        <input type="file" id="login_bg" name="login_bg" accept="image/png, image/jpeg, image/webp">
+                        <p class="field-help">Formats : JPG, PNG, WebP. Recommandé : paysage, &ge; 1920&times;1080. Taille max : 5&nbsp;Mo.</p>
+                    </div>
+                    {% if login_bg_url %}
+                    <div class="form-group">
+                        <label for="login_overlay">Assombrissement
+                            (<span id="overlay-value">{{ (login_overlay * 100) | round | int if login_overlay is not none else 35 }}</span>%)</label>
+                        <input type="range" id="login_overlay" name="login_overlay"
+                               min="0" max="70" step="1"
+                               value="{{ (login_overlay * 100) | round | int if login_overlay is not none else 35 }}"
+                               oninput="document.getElementById('overlay-value').textContent = this.value;">
+                        <p class="field-help">Voile sombre pour garder le formulaire lisible.</p>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </form>
+
+                {% if login_bg_url %}
+                <form method="POST" action="{{ url_for('settings_clear_login_bg') }}" style="margin-top: 0.75rem;"
+                      onsubmit="return confirm('Supprimer l\'image de fond de la page de connexion ?')">
+                    <button type="submit" class="btn btn-small btn-danger">Supprimer l'image</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <p class="settings-foot">Astuce : les changements prennent effet dès l'enregistrement.</p>
+    </section>
+
+</div>
+{% endblock %}

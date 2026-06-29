@@ -121,3 +121,10 @@ class BookstackRole(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=False)  # ID venant de BS
     display_name = db.Column(db.String(200), nullable=False)
     synced_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Setting(db.Model):
+    """Réglages applicatifs clé/valeur (app_name, login_bg, etc.)"""
+    __tablename__ = 'settings'
+    key = db.Column(db.String(64), primary_key=True)
+    value = db.Column(db.Text, nullable=True)

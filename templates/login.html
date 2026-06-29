@@ -1,9 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Connexion - Contact Mailer{% endblock %}
+{% block title %}Connexion - {{ app_name }}{% endblock %}
 
 {% block content %}
-<div class="login-container">
-    <h1>Contact Mailer</h1>
+{% if login_bg_url %}
+<div class="login-bg" aria-hidden="true">
+    <img src="{{ login_bg_url }}" alt="">
+    <div class="login-bg-overlay" style="background: rgba(17, 24, 39, {{ login_overlay if login_overlay is not none else 0.35 }});"></div>
+</div>
+{% endif %}
+
+<div class="login-container{% if login_bg_url %} login-container--over-image{% endif %}">
+    <img src="{% if config.INSTANCE_NAME %}{{ url_for('pwa_icon', size=96) }}{% else %}{{ url_for('static', filename='contact-mailer.png') }}{% endif %}" class="login-app-icon" alt="">
+    <h1>{{ app_name }}</h1>{% set display = config.DISPLAY_NAME or config.INSTANCE_NAME %}{% if display %}<p class="login-instance-name">{{ display }}</p>{% endif %}
     <form method="POST" class="login-form">
         <div class="form-group">
             <label for="username">Identifiant</label>

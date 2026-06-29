@@ -35,9 +35,11 @@ class Config:
     # URL publique (pour les liens de désabonnement)
     BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
 
-    # Nom et couleur de l'instance (multi-instance, PWA manifest)
+    # Nom et couleur de l'instance (multi-instance, PWA manifest + icône)
     INSTANCE_NAME = os.environ.get('INSTANCE_NAME', '')
     INSTANCE_COLOR = os.environ.get('INSTANCE_COLOR', '#2563eb')
+    # Nom d'affichage UI (découplé du nom technique, affiché dans navbar et login)
+    DISPLAY_NAME = os.environ.get('DISPLAY_NAME', '')
 
     # BookStack API
     BOOKSTACK_URL = os.environ.get('BOOKSTACK_URL', '')

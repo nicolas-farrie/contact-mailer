@@ -18,7 +18,10 @@
 <body>
     {% if current_user.is_authenticated %}
     <nav class="navbar">
-        <div class="nav-brand">Contact Mailer <span class="version-tag" title="Version de l'image déployée">v{{ config.APP_VERSION }}</span></div>
+        <div class="nav-brand">
+            <img src="{% if config.INSTANCE_NAME %}{{ url_for('pwa_icon', size=32) }}{% else %}{{ url_for('static', filename='contact-mailer.png') }}{% endif %}" class="nav-brand-icon" alt="">
+            {{ app_name }} <span class="version-tag" title="Version de l'image déployée">v{{ config.APP_VERSION }}</span>{% set display = config.DISPLAY_NAME or config.INSTANCE_NAME %}{% if display %} <span class="instance-tag">{{ display }}</span>{% endif %}
+        </div>
         <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">&#9776;</button>
         <div class="nav-links" id="nav-links">
             <a href="{{ url_for('contacts') }}" {% if request.endpoint == 'contacts' %}class="active"{% endif %}>Contacts</a>
@@ -27,6 +30,7 @@
             {% if current_user.is_admin %}
             <a href="{{ url_for('import_contacts') }}" {% if request.endpoint == 'import_contacts' %}class="active"{% endif %}>Import</a>
             <a href="{{ url_for('users') }}" {% if request.endpoint in ['users', 'user_new', 'user_edit'] %}class="active"{% endif %}>Utilisateurs</a>
+            <a href="{{ url_for('settings') }}" {% if request.endpoint in ['settings', 'settings_clear_login_bg'] %}class="active"{% endif %}>Paramètres</a>
             {% if config.BOOKSTACK_URL %}
             <a href="{{ url_for('bookstack') }}" {% if request.endpoint in ['bookstack', 'bookstack_sync_roles', 'bookstack_push'] %}class="active"{% endif %}>BookStack</a>
             {% endif %}

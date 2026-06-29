@@ -2,10 +2,13 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, Contact, Liste, User, BookstackRole
+from models import db, Contact, Liste, User, BookstackRole, Setting
 from config import Config
 import csv
 import io
+import os
+import uuid
+from werkzeug.utils import secure_filename
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
 
 
@@ -111,6 +114,134 @@ def pwa_icon(size):
         text-anchor="middle" dominant-baseline="central">{initials}</text>
 </svg>'''
     return Response(svg, mimetype='image/svg+xml')
+
+
+# === PARAMÈTRES APPLICATIFS ===
+
+SETTING_DEFAULTS = {
+    'app_name': 'Contact Mailer',
+    'login_bg_filename': '',
+    'login_overlay': '0.35',
+}
+ALLOWED_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp'}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+
+def get_setting(key, default=None):
+    row = Setting.query.get(key)
+    if row is not None and row.value is not None:
+        return row.value
+    return SETTING_DEFAULTS.get(key, default)
+
+
+def set_setting(key, value):
+    row = Setting.query.get(key)
+    if row is None:
+        row = Setting(key=key, value=value)
+        db.session.add(row)
+    else:
+        row.value = value
+    db.session.commit()
+
+
+def _upload_dir():
+    path = os.path.join(app.static_folder, 'uploads')
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _delete_current_login_bg():
+    fname = get_setting('login_bg_filename', '')
+    if fname:
+        path = os.path.join(_upload_dir(), secure_filename(fname))
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+@app.context_processor
+def inject_settings():
+    with app.app_context():
+        try:
+            fname = get_setting('login_bg_filename', '')
+            login_bg_url = url_for('static', filename=f'uploads/{fname}') if fname else None
+            try:
+                overlay = float(get_setting('login_overlay', '0.35'))
+            except (TypeError, ValueError):
+                overlay = 0.35
+            return {
+                'app_name': get_setting('app_name', 'Contact Mailer'),
+                'login_bg_url': login_bg_url,
+                'login_overlay': overlay,
+            }
+        except Exception:
+            return {'app_name': 'Contact Mailer', 'login_bg_url': None, 'login_overlay': 0.35}
+
+
+@app.route('/settings', methods=['GET', 'POST'])
+@admin_required
+def settings():
+    if request.method == 'POST':
+        section = request.form.get('section')
+
+        if section == 'general':
+            name = (request.form.get('app_name') or '').strip()
+            if name:
+                set_setting('app_name', name[:60])
+                flash('Paramètres généraux enregistrés.', 'success')
+            else:
+                flash("Le nom de l'application ne peut pas être vide.", 'error')
+
+        elif section == 'login_appearance':
+            raw = request.form.get('login_overlay')
+            if raw is not None and raw != '':
+                try:
+                    pct = max(0, min(70, int(float(raw))))
+                    set_setting('login_overlay', str(pct / 100))
+                except ValueError:
+                    pass
+
+            file = request.files.get('login_bg')
+            if file and file.filename:
+                ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+                if ext not in ALLOWED_IMAGE_EXT:
+                    flash('Format non supporté (JPG, PNG ou WebP).', 'error')
+                    return redirect(url_for('settings'))
+                file.seek(0, os.SEEK_END)
+                size = file.tell()
+                file.seek(0)
+                if size > MAX_IMAGE_BYTES:
+                    flash('Image trop volumineuse (5 Mo maximum).', 'error')
+                    return redirect(url_for('settings'))
+                fname = f'login_bg_{uuid.uuid4().hex}.{ext}'
+                dest = os.path.join(_upload_dir(), secure_filename(fname))
+                try:
+                    from PIL import Image
+                    img = Image.open(file.stream)
+                    img.verify()
+                    file.seek(0)
+                    img = Image.open(file.stream)
+                    img.save(dest)
+                except Exception:
+                    file.seek(0)
+                    file.save(dest)
+                _delete_current_login_bg()
+                set_setting('login_bg_filename', os.path.basename(dest))
+            flash('Apparence de la connexion enregistrée.', 'success')
+
+        return redirect(url_for('settings'))
+
+    return render_template('settings.html')
+
+
+@app.route('/settings/clear-login-bg', methods=['POST'])
+@admin_required
+def settings_clear_login_bg():
+    _delete_current_login_bg()
+    set_setting('login_bg_filename', '')
+    flash('Image de fond supprimée.', 'success')
+    return redirect(url_for('settings'))
 
 
 # === AUTHENTIFICATION ===
