@@ -5,7 +5,7 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 ## Fonctionnalités
 
 ### Gestion des contacts
-- Création, modification, suppression de contacts
+- Création, modification, suppression de contacts (avec corbeille — restauration possible)
 - **UID unique** par contact (compatible vCard : Roundcube, Proton, Thunderbird)
 - **Adresse postale** structurée (rue, complément, ville, CP, région, pays)
 - **Source** auto-détectée à l'import (Roundcube, Proton, Infomaniak, etc.)
@@ -277,11 +277,13 @@ Fonctionnement :
 ### Fait (v1.1.x)
 - [x] PWA manifest dynamique : icône colorée avec initiales par instance (`INSTANCE_NAME`, `INSTANCE_COLOR`)
 - [x] `DISPLAY_NAME` : nom d'affichage UI découplé de l'identifiant technique
-- [x] Page Paramètres admin (`/settings`) : nom de l'app, image de fond login, opacité voile
+- [x] Page Paramètres admin (`/settings`) : nom de l'app, image de fond login, opacité voile, sidebar regroupant Seafile/BookStack
 - [x] Icône instance dans la navbar et la page de connexion
+- [x] Formulaire utilisateur : création depuis fiche contact en tête, email copié comme identifiant
+- [x] Fiche contact : métadonnées techniques (UID, Source, Créé/Modifié par) réservées aux admins
+- [x] Corbeille contacts : soft-delete avec restauration et purge définitive admin
 
 ### À faire
-- [ ] Créer un utilisateur directement depuis une fiche contact (pré-remplissage + login = email)
 - [ ] Texte d'aide sur le flow mot de passe (formulaire utilisateur)
 - [ ] Texte d'aide sur les rôles et leurs droits (page gestion utilisateurs)
 - [ ] Refactoring `src/` : regrouper les `.py` dans un sous-répertoire (v1.2.0)

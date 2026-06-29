@@ -55,6 +55,12 @@
 - [x] Pages BookStack/Seafile : affichage de l'instance connectée dans le titre
 - [x] README : documentation configuration BookStack/Seafile + avertissement caractères parasites .env
 - [x] Demandes de diffusion : boîte IMAP dédiée, page "Demandes" (4e bouton nav mailing), pré-remplissage mailing depuis une demande, archivage (dossier IMAP "Traité")
+- [x] PWA manifest dynamique : icône colorée avec initiales par instance (INSTANCE_NAME + INSTANCE_COLOR)
+- [x] DISPLAY_NAME : nom d'affichage UI découplé de l'identifiant technique
+- [x] Page Paramètres admin (/settings) : nom de l'app, image de fond login, opacité voile, sidebar Seafile/BookStack
+- [x] Formulaire utilisateur : création depuis fiche contact en tête, email copié comme identifiant
+- [x] Fiche contact : métadonnées techniques (UID, Source, Créé/Modifié par) réservées aux admins
+- [x] Corbeille contacts : soft-delete (is_deleted + deleted_at + deleted_by), restauration et purge admin dans Paramètres
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
