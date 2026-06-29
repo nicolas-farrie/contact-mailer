@@ -84,6 +84,7 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 | `tools/create_instance.sh` | Créer une nouvelle instance (multi-instance) |
 | `tools/migrate_add_uid.py` | Migration : ajout UID, adresse, source (`--dry-run` disponible) |
 | `tools/migrate_add_unsubscribe.py` | Migration : ajout champs désabonnement (`--dry-run` disponible) |
+| `tools/migrate_add_softdelete.py` | Migration : ajout champs corbeille (is_deleted, deleted_at, deleted_by_id) (`--dry-run` disponible) |
 
 ## Installation rapide (développement)
 
