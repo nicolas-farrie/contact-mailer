@@ -9,6 +9,7 @@
 <form method="POST" class="form-card">
     <input type="hidden" name="back_liste" value="{{ back_liste or '' }}">
     {% if contact %}
+    {% if current_user.is_admin %}
     <div class="form-row">
         <div class="form-group">
             <label for="uid">UID</label>
@@ -33,6 +34,7 @@
                    style="color: var(--gray-500); background: var(--gray-100);">
         </div>
     </div>
+    {% endif %}
     {% if contact.is_unsubscribed %}
     <div class="unsub-banner">
         <span class="unsub-status">Désabonné le {{ contact.unsubscribed_at.strftime('%d/%m/%Y') if contact.unsubscribed_at else '?' }}</span>
