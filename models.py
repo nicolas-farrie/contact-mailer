@@ -34,6 +34,9 @@ class Contact(db.Model):
     seafile_temp_pwd = db.Column(db.String(100), nullable=True)
     is_unsubscribed = db.Column(db.Boolean, default=False)
     unsubscribed_at = db.Column(db.DateTime, nullable=True)
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -42,6 +45,7 @@ class Contact(db.Model):
     updated_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_by = db.relationship('User', foreign_keys=[created_by_id])
     updated_by = db.relationship('User', foreign_keys=[updated_by_id])
+    deleted_by = db.relationship('User', foreign_keys=[deleted_by_id])
 
     # Relation many-to-many avec les listes
     listes = db.relationship('Liste', secondary=contact_liste, back_populates='contacts')
@@ -87,8 +91,12 @@ class Liste(db.Model):
         return f'<Liste {self.nom}>'
 
     @property
+    def active_contacts(self):
+        return [c for c in self.contacts if not c.is_deleted]
+
+    @property
     def count(self):
-        return len(self.contacts)
+        return sum(1 for c in self.contacts if not c.is_deleted)
 
 
 class User(UserMixin, db.Model):

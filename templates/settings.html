@@ -78,5 +78,73 @@
         <p class="settings-foot">Astuce : les changements prennent effet dès l'enregistrement.</p>
     </section>
 
+    <!-- Corbeille contacts -->
+    <section class="card settings-section">
+        <h2>Corbeille contacts</h2>
+        <p class="settings-hint">Contacts supprimés en attente de purge définitive. Seul un administrateur peut les restaurer ou les supprimer définitivement.</p>
+
+        {% if deleted_contacts %}
+        <form id="trash-form" method="POST">
+            <input type="hidden" name="action" id="trash-action" value="">
+
+            <div class="trash-toolbar">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="trash-select-all"> Tout sélectionner
+                </label>
+                <div class="trash-actions">
+                    <button type="button" class="btn btn-small" onclick="submitTrash('restore')">Restaurer</button>
+                    <button type="button" class="btn btn-small btn-danger" onclick="submitTrash('purge')">Supprimer définitivement</button>
+                </div>
+            </div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:2rem;"></th>
+                        <th>Nom</th>
+                        <th>Email</th>
+                        <th>Supprimé le</th>
+                        <th>Par</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in deleted_contacts %}
+                    <tr>
+                        <td><input type="checkbox" name="contact_ids" value="{{ c.id }}" class="trash-cb"></td>
+                        <td>{{ c.nom }} {{ c.prenom }}</td>
+                        <td>{{ c.email }}</td>
+                        <td>{{ c.deleted_at.strftime('%d/%m/%Y %H:%M') if c.deleted_at else '—' }}</td>
+                        <td>{{ c.deleted_by.display_name if c.deleted_by else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
+
+        <script>
+        document.getElementById('trash-select-all').addEventListener('change', function() {
+            document.querySelectorAll('.trash-cb').forEach(cb => cb.checked = this.checked);
+        });
+
+        function submitTrash(action) {
+            const checked = document.querySelectorAll('.trash-cb:checked');
+            if (!checked.length) { alert('Sélectionnez au moins un contact.'); return; }
+            const url = action === 'restore'
+                ? '{{ url_for("settings_trash_restore") }}'
+                : '{{ url_for("settings_trash_purge") }}';
+            const msg = action === 'restore'
+                ? `Restaurer ${checked.length} contact(s) ?`
+                : `Supprimer définitivement ${checked.length} contact(s) ? Cette action est irréversible.`;
+            if (!confirm(msg)) return;
+            document.getElementById('trash-form').action = url;
+            document.getElementById('trash-form').submit();
+        }
+        </script>
+
+        {% else %}
+        <p class="empty-state-text">La corbeille est vide.</p>
+        {% endif %}
+    </section>
+
 </div>
 {% endblock settings_content %}

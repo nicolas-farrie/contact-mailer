@@ -887,3 +887,15 @@ select:focus {
     .settings-sidebar-nav a { white-space: nowrap; }
     .settings-content { max-width: none; }
 }
+
+/* === CORBEILLE === */
+.trash-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.trash-actions { display: flex; gap: 0.5rem; }
+.empty-state-text { color: var(--gray-500); font-size: 0.9rem; font-style: italic; }

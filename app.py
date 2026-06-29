@@ -7,6 +7,7 @@ from config import Config
 import csv
 import io
 import os
+from datetime import datetime
 import uuid
 from werkzeug.utils import secure_filename
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
@@ -232,7 +233,8 @@ def settings():
 
         return redirect(url_for('settings'))
 
-    return render_template('settings.html', active_tab='general')
+    deleted_contacts = Contact.query.filter(Contact.is_deleted == True).order_by(Contact.deleted_at.desc()).all()
+    return render_template('settings.html', active_tab='general', deleted_contacts=deleted_contacts)
 
 
 @app.route('/settings/clear-login-bg', methods=['POST'])
@@ -241,6 +243,46 @@ def settings_clear_login_bg():
     _delete_current_login_bg()
     set_setting('login_bg_filename', '')
     flash('Image de fond supprimée.', 'success')
+    return redirect(url_for('settings'))
+
+
+@app.route('/settings/trash')
+@admin_required
+def settings_trash():
+    deleted_contacts = Contact.query.filter(Contact.is_deleted == True).order_by(Contact.deleted_at.desc()).all()
+    return render_template('settings.html', active_tab='settings', deleted_contacts=deleted_contacts)
+
+
+@app.route('/settings/trash/restore', methods=['POST'])
+@admin_required
+def settings_trash_restore():
+    ids = request.form.getlist('contact_ids', type=int)
+    if not ids:
+        flash('Aucun contact sélectionné', 'error')
+        return redirect(url_for('settings'))
+    contacts = Contact.query.filter(Contact.id.in_(ids), Contact.is_deleted == True).all()
+    for c in contacts:
+        c.is_deleted = False
+        c.deleted_at = None
+        c.deleted_by_id = None
+    db.session.commit()
+    flash(f'{len(contacts)} contact(s) restauré(s)', 'success')
+    return redirect(url_for('settings'))
+
+
+@app.route('/settings/trash/purge', methods=['POST'])
+@admin_required
+def settings_trash_purge():
+    ids = request.form.getlist('contact_ids', type=int)
+    if not ids:
+        flash('Aucun contact sélectionné', 'error')
+        return redirect(url_for('settings'))
+    contacts = Contact.query.filter(Contact.id.in_(ids), Contact.is_deleted == True).all()
+    count = len(contacts)
+    for c in contacts:
+        db.session.delete(c)
+    db.session.commit()
+    flash(f'{count} contact(s) supprimé(s) définitivement', 'success')
     return redirect(url_for('settings'))
 
 
@@ -285,7 +327,7 @@ def contacts():
     source_filter = request.args.get('source', '').strip()
     search = request.args.get('q', '').strip()
 
-    query = Contact.query
+    query = Contact.query.filter(Contact.is_deleted == False)
 
     if liste_filter:
         liste = Liste.query.get(liste_filter)
@@ -310,7 +352,7 @@ def contacts():
     contacts_list = query.order_by(Contact.nom, Contact.prenom).all()
     listes = Liste.query.order_by(Liste.nom).all()
     # Sources distinctes pour le filtre
-    sources = db.session.query(Contact.source).distinct().order_by(Contact.source).all()
+    sources = db.session.query(Contact.source).filter(Contact.is_deleted == False).distinct().order_by(Contact.source).all()
     sources = [s[0] for s in sources if s[0]]
 
     return render_template('contacts.html',
@@ -414,10 +456,13 @@ def contact_edit(id):
 def contact_delete(id):
     contact = Contact.query.get_or_404(id)
     nom_complet = f'{contact.prenom} {contact.nom}'
-    db.session.delete(contact)
+    contact.is_deleted = True
+    contact.deleted_at = datetime.utcnow()
+    contact.deleted_by_id = current_user.id
     db.session.commit()
-    flash(f'Contact {nom_complet} supprimé', 'success')
-    return redirect(url_for('contacts'))
+    flash(f'Contact {nom_complet} déplacé dans la corbeille', 'success')
+    back_liste = request.form.get('back_liste', '')
+    return redirect(url_for('contacts', liste=back_liste) if back_liste else url_for('contacts'))
 
 
 # === LISTES ===
@@ -520,10 +565,13 @@ def contacts_bulk_action():
         flash(f'{len(contacts)} contacts retirés de "{liste.nom}"', 'success')
 
     elif action == 'delete':
+        now = datetime.utcnow()
         for contact in contacts:
-            db.session.delete(contact)
+            contact.is_deleted = True
+            contact.deleted_at = now
+            contact.deleted_by_id = current_user.id
         db.session.commit()
-        flash(f'{len(contacts)} contacts supprimés', 'success')
+        flash(f'{len(contacts)} contacts déplacés dans la corbeille', 'success')
 
     return redirect_back()
 
@@ -679,14 +727,15 @@ def _import_contact_from_row(row, update_existing=False, source='Import'):
 
     # Priorité 1 : correspondance par UID
     if fields['uid']:
-        existing = Contact.query.filter_by(uid=fields['uid']).first()
+        existing = Contact.query.filter_by(uid=fields['uid'], is_deleted=False).first()
 
     # Priorité 2 : correspondance composite email + nom + prénom
     if not existing and fields['nom'] and fields['prenom']:
         existing = Contact.query.filter_by(
             email=fields['email'],
             nom=fields['nom'],
-            prenom=fields['prenom']
+            prenom=fields['prenom'],
+            is_deleted=False
         ).first()
 
     if existing and not update_existing:
@@ -846,10 +895,10 @@ def export_vcard():
 
     if liste_id:
         liste = Liste.query.get_or_404(liste_id)
-        contacts = liste.contacts
+        contacts = liste.active_contacts
         filename = f'contacts_{liste.nom}.vcf'
     else:
-        contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+        contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
         filename = 'contacts_all.vcf'
 
     lines = []
@@ -886,10 +935,10 @@ def export_contacts():
 
     if liste_id:
         liste = Liste.query.get_or_404(liste_id)
-        contacts = liste.contacts
+        contacts = liste.active_contacts
         filename = f'contacts_{liste.nom}.tsv'
     else:
-        contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+        contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
         filename = 'contacts_all.tsv'
 
     output = io.StringIO()
@@ -1093,13 +1142,13 @@ def mailing_preview():
         return jsonify({'error': 'Sélectionnez une liste'}), 400
 
     liste = Liste.query.get_or_404(liste_id)
-    if not liste.contacts:
+    if not liste.active_contacts:
         return jsonify({'error': 'Liste vide'}), 400
 
     # Sélectionner le contact par index (borné)
-    total = len(liste.contacts)
+    total = len(liste.active_contacts)
     contact_index = max(0, min(contact_index, total - 1))
-    contact = liste.contacts[contact_index]
+    contact = liste.active_contacts[contact_index]
     contact_dict = contact.to_dict()
 
     from mailer import EmailTemplate
@@ -1142,15 +1191,15 @@ def mailing_send():
         return redirect(url_for('mailing'))
 
     liste = Liste.query.get_or_404(liste_id)
-    if not liste.contacts:
+    if not liste.active_contacts:
         flash('Liste vide', 'error')
         return redirect(url_for('mailing'))
 
     include_unsubscribe = request.form.get('include_unsubscribe') == 'on'
 
     # Filtrer les contacts désabonnés
-    active_contacts = [c for c in liste.contacts if not c.is_unsubscribed]
-    excluded = len(liste.contacts) - len(active_contacts)
+    active_contacts = [c for c in liste.active_contacts if not c.is_unsubscribed]
+    excluded = len(liste.active_contacts) - len(active_contacts)
     if excluded:
         flash(f'{excluded} contact{"s" if excluded > 1 else ""} désabonné{"s" if excluded > 1 else ""} exclu{"s" if excluded > 1 else ""} de l\'envoi', 'info')
 
@@ -1233,7 +1282,7 @@ def mailing_confirm():
 
     liste_id = tpl.get('liste_id')
     liste = Liste.query.get_or_404(liste_id)
-    active_contacts = [c for c in liste.contacts if not c.is_unsubscribed]
+    active_contacts = [c for c in liste.active_contacts if not c.is_unsubscribed]
 
     return render_template('mailing_confirm.html',
                            campaign_id=campaign_id,
@@ -1259,7 +1308,7 @@ def mailing_add_to_queue():
     liste_id = tpl.get('liste_id')
     liste = Liste.query.get_or_404(liste_id)
 
-    selected = [c for c in liste.contacts if c.id in contact_ids and not c.is_unsubscribed]
+    selected = [c for c in liste.active_contacts if c.id in contact_ids and not c.is_unsubscribed]
     for contact in selected:
         queue.add(contact.to_dict(), campaign_id)
 
@@ -1462,12 +1511,12 @@ def user_new():
 
         if not username or not password:
             flash('Identifiant et mot de passe requis', 'error')
-            contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+            contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
             return render_template('user_form.html', user=None, contacts=contacts)
 
         if User.query.filter_by(username=username).first():
             flash(f'L\'identifiant "{username}" existe déjà', 'error')
-            contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+            contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
             return render_template('user_form.html', user=None, contacts=contacts)
 
         if role not in ('admin', 'user'):
@@ -1491,7 +1540,7 @@ def user_new():
             db.session.rollback()
             flash(f'Erreur: {e}', 'error')
 
-    contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+    contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
     return render_template('user_form.html', user=None, contacts=contacts)
 
 
@@ -1510,14 +1559,14 @@ def user_edit(id):
 
         if not username:
             flash('Identifiant requis', 'error')
-            contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+            contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
             return render_template('user_form.html', user=user, contacts=contacts)
 
         # Vérifier unicité du username si changé
         if username != user.username:
             if User.query.filter_by(username=username).first():
                 flash(f'L\'identifiant "{username}" existe déjà', 'error')
-                contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+                contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
                 return render_template('user_form.html', user=user, contacts=contacts)
 
         if role not in ('admin', 'user'):
@@ -1543,7 +1592,7 @@ def user_edit(id):
             db.session.rollback()
             flash(f'Erreur: {e}', 'error')
 
-    contacts = Contact.query.order_by(Contact.nom, Contact.prenom).all()
+    contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
     return render_template('user_form.html', user=user, contacts=contacts)
 
 
@@ -1762,14 +1811,14 @@ def bookstack_push():
         return redirect(url_for('bookstack'))
 
     liste = Liste.query.get_or_404(liste_id)
-    if not liste.contacts:
+    if not liste.active_contacts:
         flash('Liste vide', 'error')
         return redirect(url_for('bookstack'))
 
     try:
         send_invite = request.form.get('send_invite') == 'on'
         client = BookstackClient(Config.BOOKSTACK_URL, Config.BOOKSTACK_TOKEN_ID, Config.BOOKSTACK_TOKEN_SECRET)
-        result = push_contacts_to_bookstack(client, liste.contacts, role_id, send_invite=send_invite)
+        result = push_contacts_to_bookstack(client, liste.active_contacts, role_id, send_invite=send_invite)
 
         parts = []
         if result['created']:
@@ -1807,7 +1856,7 @@ def seafile():
             groups = client.list_groups()
         except Exception:
             pass
-    pending_invitations = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None)).all()
+    pending_invitations = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None), Contact.is_deleted == False).all()
     return render_template('seafile.html', listes=listes, groups=groups,
                            sf_configured=sf_configured, new_passwords={},
                            pending_invitations=pending_invitations, active_tab='seafile')
@@ -1865,17 +1914,17 @@ def seafile_push():
         return redirect(url_for('seafile'))
 
     liste = Liste.query.get_or_404(liste_id)
-    if not liste.contacts:
+    if not liste.active_contacts:
         flash('Liste vide', 'error')
         return redirect(url_for('seafile'))
 
     try:
         client = SeafileClient(Config.SEAFILE_URL, Config.SEAFILE_TOKEN)
-        result = push_contacts_to_seafile(client, liste.contacts, group_id or None)
+        result = push_contacts_to_seafile(client, liste.active_contacts, group_id or None)
 
         # Stocker les mots de passe temporaires en base
         if result['passwords']:
-            email_to_contact = {c.email.strip().lower(): c for c in liste.contacts}
+            email_to_contact = {c.email.strip().lower(): c for c in liste.active_contacts}
             for email, pwd in result['passwords'].items():
                 contact = email_to_contact.get(email)
                 if contact:
@@ -1896,7 +1945,7 @@ def seafile_push():
             flash(f'Erreur : {err}', 'error')
 
         groups = client.list_groups()
-        pending_invitations = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None)).all()
+        pending_invitations = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None), Contact.is_deleted == False).all()
         return render_template('seafile.html',
                                listes=Liste.query.order_by(Liste.nom).all(),
                                groups=groups,
@@ -1921,7 +1970,7 @@ def seafile_liste_contacts(liste_id):
         'nom': c.nom,
         'email': c.email,
         'has_pending_pwd': bool(c.seafile_temp_pwd),
-    } for c in liste.contacts])
+    } for c in liste.active_contacts])
 
 
 @app.route('/seafile/reset-passwords', methods=['POST'])
@@ -1942,7 +1991,7 @@ def seafile_reset_passwords():
         return redirect(url_for('seafile'))
 
     liste = Liste.query.get_or_404(liste_id)
-    contacts = [c for c in liste.contacts if not contact_ids or c.id in contact_ids]
+    contacts = [c for c in liste.active_contacts if not contact_ids or c.id in contact_ids]
     if not contacts:
         flash('Aucun contact sélectionné', 'error')
         return redirect(url_for('seafile'))
@@ -1994,7 +2043,7 @@ def seafile_send_invitations():
         flash('Sujet et corps du mail requis', 'error')
         return redirect(url_for('seafile'))
 
-    contacts = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None)).all()
+    contacts = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None), Contact.is_deleted == False).all()
     if not contacts:
         flash('Aucune invitation en attente', 'error')
         return redirect(url_for('seafile'))
