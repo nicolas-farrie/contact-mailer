@@ -59,6 +59,12 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 - Données stockées localement (SQLite)
 - Aucun service externe requis
 
+### Personnalisation par instance
+- **Page Paramètres** (admin) : nom de l'application, image de fond du login, opacité du voile
+- **PWA / icône bureau mobile** : icône colorée générée dynamiquement avec les initiales de l'instance (`INSTANCE_NAME` + `INSTANCE_COLOR` dans `.env`)
+- **`DISPLAY_NAME`** : nom d'affichage UI découplé de l'identifiant technique `INSTANCE_NAME` (navbar + login)
+- Manifest PWA dynamique : nom et couleur de l'app adaptés par instance
+
 ## Stack technique
 
 - **Backend** : Python 3, Flask, SQLAlchemy
@@ -265,6 +271,20 @@ Fonctionnement :
   cet en-tête lors de la redirection d'alias (catch-all), vérifiez sur un message de test
   qu'il contient bien l'alias attendu (sinon `IMAP_TO_FILTER` ne matchera jamais et
   aucune demande n'apparaîtra).
+
+## Roadmap
+
+### Fait (v1.1.x)
+- [x] PWA manifest dynamique : icône colorée avec initiales par instance (`INSTANCE_NAME`, `INSTANCE_COLOR`)
+- [x] `DISPLAY_NAME` : nom d'affichage UI découplé de l'identifiant technique
+- [x] Page Paramètres admin (`/settings`) : nom de l'app, image de fond login, opacité voile
+- [x] Icône instance dans la navbar et la page de connexion
+
+### À faire
+- [ ] Créer un utilisateur directement depuis une fiche contact (pré-remplissage + login = email)
+- [ ] Texte d'aide sur le flow mot de passe (formulaire utilisateur)
+- [ ] Texte d'aide sur les rôles et leurs droits (page gestion utilisateurs)
+- [ ] Refactoring `src/` : regrouper les `.py` dans un sous-répertoire (v1.2.0)
 
 ## Licence
 
