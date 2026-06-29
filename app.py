@@ -232,7 +232,7 @@ def settings():
 
         return redirect(url_for('settings'))
 
-    return render_template('settings.html')
+    return render_template('settings.html', active_tab='general')
 
 
 @app.route('/settings/clear-login-bg', methods=['POST'])
@@ -1702,7 +1702,7 @@ def bookstack():
     roles = BookstackRole.query.order_by(BookstackRole.display_name).all()
     listes = Liste.query.order_by(Liste.nom).all()
     bs_configured = bool(Config.BOOKSTACK_URL and Config.BOOKSTACK_TOKEN_ID and Config.BOOKSTACK_TOKEN_SECRET)
-    return render_template('bookstack.html', roles=roles, listes=listes, bs_configured=bs_configured)
+    return render_template('bookstack.html', roles=roles, listes=listes, bs_configured=bs_configured, active_tab='bookstack')
 
 
 @app.route('/bookstack/sync-roles', methods=['POST'])
@@ -1810,7 +1810,7 @@ def seafile():
     pending_invitations = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None)).all()
     return render_template('seafile.html', listes=listes, groups=groups,
                            sf_configured=sf_configured, new_passwords={},
-                           pending_invitations=pending_invitations)
+                           pending_invitations=pending_invitations, active_tab='seafile')
 
 
 @app.route('/seafile/sync-groups', methods=['POST'])
@@ -1902,7 +1902,8 @@ def seafile_push():
                                groups=groups,
                                sf_configured=True,
                                new_passwords=result.get('passwords', {}),
-                               pending_invitations=pending_invitations)
+                               pending_invitations=pending_invitations,
+                               active_tab='seafile')
 
     except Exception as e:
         flash(f'Erreur Seafile : {e}', 'error')
