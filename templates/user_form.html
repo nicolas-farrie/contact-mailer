@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Modifier' if user else 'Nouvel' }} utilisateur - Contact Mailer{% endblock %}
+{% block title %}{{ 'Modifier' if user else 'Nouvel' }} utilisateur - {{ app_name }}{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -7,6 +7,23 @@
 </div>
 
 <form method="POST" class="form-card">
+
+    {% if not user %}
+    <div class="form-group">
+        <label for="contact_id">Depuis une fiche contact</label>
+        <select id="contact_id" name="contact_id">
+            <option value="">-- Saisie manuelle --</option>
+            {% for c in contacts %}
+            <option value="{{ c.id }}">
+                {{ c.nom }} {{ c.prenom }}{% if c.email %} — {{ c.email }}{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+        <p class="hint">Pré-remplit tous les champs à partir de la fiche contact. L'identifiant sera l'adresse email.</p>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--gray-200);margin:1rem 0;">
+    {% endif %}
+
     <div class="form-group">
         <label for="username">Identifiant *</label>
         <input type="text" id="username" name="username" value="{{ user.username if user else '' }}" required>
@@ -41,6 +58,7 @@
         <input type="password" id="password" name="password" {% if not user %}required{% endif %}>
     </div>
 
+    {% if user %}
     <div class="form-group">
         <label for="contact_id">Fiche contact liée</label>
         <select id="contact_id" name="contact_id">
@@ -53,6 +71,7 @@
         </select>
         <p class="hint">Permet d'accéder directement à la fiche contact depuis le profil.</p>
     </div>
+    {% endif %}
 
     <div class="form-actions">
         <button type="submit" class="btn {% if user %}btn-warning{% else %}btn-primary{% endif %}">{{ 'Modifier' if user else 'Créer' }}</button>
@@ -67,25 +86,29 @@ const contactsData = {
 {% endfor %}
 };
 
+{% if not user %}
 document.getElementById('contact_id').addEventListener('change', function() {
     const c = contactsData[this.value];
     if (!c) return;
 
-    const fields = [
-        {el: document.getElementById('nom'), value: c.nom},
-        {el: document.getElementById('prenom'), value: c.prenom},
-        {el: document.getElementById('email'), value: c.email}
-    ];
+    const username = document.getElementById('username');
+    const nom = document.getElementById('nom');
+    const prenom = document.getElementById('prenom');
+    const email = document.getElementById('email');
 
-    const hasExistingData = fields.some(f => f.el.value.trim() !== '');
+    const hasExistingData = [nom, prenom, email, username].some(f => f.value.trim() !== '');
 
     if (hasExistingData) {
-        if (!confirm('Des informations sont déjà saisies (nom, prénom, email). Les écraser avec celles de la fiche contact ?')) {
+        if (!confirm('Des informations sont déjà saisies. Les écraser avec celles de la fiche contact ?')) {
             return;
         }
     }
 
-    fields.forEach(f => { f.el.value = f.value || ''; });
+    nom.value = c.nom || '';
+    prenom.value = c.prenom || '';
+    email.value = c.email || '';
+    username.value = c.email || '';
 });
+{% endif %}
 </script>
 {% endblock %}
