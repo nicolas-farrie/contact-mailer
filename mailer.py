@@ -298,12 +298,14 @@ class MailQueue:
         }
 
     def get_campaigns_list(self):
-        """Retourne la liste des campagnes avec stats et template, triées par date décroissante."""
+        """Retourne la liste des campagnes non archivées avec stats et template, triées par date décroissante."""
         campaign_ids = set(item['campaign_id'] for item in self.queue)
         campaigns = []
         for cid in campaign_ids:
-            stats = self.get_stats(cid)
             template = self.get_campaign_template(cid)
+            if template.get('archived'):
+                continue
+            stats = self.get_stats(cid)
             # Extraire la date depuis le campaign_id (format: nom_YYYYMMDD_HHMMSS)
             parts = cid.rsplit('_', 2)
             date_str = ''
@@ -314,15 +316,27 @@ class MailQueue:
                     ).strftime('%d/%m/%Y %H:%M')
                 except ValueError:
                     date_str = ''
+            # Emails des destinataires envoyés pour cette campagne
+            sent_emails = {
+                item['contact'].get('email', '')
+                for item in self.queue
+                if item['campaign_id'] == cid and item['status'] == 'sent'
+            }
             campaigns.append({
                 'id': cid,
                 'date': date_str,
                 'stats': stats,
                 'template': template,
+                'sent_emails': sent_emails,
             })
-        # Trier par ID décroissant (les plus récentes en premier)
         campaigns.sort(key=lambda c: c['id'], reverse=True)
         return campaigns
+
+    def archive_campaign(self, campaign_id: str):
+        """Masque une campagne de l'historique sans supprimer les données."""
+        if campaign_id in self.campaigns:
+            self.campaigns[campaign_id]['archived'] = True
+            self.save()
 
     def clear(self, campaign_id: str = None):
         if campaign_id:

@@ -28,7 +28,11 @@
         {% for c in campaigns %}
         <tr>
             <td style="white-space:nowrap">{{ c.date or '-' }}</td>
-            <td class="campaign-subject" title="{{ c.id }}">{{ c.template.subject if c.template else c.id }}</td>
+            <td class="campaign-subject" title="Cliquer pour afficher le contenu">
+                <span class="subject-toggle" onclick="toggleContent('content-{{ loop.index }}')">
+                    {{ c.template.subject if c.template else c.id }}
+                </span>
+            </td>
             <td>
                 {{ c.template.format|default('text', true) if c.template else '-' }}
                 {% if c.template and c.template.get('include_unsubscribe') %}
@@ -40,6 +44,7 @@
                 <span class="badge badge-sent" title="Envoyés">{{ c.stats.sent }}</span>
                 {% if c.stats.error > 0 %}<span class="badge badge-error" title="Erreurs">{{ c.stats.error }}</span>{% endif %}
                 {% if c.stats.pending > 0 %}<span class="badge badge-pending" title="En attente">{{ c.stats.pending }}</span>{% endif %}
+                {% if c.stats.bounced > 0 %}<span class="badge badge-bounce" title="Bounces">{{ c.stats.bounced }}</span>{% endif %}
             </td>
             <td class="actions-cell">
                 {% if c.template %}
@@ -50,6 +55,10 @@
                 <a href="{{ url_for('mailing_queue', campaign=c.id) }}"
                    class="btn btn-sm btn-primary" title="Voir la file d'attente">File</a>
                 {% endif %}
+                <form method="POST" action="{{ url_for('mailing_history_archive', campaign_id=c.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-secondary"
+                            onclick="return confirm('Archiver cette campagne ? Elle disparaîtra de l\'historique.')">Archiver</button>
+                </form>
                 {% if current_user.is_admin %}
                 <form method="POST" action="{{ url_for('mailing_history_delete', campaign_id=c.id) }}" style="display:inline">
                     <button type="submit" class="btn btn-sm btn-danger"
@@ -58,6 +67,19 @@
                 {% endif %}
             </td>
         </tr>
+        {% if c.template and c.template.body %}
+        <tr id="content-{{ loop.index }}" class="content-row" style="display:none">
+            <td colspan="6">
+                {% if c.template.format == 'html' %}
+                <iframe srcdoc="{{ c.template.body | e }}"
+                        style="width:100%;min-height:300px;border:none;"
+                        sandbox="allow-same-origin"></iframe>
+                {% else %}
+                <pre class="body-text">{{ c.template.body }}</pre>
+                {% endif %}
+            </td>
+        </tr>
+        {% endif %}
         {% endfor %}
     </tbody>
 </table>
@@ -69,6 +91,13 @@
 </div>
 {% endif %}
 
+<script>
+function toggleContent(id) {
+    const row = document.getElementById(id);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+</script>
+
 <style>
 .campaign-subject {
     max-width: 300px;
@@ -76,17 +105,40 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.subject-toggle {
+    cursor: pointer;
+    text-decoration: underline dotted;
+    color: var(--primary);
+}
+.subject-toggle:hover {
+    text-decoration: underline;
+}
+.content-row td {
+    padding: 0;
+    background: var(--gray-50);
+    border-top: none;
+}
+.body-text {
+    margin: 0;
+    padding: 1rem;
+    white-space: pre-wrap;
+    font-size: 0.875rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
 .badge {
     display: inline-block;
     padding: 0.125rem 0.5rem;
     border-radius: 99px;
     font-size: 0.75rem;
     font-weight: 600;
+    margin-right: 0.125rem;
 }
 .badge-sent { background: #d1fae5; color: #065f46; }
 .badge-error { background: #fee2e2; color: #991b1b; }
 .badge-pending { background: #fef3c7; color: #92400e; }
 .badge-unsub { background: #dbeafe; color: #1e40af; }
+.badge-bounce { background: #fde68a; color: #92400e; }
 .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;

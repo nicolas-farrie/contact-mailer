@@ -1197,13 +1197,25 @@ def mailing():
 @app.route('/mailing/history')
 @login_required
 def mailing_history():
-    """Affiche l'historique des campagnes envoyées"""
     from mailer import MailQueue
-
     queue = MailQueue()
     campaigns = queue.get_campaigns_list()
 
+    bounced_emails = {c.email for c in Contact.query.filter_by(has_bounced=True).all()}
+    for c in campaigns:
+        c['stats']['bounced'] = len(c['sent_emails'] & bounced_emails)
+
     return render_template('mailing_history.html', campaigns=campaigns)
+
+
+@app.route('/mailing/history/archive/<campaign_id>', methods=['POST'])
+@login_required
+def mailing_history_archive(campaign_id):
+    from mailer import MailQueue
+    queue = MailQueue()
+    queue.archive_campaign(campaign_id)
+    flash('Campagne archivée.', 'success')
+    return redirect(url_for('mailing_history'))
 
 
 @app.route('/mailing/history/delete/<campaign_id>', methods=['POST'])
