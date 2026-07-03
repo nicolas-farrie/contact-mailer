@@ -55,13 +55,20 @@
 
 {% if stats.pending > 0 %}
 <div class="process-section">
+    {% if campaign %}
     <form method="POST" action="{{ url_for('mailing_process') }}" id="process-form">
         <input type="hidden" name="campaign" value="{{ campaign }}">
-        <button type="button" class="btn btn-primary btn-large" onclick="confirmAndSend()">
+        <button type="button" class="btn btn-primary btn-large" id="send-btn" onclick="confirmAndSend()">
             Envoyer {{ stats.pending }} emails maintenant
         </button>
         <span class="hint" style="margin-left:1rem;">Rate-limit : {{ config.MAIL_RATE_PER_MINUTE if config else 20 }} emails/minute</span>
     </form>
+    {% else %}
+    <div class="alert-info">
+        {{ stats.pending }} email(s) en attente dans plusieurs campagnes.
+        Cliquez sur une campagne dans l'historique pour lancer l'envoi.
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -131,6 +138,9 @@ function resizeFrame(iframe) {
 function confirmAndSend() {
     const pending = {{ stats.pending }};
     if (!confirm('Lancer l\'envoi de ' + pending + ' emails ?')) return;
+    const btn = document.getElementById('send-btn');
+    btn.disabled = true;
+    btn.textContent = 'Envoi en cours...';
     document.getElementById('sending-overlay').style.display = 'flex';
     document.getElementById('process-form').submit();
 }
@@ -196,6 +206,14 @@ function confirmAndSend() {
 
 .process-section {
     margin-bottom: 1.5rem;
+}
+.alert-info {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
 }
 .btn-large {
     padding: 0.75rem 2rem;
