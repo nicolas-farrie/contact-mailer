@@ -61,6 +61,8 @@
 - [x] Formulaire utilisateur : création depuis fiche contact en tête, email copié comme identifiant
 - [x] Fiche contact : métadonnées techniques (UID, Source, Créé/Modifié par) réservées aux admins
 - [x] Corbeille contacts : soft-delete (is_deleted + deleted_at + deleted_by), restauration et purge admin dans Paramètres
+- [x] Formulaires de préférences : lien unique par contact (token + uid), cases liées aux Listes, auto-apply, expires_at, page publique sans login
+- [x] Gestion des bounces SMTP : Return-Path configurable, scan IMAP dédié, marquage has_bounced + badge, réinitialisation admin
 
 ## Correction Bug ou pb interface - Prioritaire
 - [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
@@ -89,6 +91,6 @@
 - [ ] Pagination de la liste des contacts
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
-  - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
-  dopris
-  - em
+- [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
+
+
