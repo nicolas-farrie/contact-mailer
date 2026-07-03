@@ -5,6 +5,8 @@ services:
     # En dev local : commenter la ligne image et décommenter build
     # build: .
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       # Toujours restreindre à 127.0.0.1 : Docker publie les ports via iptables,
       # ce qui contourne UFW (qui ne filtre pas la chaîne DOCKER). Nginx
@@ -13,5 +15,3 @@ services:
     volumes:
       - ./data:/app/data
       - ./data/uploads:/app/static/uploads
-    env_file:
-      - .env
