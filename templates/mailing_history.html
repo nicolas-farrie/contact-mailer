@@ -56,9 +56,10 @@
                 <a href="{{ url_for('mailing', from_campaign=c.id) }}"
                    class="btn btn-sm btn-warning" title="Réutiliser ce message">Réutiliser</a>
                 {% endif %}
-                {% if c.stats.pending > 0 %}
+                {% if c.stats.pending > 0 or c.stats.error > 0 %}
                 <a href="{{ url_for('mailing_queue', campaign=c.id) }}"
-                   class="btn btn-sm btn-primary" title="Voir la file d'attente">File</a>
+                   class="btn btn-sm {% if c.stats.error > 0 and c.stats.pending == 0 %}btn-warning{% else %}btn-primary{% endif %}"
+                   title="Voir la file d'attente">File{% if c.stats.error > 0 and c.stats.pending == 0 %} ↺{% endif %}</a>
                 {% endif %}
                 <form method="POST" action="{{ url_for('mailing_history_archive', campaign_id=c.id) }}" style="display:inline">
                     <button type="submit" class="btn btn-sm btn-secondary"

@@ -102,6 +102,7 @@
     <thead>
         <tr>
             <th>ID</th>
+            {% if not campaign %}<th>Campagne</th>{% endif %}
             <th>Contact</th>
             <th>Email</th>
             <th>Statut</th>
@@ -113,6 +114,13 @@
         {% for item in items %}
         <tr>
             <td>{{ item.id }}</td>
+            {% if not campaign %}
+            <td style="font-size:0.75rem;color:var(--gray-500);">
+                <a href="{{ url_for('mailing_queue', campaign=item.campaign_id) }}" title="{{ item.campaign_id }}">
+                    {{ item.campaign_id[-20:] }}
+                </a>
+            </td>
+            {% endif %}
             <td>{{ item.contact.prenom }} {{ item.contact.nom }}</td>
             <td>{{ item.contact.email }}</td>
             <td>
