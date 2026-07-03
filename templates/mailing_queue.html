@@ -53,24 +53,40 @@
 </div>
 {% endif %}
 
-{% if stats.pending > 0 %}
 <div class="process-section">
-    {% if campaign %}
-    <form method="POST" action="{{ url_for('mailing_process') }}" id="process-form">
+{% if stats.pending > 0 and campaign %}
+    <form method="POST" action="{{ url_for('mailing_process') }}" id="process-form" style="display:inline">
         <input type="hidden" name="campaign" value="{{ campaign }}">
         <button type="button" class="btn btn-primary btn-large" id="send-btn" onclick="confirmAndSend()">
             Envoyer {{ stats.pending }} emails maintenant
         </button>
-        <span class="hint" style="margin-left:1rem;">Rate-limit : {{ config.MAIL_RATE_PER_MINUTE if config else 20 }} emails/minute</span>
     </form>
-    {% else %}
+    <span class="hint" style="margin-left:1rem;">Rate-limit : {{ config.MAIL_RATE_PER_MINUTE if config else 20 }} emails/minute</span>
+{% elif stats.pending > 0 %}
     <div class="alert-info">
-        {{ stats.pending }} email(s) en attente dans plusieurs campagnes.
-        Cliquez sur une campagne dans l'historique pour lancer l'envoi.
+        {{ stats.pending }} email(s) en attente dans plusieurs campagnes —
+        sélectionnez une campagne dans l'historique pour lancer l'envoi.
     </div>
-    {% endif %}
-</div>
 {% endif %}
+
+{% if stats.error > 0 and campaign %}
+    <form method="POST" action="{{ url_for('mailing_queue_retry', campaign_id=campaign) }}" style="display:inline;margin-left:0.5rem;">
+        <button type="submit" class="btn btn-warning"
+                onclick="return confirm('Remettre {{ stats.error }} email(s) en erreur en attente pour réessayer ?')">
+            ↺ Réessayer {{ stats.error }} erreur{{ 's' if stats.error > 1 }}
+        </button>
+    </form>
+{% endif %}
+
+{% if campaign and stats.pending == 0 and stats.error == 0 %}
+    <form method="POST" action="{{ url_for('mailing_history_delete', campaign_id=campaign) }}" style="display:inline;margin-left:0.5rem;">
+        <button type="submit" class="btn btn-secondary"
+                onclick="return confirm('Supprimer définitivement cette campagne de la file ?')">
+            Supprimer la campagne
+        </button>
+    </form>
+{% endif %}
+</div>
 
 <!-- Overlay spinner envoi -->
 <div id="sending-overlay">

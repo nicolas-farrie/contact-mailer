@@ -1209,6 +1209,16 @@ def mailing_history():
     return render_template('mailing_history.html', campaigns=campaigns, archived=archived)
 
 
+@app.route('/mailing/queue/retry/<campaign_id>', methods=['POST'])
+@login_required
+def mailing_queue_retry(campaign_id):
+    from mailer import MailQueue
+    queue = MailQueue()
+    queue.reset_errors(campaign_id)
+    flash('Erreurs remises en attente. Vous pouvez relancer l\'envoi.', 'success')
+    return redirect(url_for('mailing_queue', campaign=campaign_id))
+
+
 @app.route('/mailing/history/archive/<campaign_id>', methods=['POST'])
 @login_required
 def mailing_history_archive(campaign_id):
