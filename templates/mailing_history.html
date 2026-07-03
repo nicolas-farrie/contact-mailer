@@ -7,6 +7,11 @@
     <div>
         <a href="{{ url_for('mailing_queue') }}" class="btn">File d'attente</a>
         <a href="{{ url_for('mailing_submissions') }}" class="btn">Demandes</a>
+        {% if archived %}
+        <button type="button" class="btn btn-secondary" onclick="toggleArchived()">
+            Archivées <span class="badge badge-pending">{{ archived|length }}</span>
+        </button>
+        {% endif %}
         <a href="{{ url_for('mailing') }}" class="btn btn-primary">+ Nouveau mailing</a>
     </div>
 </div>
@@ -91,10 +96,76 @@
 </div>
 {% endif %}
 
+{% if archived %}
+<div id="archived-section" style="display:none; margin-top:2rem;">
+    <h2 style="font-size:1rem;color:var(--gray-500);margin-bottom:0.75rem;">Campagnes archivées</h2>
+    <div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Sujet</th>
+                <th>Envoyé par</th>
+                <th>Stats</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in archived %}
+            <tr style="opacity:0.65;">
+                <td style="white-space:nowrap">{{ c.date or '-' }}</td>
+                <td class="campaign-subject">
+                    <span class="subject-toggle" onclick="toggleContent('archived-content-{{ loop.index }}')">
+                        {{ c.template.subject if c.template else c.id }}
+                    </span>
+                </td>
+                <td>{{ c.template.sent_by|default('-', true) if c.template else '-' }}</td>
+                <td style="white-space:nowrap">
+                    <span class="badge badge-sent" title="Envoyés">{{ c.stats.sent }}</span>
+                    {% if c.stats.error > 0 %}<span class="badge badge-error" title="Erreurs">{{ c.stats.error }}</span>{% endif %}
+                    {% if c.stats.cancelled > 0 %}<span class="badge badge-grey" title="Annulés">{{ c.stats.cancelled }}</span>{% endif %}
+                    {% if c.stats.bounced > 0 %}<span class="badge badge-bounce" title="Bounces">{{ c.stats.bounced }}</span>{% endif %}
+                </td>
+                <td class="actions-cell">
+                    <form method="POST" action="{{ url_for('mailing_history_unarchive', campaign_id=c.id) }}" style="display:inline">
+                        <button type="submit" class="btn btn-sm btn-action">Restaurer</button>
+                    </form>
+                    {% if current_user.is_admin %}
+                    <form method="POST" action="{{ url_for('mailing_history_delete', campaign_id=c.id) }}" style="display:inline">
+                        <button type="submit" class="btn btn-sm btn-danger"
+                                onclick="return confirm('Supprimer définitivement ?')">Supprimer</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% if c.template and c.template.body %}
+            <tr id="archived-content-{{ loop.index }}" class="content-row" style="display:none">
+                <td colspan="5">
+                    {% if c.template.format == 'html' %}
+                    <iframe srcdoc="{{ c.template.body | e }}"
+                            style="width:100%;min-height:300px;border:none;"
+                            sandbox="allow-same-origin"></iframe>
+                    {% else %}
+                    <pre class="body-text">{{ c.template.body }}</pre>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
 <script>
 function toggleContent(id) {
     const row = document.getElementById(id);
     if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+function toggleArchived() {
+    const section = document.getElementById('archived-section');
+    if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
 }
 </script>
 
@@ -139,6 +210,7 @@ function toggleContent(id) {
 .badge-pending { background: #fef3c7; color: #92400e; }
 .badge-unsub { background: #dbeafe; color: #1e40af; }
 .badge-bounce { background: #fde68a; color: #92400e; }
+.badge-grey { background: #e5e7eb; color: #6b7280; }
 .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;

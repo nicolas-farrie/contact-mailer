@@ -298,38 +298,45 @@ class MailQueue:
             'cancelled': len([i for i in items if i['status'] == 'cancelled']),
         }
 
+    def _build_campaign_entry(self, cid):
+        template = self.get_campaign_template(cid)
+        stats = self.get_stats(cid)
+        parts = cid.rsplit('_', 2)
+        date_str = ''
+        if len(parts) >= 3:
+            try:
+                date_str = datetime.strptime(
+                    f"{parts[-2]}_{parts[-1]}", '%Y%m%d_%H%M%S'
+                ).strftime('%d/%m/%Y %H:%M')
+            except ValueError:
+                pass
+        sent_emails = {
+            item['contact'].get('email', '')
+            for item in self.queue
+            if item['campaign_id'] == cid and item['status'] == 'sent'
+        }
+        return {'id': cid, 'date': date_str, 'stats': stats,
+                'template': template, 'sent_emails': sent_emails}
+
     def get_campaigns_list(self):
-        """Retourne la liste des campagnes non archivées avec stats et template, triées par date décroissante."""
+        """Retourne les campagnes non archivées, triées par date décroissante."""
         campaign_ids = set(item['campaign_id'] for item in self.queue)
-        campaigns = []
-        for cid in campaign_ids:
-            template = self.get_campaign_template(cid)
-            if template.get('archived'):
-                continue
-            stats = self.get_stats(cid)
-            # Extraire la date depuis le campaign_id (format: nom_YYYYMMDD_HHMMSS)
-            parts = cid.rsplit('_', 2)
-            date_str = ''
-            if len(parts) >= 3:
-                try:
-                    date_str = datetime.strptime(
-                        f"{parts[-2]}_{parts[-1]}", '%Y%m%d_%H%M%S'
-                    ).strftime('%d/%m/%Y %H:%M')
-                except ValueError:
-                    date_str = ''
-            # Emails des destinataires envoyés pour cette campagne
-            sent_emails = {
-                item['contact'].get('email', '')
-                for item in self.queue
-                if item['campaign_id'] == cid and item['status'] == 'sent'
-            }
-            campaigns.append({
-                'id': cid,
-                'date': date_str,
-                'stats': stats,
-                'template': template,
-                'sent_emails': sent_emails,
-            })
+        campaigns = [
+            self._build_campaign_entry(cid)
+            for cid in campaign_ids
+            if not self.get_campaign_template(cid).get('archived')
+        ]
+        campaigns.sort(key=lambda c: c['id'], reverse=True)
+        return campaigns
+
+    def get_archived_campaigns_list(self):
+        """Retourne les campagnes archivées, triées par date décroissante."""
+        campaign_ids = set(item['campaign_id'] for item in self.queue)
+        campaigns = [
+            self._build_campaign_entry(cid)
+            for cid in campaign_ids
+            if self.get_campaign_template(cid).get('archived')
+        ]
         campaigns.sort(key=lambda c: c['id'], reverse=True)
         return campaigns
 
@@ -340,6 +347,15 @@ class MailQueue:
                 item['status'] = 'cancelled'
         if campaign_id in self.campaigns:
             self.campaigns[campaign_id]['archived'] = True
+        self.save()
+
+    def unarchive_campaign(self, campaign_id: str):
+        """Remet une campagne dans l'historique et restaure les envois annulés en pending."""
+        for item in self.queue:
+            if item['campaign_id'] == campaign_id and item['status'] == 'cancelled':
+                item['status'] = 'pending'
+        if campaign_id in self.campaigns:
+            self.campaigns[campaign_id]['archived'] = False
         self.save()
 
     def clear(self, campaign_id: str = None):

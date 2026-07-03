@@ -1200,12 +1200,13 @@ def mailing_history():
     from mailer import MailQueue
     queue = MailQueue()
     campaigns = queue.get_campaigns_list()
+    archived = queue.get_archived_campaigns_list()
 
     bounced_emails = {c.email for c in Contact.query.filter_by(has_bounced=True).all()}
-    for c in campaigns:
+    for c in campaigns + archived:
         c['stats']['bounced'] = len(c['sent_emails'] & bounced_emails)
 
-    return render_template('mailing_history.html', campaigns=campaigns)
+    return render_template('mailing_history.html', campaigns=campaigns, archived=archived)
 
 
 @app.route('/mailing/history/archive/<campaign_id>', methods=['POST'])
@@ -1215,6 +1216,16 @@ def mailing_history_archive(campaign_id):
     queue = MailQueue()
     queue.archive_campaign(campaign_id)
     flash('Campagne archivée.', 'success')
+    return redirect(url_for('mailing_history'))
+
+
+@app.route('/mailing/history/unarchive/<campaign_id>', methods=['POST'])
+@login_required
+def mailing_history_unarchive(campaign_id):
+    from mailer import MailQueue
+    queue = MailQueue()
+    queue.unarchive_campaign(campaign_id)
+    flash('Campagne restaurée.', 'success')
     return redirect(url_for('mailing_history'))
 
 
