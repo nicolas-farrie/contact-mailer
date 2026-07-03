@@ -21,6 +21,16 @@
 </div>
 {% endif %}
 
+{% if imap_configured and not error %}
+<div class="info-box" style="margin-bottom:0.75rem;">
+    <h3>Adresse de dépôt des demandes</h3>
+    <p>Les contacts qui souhaitent soumettre un message à diffuser envoient un email à :</p>
+    <p style="font-size:1.1rem;font-weight:600;margin:0.5rem 0;">
+        <a href="mailto:{{ config.IMAP_USER }}">{{ config.IMAP_USER }}</a>
+    </p>
+    <p style="color:var(--gray-500);font-size:0.875rem;">Le sujet du mail devient le sujet du mailing ; le corps du mail en devient le contenu, avec les pièces jointes éventuelles.</p>
+</div>
+{% endif %}
 <div class="info-box">
     <h3>Fonctionnement</h3>
     <ul>
