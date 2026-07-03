@@ -124,6 +124,44 @@ class User(UserMixin, db.Model):
         return self.username
 
 
+class PreferenceForm(db.Model):
+    __tablename__ = 'preference_form'
+    id = db.Column(db.Integer, primary_key=True)
+    nom = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    token = db.Column(db.String(32), unique=True, nullable=False, default=lambda: uuid.uuid4().hex)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
+    listes = db.relationship('PreferenceFormListe', back_populates='form',
+                             order_by='PreferenceFormListe.ordre', cascade='all, delete-orphan')
+    responses = db.relationship('PreferenceResponse', back_populates='form', cascade='all, delete-orphan')
+
+
+class PreferenceFormListe(db.Model):
+    __tablename__ = 'preference_form_liste'
+    id = db.Column(db.Integer, primary_key=True)
+    form_id = db.Column(db.Integer, db.ForeignKey('preference_form.id'), nullable=False)
+    liste_id = db.Column(db.Integer, db.ForeignKey('liste.id'), nullable=False)
+    label = db.Column(db.String(200), nullable=False)
+    help_text = db.Column(db.Text, nullable=True)
+    ordre = db.Column(db.Integer, default=0)
+    form = db.relationship('PreferenceForm', back_populates='listes')
+    liste = db.relationship('Liste')
+
+
+class PreferenceResponse(db.Model):
+    __tablename__ = 'preference_response'
+    id = db.Column(db.Integer, primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=False)
+    form_id = db.Column(db.Integer, db.ForeignKey('preference_form.id'), nullable=False)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    contact = db.relationship('Contact')
+    form = db.relationship('PreferenceForm', back_populates='responses')
+
+
 class BookstackRole(db.Model):
     """Rôle importé depuis BookStack (référence locale)"""
     id = db.Column(db.Integer, primary_key=True, autoincrement=False)  # ID venant de BS

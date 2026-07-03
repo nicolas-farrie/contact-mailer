@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lien expiré</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #f3f4f6; margin: 0; padding: 2rem 1rem; color: #111827; }
+        .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); max-width: 520px; margin: 0 auto; padding: 2rem; text-align: center; }
+        .icon { font-size: 2.5rem; margin-bottom: 1rem; }
+        h1 { font-size: 1.15rem; margin: 0 0 0.75rem; color: #374151; }
+        p { color: #6b7280; font-size: 0.9rem; line-height: 1.6; margin: 0; }
+        .form-name { font-weight: 600; color: #111827; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="icon">🔒</div>
+    <h1>Ce lien n'est plus actif</h1>
+    <p>
+        La période de réponse pour le formulaire
+        <span class="form-name">« {{ form.nom }} »</span>
+        est terminée.
+    </p>
+    <p style="margin-top:0.75rem;">Si vous pensez qu'il s'agit d'une erreur, contactez l'organisateur qui vous a envoyé ce lien.</p>
+</div>
+</body>
+</html>

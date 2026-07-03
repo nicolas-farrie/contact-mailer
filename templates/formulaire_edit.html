@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if form else 'Nouveau' }} formulaire - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'Modifier le formulaire' if form else 'Nouveau formulaire' }}</h1>
+</div>
+
+<form method="POST" class="form-card" id="pref-form">
+
+    {% if form %}
+    <div class="form-group">
+        <label class="checkbox-label">
+            <input type="checkbox" name="is_active" {% if form.is_active %}checked{% endif %}>
+            Formulaire actif <span style="color:var(--gray-500);font-weight:normal;">— décochez pour clore immédiatement la campagne</span>
+        </label>
+    </div>
+    <div class="form-group">
+        <label for="expires_at">Date de clôture automatique <span style="color:var(--gray-500);font-weight:normal;">(optionnel)</span></label>
+        <input type="date" id="expires_at" name="expires_at"
+               value="{{ form.expires_at.strftime('%Y-%m-%d') if form.expires_at else '' }}"
+               style="max-width:200px;">
+        <p class="field-help">Le formulaire se fermera automatiquement à minuit à cette date. Laissez vide pour une durée illimitée.</p>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--gray-200);margin:1rem 0;">
+    {% endif %}
+
+    <div class="form-group">
+        <label for="nom">Nom du formulaire *</label>
+        <input type="text" id="nom" name="nom" value="{{ form.nom if form else '' }}" required
+               placeholder="ex: Événement 2026 — niveau d'implication">
+    </div>
+
+    <div class="form-group">
+        <label for="description">Description <span style="color:var(--gray-500);font-weight:normal;">— affiché en évidence sur la page reçue par le contact</span></label>
+        <textarea id="description" name="description" rows="3"
+                  placeholder="ex: Dans le cadre de l'organisation de notre événement annuel, merci de nous indiquer le niveau d'implication qui vous correspond.">{{ form.description or '' }}</textarea>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--gray-200);margin:1.5rem 0;">
+
+    <h2 style="font-size:1rem;margin-bottom:0.25rem;">Groupes proposés</h2>
+    <p class="settings-hint">Cochez les groupes à proposer, définissez le libellé affiché au contact et une explication optionnelle (icône ?).</p>
+
+    {% set current_ids = form.listes|map(attribute='liste_id')|list if form else [] %}
+    {% set current_map = {} %}
+    {% if form %}
+        {% for fl in form.listes %}
+            {% set _ = current_map.update({fl.liste_id: fl}) %}
+        {% endfor %}
+    {% endif %}
+
+    <div id="listes-container">
+        {% for liste in listes %}
+        {% set fl = current_map.get(liste.id) %}
+        {% set checked = liste.id in current_ids %}
+        <div class="pref-liste-row" data-id="{{ liste.id }}">
+            <div class="pref-liste-check">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="liste_select_{{ liste.id }}"
+                           class="liste-cb" data-id="{{ liste.id }}"
+                           {% if checked %}checked{% endif %}>
+                    <strong>{{ liste.nom }}</strong>
+                    <span class="pref-count">({{ liste.count }} contact{% if liste.count != 1 %}s{% endif %})</span>
+                </label>
+            </div>
+            <div class="pref-liste-fields" {% if not checked %}style="display:none"{% endif %}>
+                <input type="hidden" name="liste_order_{{ liste.id }}" class="liste-order" value="{{ loop.index0 }}">
+                <div class="form-row" style="margin-bottom:0.5rem;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Libellé affiché</label>
+                        <input type="text" name="label_{{ liste.id }}"
+                               value="{{ fl.label if fl else liste.nom }}"
+                               placeholder="{{ liste.nom }}">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Explication (info-bulle <span title="Affiché avec une icône ? à côté du libellé">?</span>)</label>
+                        <input type="text" name="help_{{ liste.id }}"
+                               value="{{ fl.help_text or '' }}"
+                               placeholder="Facultatif — précise le rôle ou l'engagement attendu">
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not listes %}
+        <p class="hint">Aucune liste créée. <a href="{{ url_for('liste_new') }}">Créer une liste</a> d'abord.</p>
+        {% endif %}
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn {% if form %}btn-warning{% else %}btn-primary{% endif %}">
+            {{ 'Enregistrer' if form else 'Créer le formulaire' }}
+        </button>
+        <a href="{{ url_for('formulaire_detail', id=form.id) if form else url_for('formulaires') }}"
+           class="btn btn-secondary">Annuler</a>
+        {% if form %}
+        <form method="POST" action="{{ url_for('formulaire_delete', id=form.id) }}" style="display:inline;margin-left:auto;"
+              onsubmit="return confirm('Supprimer ce formulaire et toutes ses réponses ?')">
+            <button type="submit" class="btn btn-danger">Supprimer</button>
+        </form>
+        {% endif %}
+    </div>
+</form>
+
+<script>
+document.querySelectorAll('.liste-cb').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+        const row = this.closest('.pref-liste-row');
+        row.querySelector('.pref-liste-fields').style.display = this.checked ? '' : 'none';
+    });
+});
+
+document.getElementById('pref-form').addEventListener('submit', function() {
+    // Injecte les liste_ids dans l'ordre des lignes cochées
+    document.querySelectorAll('.liste-cb:checked').forEach(function(cb, idx) {
+        const id = cb.dataset.id;
+        // Ajoute un input hidden liste_ids[] pour chaque liste cochée
+        const inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'liste_ids';
+        inp.value = id;
+        document.getElementById('pref-form').appendChild(inp);
+    });
+});
+</script>
+{% endblock %}

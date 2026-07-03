@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ form.nom }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ form.nom }}</h1>
+    <div style="display:flex;gap:0.5rem;">
+        <a href="{{ url_for('formulaire_edit', id=form.id) }}" class="btn btn-warning">Modifier</a>
+    </div>
+</div>
+
+{% if form.description %}
+<p style="color:var(--gray-700);margin-bottom:1.5rem;">{{ form.description }}</p>
+{% endif %}
+
+<div class="form-card" style="margin-bottom:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+        <div>
+            <p style="margin:0 0 0.25rem;font-size:0.85rem;color:var(--gray-500);">Lien à insérer dans un mailing
+                <span title="Utilisez cette URL dans votre template. Le {uid} sera remplacé automatiquement par l'UID de chaque contact.">(?)</span>
+            </p>
+            <code class="pref-link-code">{{ link_template }}</code>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+            {% if not form.is_active %}
+            <span class="badge badge-gray">Inactif</span>
+            {% elif form.expires_at and form.expires_at < now %}
+            <span class="badge badge-gray">Expiré le {{ form.expires_at.strftime('%d/%m/%Y') }}</span>
+            {% elif form.expires_at %}
+            <span class="badge badge-green">Actif · clôture le {{ form.expires_at.strftime('%d/%m/%Y') }}</span>
+            {% else %}
+            <span class="badge badge-green">Actif · durée illimitée</span>
+            {% endif %}
+            <button class="btn btn-small" onclick="copyLink()">Copier le lien</button>
+        </div>
+    </div>
+
+    <div style="margin-top:1rem;border-top:1px solid var(--gray-200);padding-top:1rem;">
+        <p style="font-size:0.85rem;color:var(--gray-500);margin:0 0 0.5rem;">Groupes proposés dans ce formulaire :</p>
+        {% if form.listes %}
+        <ul style="margin:0;padding-left:1.2rem;">
+            {% for fl in form.listes %}
+            <li style="margin-bottom:0.25rem;">
+                <strong>{{ fl.label }}</strong>
+                {% if fl.help_text %}<span style="color:var(--gray-500);font-size:0.85rem;"> — {{ fl.help_text }}</span>{% endif %}
+                <span style="font-size:0.75rem;color:var(--gray-500);"> (liste : {{ fl.liste.nom }})</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="hint">Aucun groupe configuré. <a href="{{ url_for('formulaire_edit', id=form.id) }}">Modifier le formulaire</a></p>
+        {% endif %}
+    </div>
+</div>
+
+<h2 style="font-size:1rem;margin-bottom:0.75rem;">Réponses reçues ({{ responses|length }})</h2>
+
+{% if responses %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th data-sort>Contact</th>
+            <th data-sort>Email</th>
+            <th data-sort>Répondu le</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in responses %}
+        <tr>
+            <td>
+                {% if r.contact %}
+                <a href="{{ url_for('contact_edit', id=r.contact.id) }}">{{ r.contact.nom }} {{ r.contact.prenom }}</a>
+                {% else %}—{% endif %}
+            </td>
+            <td>{{ r.contact.email if r.contact else '—' }}</td>
+            <td>{{ r.submitted_at.strftime('%d/%m/%Y %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-state-text">Aucune réponse reçue pour l'instant.</p>
+{% endif %}
+
+<script>
+function copyLink() {
+    navigator.clipboard.writeText('{{ link_template }}').then(function() {
+        alert('Lien copié !');
+    });
+}
+</script>
+
+<style>
+.pref-link-code {
+    display: block;
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    word-break: break-all;
+    margin-top: 0.25rem;
+}
+</style>
+{% endblock %}

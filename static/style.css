@@ -899,3 +899,12 @@ select:focus {
 }
 .trash-actions { display: flex; gap: 0.5rem; }
 .empty-state-text { color: var(--gray-500); font-size: 0.9rem; font-style: italic; }
+
+/* === FORMULAIRES DE PRÉFÉRENCES === */
+.pref-liste-row { border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
+.pref-liste-check { margin-bottom: 0.5rem; }
+.pref-count { font-size: 0.8rem; color: var(--gray-500); font-weight: normal; margin-left: 0.25rem; }
+.badge { display: inline-block; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 600; }
+.badge-green { background: #dcfce7; color: #166534; }
+.badge-gray  { background: var(--gray-100); color: var(--gray-500); }
+.table-actions { display: flex; gap: 0.4rem; white-space: nowrap; }
