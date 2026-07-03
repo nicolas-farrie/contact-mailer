@@ -294,7 +294,8 @@ class MailQueue:
             'total': len(items),
             'pending': len([i for i in items if i['status'] == 'pending']),
             'sent': len([i for i in items if i['status'] == 'sent']),
-            'error': len([i for i in items if i['status'] == 'error'])
+            'error': len([i for i in items if i['status'] == 'error']),
+            'cancelled': len([i for i in items if i['status'] == 'cancelled']),
         }
 
     def get_campaigns_list(self):
@@ -333,10 +334,13 @@ class MailQueue:
         return campaigns
 
     def archive_campaign(self, campaign_id: str):
-        """Masque une campagne de l'historique sans supprimer les données."""
+        """Masque une campagne de l'historique et annule les envois en attente."""
+        for item in self.queue:
+            if item['campaign_id'] == campaign_id and item['status'] == 'pending':
+                item['status'] = 'cancelled'
         if campaign_id in self.campaigns:
             self.campaigns[campaign_id]['archived'] = True
-            self.save()
+        self.save()
 
     def clear(self, campaign_id: str = None):
         if campaign_id:
