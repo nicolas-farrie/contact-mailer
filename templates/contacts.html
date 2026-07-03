@@ -32,6 +32,14 @@
         <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Effacer</a>
         {% endif %}
     </form>
+    {% if current_user.is_admin and config.BOUNCE_IMAP_HOST %}
+    <form method="POST" action="{{ url_for('scan_bounces') }}" style="margin-top:0.5rem;">
+        <button type="submit" class="btn btn-small btn-secondary"
+                onclick="return confirm('Scanner la boîte bounce et mettre à jour les contacts ?')">
+            ⟳ Scanner les bounces
+        </button>
+    </form>
+    {% endif %}
 </div>
 
 <form method="POST" action="{{ url_for('contacts_bulk_action') }}" id="bulk-form">
@@ -76,7 +84,7 @@
             <td><input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox" form="bulk-form"></td>
                 <td>
                     <strong>{{ contact.nom }}</strong> {{ contact.prenom }}
-                    {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}
+                    {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}{% if contact.has_bounced %}<span class="tag tag-bounce">Bounce</span>{% endif %}
                 </td>
                 <td><a href="mailto:{{ contact.email }}">{{ contact.email }}</a></td>
                 <td>{% if contact.telephone %}<a href="tel:{{ contact.telephone }}" class="tel-link">{{ contact.telephone }}</a>{% else %}-{% endif %}</td>
@@ -113,7 +121,7 @@
             <div>
                 <div class="contact-card-name">
                     {{ contact.nom }} {{ contact.prenom }}
-                    {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}
+                    {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}{% if contact.has_bounced %}<span class="tag tag-bounce">Bounce</span>{% endif %}
                 </div>
                 {% if contact.organisation %}<div style="font-size:0.8rem;color:var(--gray-500);">{{ contact.organisation }}</div>{% endif %}
             </div>

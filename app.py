@@ -286,6 +286,51 @@ def settings_trash_purge():
     return redirect(url_for('settings'))
 
 
+# === BOUNCES ===
+
+@app.route('/contacts/scan-bounces', methods=['POST'])
+@admin_required
+def scan_bounces():
+    from bounce_scanner import scan_bounces as _scan, mark_processed
+    results = _scan(Config)
+    if not results:
+        flash('Aucun nouveau bounce détecté.', 'info')
+        return redirect(url_for('contacts'))
+
+    marked = 0
+    skipped = 0
+    for item in results:
+        contact = Contact.query.filter(
+            Contact.email.ilike(item['email']),
+            Contact.is_deleted == False
+        ).first()
+        if contact:
+            contact.has_bounced = True
+            contact.bounced_at = datetime.utcnow()
+            mark_processed(Config, item['imap_uid'])
+            marked += 1
+        else:
+            skipped += 1
+
+    db.session.commit()
+    msg = f'{marked} bounce(s) enregistré(s)'
+    if skipped:
+        msg += f', {skipped} adresse(s) inconnue(s) ignorée(s)'
+    flash(msg, 'warning' if marked else 'info')
+    return redirect(url_for('contacts'))
+
+
+@app.route('/contacts/<int:id>/clear-bounce', methods=['POST'])
+@admin_required
+def contact_clear_bounce(id):
+    contact = Contact.query.get_or_404(id)
+    contact.has_bounced = False
+    contact.bounced_at = None
+    db.session.commit()
+    flash('Bounce réinitialisé.', 'success')
+    return redirect(url_for('contact_edit', id=id))
+
+
 # === FORMULAIRES DE PRÉFÉRENCES ===
 
 @app.route('/formulaires')
@@ -1542,8 +1587,10 @@ def mailing_process():
 
         try:
             subj, body_text, body_html = template.render(contact, unsubscribe_url=unsub_url)
+            return_path = Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER or None
             mailer.send_single(contact['email'], subj, body_text, body_html,
-                               unsubscribe_url=unsub_url, attachments=attachments)
+                               unsubscribe_url=unsub_url, attachments=attachments,
+                               return_path=return_path)
             queue.mark_sent(item['id'])
             sent += 1
         except Exception as e:

@@ -53,6 +53,16 @@ class Config:
     SEAFILE_URL = os.environ.get('SEAFILE_URL', '')
     SEAFILE_TOKEN = os.environ.get('SEAFILE_TOKEN', '')
 
+    # IMAP - boîte bounce (Return-Path des mailings)
+    BOUNCE_IMAP_HOST = os.environ.get('BOUNCE_IMAP_HOST', '')
+    BOUNCE_IMAP_PORT = int(os.environ.get('BOUNCE_IMAP_PORT', 993))
+    BOUNCE_IMAP_USER = os.environ.get('BOUNCE_IMAP_USER', '')
+    BOUNCE_IMAP_PASSWORD = os.environ.get('BOUNCE_IMAP_PASSWORD', '')
+    BOUNCE_IMAP_FOLDER = os.environ.get('BOUNCE_IMAP_FOLDER', 'INBOX')
+    BOUNCE_IMAP_PROCESSED_FOLDER = os.environ.get('BOUNCE_IMAP_PROCESSED_FOLDER', 'Traite')
+    # Adresse Return-Path injectée dans les mailings (= BOUNCE_IMAP_USER si non défini)
+    BOUNCE_RETURN_PATH = os.environ.get('BOUNCE_RETURN_PATH', '')
+
     # IMAP - boîte de réception des demandes de diffusion
     IMAP_HOST = os.environ.get('IMAP_HOST', '')
     IMAP_PORT = int(os.environ.get('IMAP_PORT', 993))

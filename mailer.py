@@ -351,7 +351,8 @@ class Mailer:
         self.use_tls = use_tls
 
     def send_single(self, to_email: str, subject: str, body_text: str, body_html: str = None,
-                     unsubscribe_url: str = None, attachments: list = None) -> bool:
+                     unsubscribe_url: str = None, attachments: list = None,
+                     return_path: str = None) -> bool:
         """Envoie un email unique. Retourne True si succès."""
         from email.utils import formatdate
         from email.mime.base import MIMEBase
@@ -377,6 +378,9 @@ class Mailer:
             msg['Date'] = formatdate(localtime=True)
             msg['Message-ID'] = make_msgid(domain=self.sender_email.split('@')[1])
             msg['Content-Language'] = 'fr'
+
+            if return_path:
+                msg['Return-Path'] = f'<{return_path}>'
 
             if unsubscribe_url:
                 msg['List-Unsubscribe'] = f'<{unsubscribe_url}>'

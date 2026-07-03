@@ -34,6 +34,8 @@ class Contact(db.Model):
     seafile_temp_pwd = db.Column(db.String(100), nullable=True)
     is_unsubscribed = db.Column(db.Boolean, default=False)
     unsubscribed_at = db.Column(db.DateTime, nullable=True)
+    has_bounced = db.Column(db.Boolean, default=False, nullable=False)
+    bounced_at = db.Column(db.DateTime, nullable=True)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
