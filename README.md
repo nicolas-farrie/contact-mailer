@@ -6,6 +6,7 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 
 ### Gestion des contacts
 - Création, modification, suppression de contacts (avec corbeille — restauration possible)
+- **Détection des bounces** : scan de la boîte IMAP dédiée au Return-Path, marquage automatique des adresses en erreur, badge visible dans la liste, réinitialisation admin
 - **UID unique** par contact (compatible vCard : Roundcube, Proton, Thunderbird)
 - **Adresse postale** structurée (rue, complément, ville, CP, région, pays)
 - **Source** auto-détectée à l'import (Roundcube, Proton, Infomaniak, etc.)
@@ -85,6 +86,8 @@ Application web de gestion de contacts et d'envoi d'emails en masse, conçue pou
 | `tools/migrate_add_uid.py` | Migration : ajout UID, adresse, source (`--dry-run` disponible) |
 | `tools/migrate_add_unsubscribe.py` | Migration : ajout champs désabonnement (`--dry-run` disponible) |
 | `tools/migrate_add_softdelete.py` | Migration : ajout champs corbeille (is_deleted, deleted_at, deleted_by_id) (`--dry-run` disponible) |
+| `tools/migrate_add_preferences.py` | Migration : création tables formulaires de préférences (`--dry-run` disponible) |
+| `tools/migrate_add_bounces.py` | Migration : ajout champs bounce (has_bounced, bounced_at) (`--dry-run` disponible) |
 
 ## Installation rapide (développement)
 
@@ -283,6 +286,8 @@ Fonctionnement :
 - [x] Formulaire utilisateur : création depuis fiche contact en tête, email copié comme identifiant
 - [x] Fiche contact : métadonnées techniques (UID, Source, Créé/Modifié par) réservées aux admins
 - [x] Corbeille contacts : soft-delete avec restauration et purge définitive admin
+- [x] Formulaires de préférences : lien unique par contact, cases à cocher liées aux Listes, auto-apply, clôture par date ou manuellement
+- [x] Gestion des bounces SMTP : Return-Path + scan IMAP + marquage `has_bounced` + badge dans la liste
 
 ### À faire
 - [ ] Texte d'aide sur le flow mot de passe (formulaire utilisateur)
