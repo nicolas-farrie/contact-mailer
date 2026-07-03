@@ -32,7 +32,7 @@
         <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Effacer</a>
         {% endif %}
     </form>
-    {% if current_user.is_admin and config.BOUNCE_IMAP_HOST %}
+    {% if config.BOUNCE_IMAP_HOST %}
     <form method="POST" action="{{ url_for('scan_bounces') }}" style="margin-top:0.5rem;">
         <button type="submit" class="btn btn-small btn-secondary"
                 onclick="return confirm('Scanner la boîte bounce et mettre à jour les contacts ?')">

@@ -289,7 +289,7 @@ def settings_trash_purge():
 # === BOUNCES ===
 
 @app.route('/contacts/scan-bounces', methods=['POST'])
-@admin_required
+@login_required
 def scan_bounces():
     from bounce_scanner import scan_bounces as _scan, mark_processed
     results = _scan(Config)
