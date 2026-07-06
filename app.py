@@ -51,12 +51,14 @@ from blueprints.formulaires import bp as formulaires_bp
 from blueprints.users import bp as users_bp
 from blueprints.imports import bp as imports_bp
 from blueprints.api_integrations import bp as api_integrations_bp
+from blueprints.settings import bp as settings_bp
 app.register_blueprint(contacts_bp)
 app.register_blueprint(listes_bp)
 app.register_blueprint(formulaires_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(imports_bp)
 app.register_blueprint(api_integrations_bp)
+app.register_blueprint(settings_bp)
 
 
 def init_db():
@@ -142,112 +144,6 @@ def inject_settings():
             }
         except Exception:
             return {'app_name': 'Contact Mailer', 'login_bg_url': None, 'login_overlay': 0.35}
-
-
-@app.route('/settings', methods=['GET', 'POST'])
-@admin_required
-def settings():
-    if request.method == 'POST':
-        section = request.form.get('section')
-
-        if section == 'general':
-            name = (request.form.get('app_name') or '').strip()
-            if name:
-                set_setting('app_name', name[:60])
-                flash('Paramètres généraux enregistrés.', 'success')
-            else:
-                flash("Le nom de l'application ne peut pas être vide.", 'error')
-
-        elif section == 'login_appearance':
-            raw = request.form.get('login_overlay')
-            if raw is not None and raw != '':
-                try:
-                    pct = max(0, min(70, int(float(raw))))
-                    set_setting('login_overlay', str(pct / 100))
-                except ValueError:
-                    pass
-
-            file = request.files.get('login_bg')
-            if file and file.filename:
-                ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-                if ext not in ALLOWED_IMAGE_EXT:
-                    flash('Format non supporté (JPG, PNG ou WebP).', 'error')
-                    return redirect(url_for('settings'))
-                file.seek(0, os.SEEK_END)
-                size = file.tell()
-                file.seek(0)
-                if size > MAX_IMAGE_BYTES:
-                    flash('Image trop volumineuse (5 Mo maximum).', 'error')
-                    return redirect(url_for('settings'))
-                fname = f'login_bg_{uuid.uuid4().hex}.{ext}'
-                dest = os.path.join(_upload_dir(), secure_filename(fname))
-                try:
-                    from PIL import Image
-                    img = Image.open(file.stream)
-                    img.verify()
-                    file.seek(0)
-                    img = Image.open(file.stream)
-                    img.save(dest)
-                except Exception:
-                    file.seek(0)
-                    file.save(dest)
-                _delete_current_login_bg()
-                set_setting('login_bg_filename', os.path.basename(dest))
-            flash('Apparence de la connexion enregistrée.', 'success')
-
-        return redirect(url_for('settings'))
-
-    deleted_contacts = Contact.query.filter(Contact.is_deleted == True).order_by(Contact.deleted_at.desc()).all()
-    return render_template('settings.html', active_tab='general', deleted_contacts=deleted_contacts)
-
-
-@app.route('/settings/clear-login-bg', methods=['POST'])
-@admin_required
-def settings_clear_login_bg():
-    _delete_current_login_bg()
-    set_setting('login_bg_filename', '')
-    flash('Image de fond supprimée.', 'success')
-    return redirect(url_for('settings'))
-
-
-@app.route('/settings/trash')
-@admin_required
-def settings_trash():
-    deleted_contacts = Contact.query.filter(Contact.is_deleted == True).order_by(Contact.deleted_at.desc()).all()
-    return render_template('settings.html', active_tab='settings', deleted_contacts=deleted_contacts)
-
-
-@app.route('/settings/trash/restore', methods=['POST'])
-@admin_required
-def settings_trash_restore():
-    ids = request.form.getlist('contact_ids', type=int)
-    if not ids:
-        flash('Aucun contact sélectionné', 'error')
-        return redirect(url_for('settings'))
-    contacts = Contact.query.filter(Contact.id.in_(ids), Contact.is_deleted == True).all()
-    for c in contacts:
-        c.is_deleted = False
-        c.deleted_at = None
-        c.deleted_by_id = None
-    db.session.commit()
-    flash(f'{len(contacts)} contact(s) restauré(s)', 'success')
-    return redirect(url_for('settings'))
-
-
-@app.route('/settings/trash/purge', methods=['POST'])
-@admin_required
-def settings_trash_purge():
-    ids = request.form.getlist('contact_ids', type=int)
-    if not ids:
-        flash('Aucun contact sélectionné', 'error')
-        return redirect(url_for('settings'))
-    contacts = Contact.query.filter(Contact.id.in_(ids), Contact.is_deleted == True).all()
-    count = len(contacts)
-    for c in contacts:
-        db.session.delete(c)
-    db.session.commit()
-    flash(f'{count} contact(s) supprimé(s) définitivement', 'success')
-    return redirect(url_for('settings'))
 
 
 # === BOUNCES ===
