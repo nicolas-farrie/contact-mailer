@@ -74,14 +74,30 @@
 - [x] Formulaires de préférences : lien unique par contact (token + uid), cases liées aux Listes, auto-apply, expires_at, page publique sans login
 - [x] Gestion des bounces SMTP : Return-Path configurable, scan IMAP dédié, marquage has_bounced + badge, réinitialisation admin
 
+### Fait le 6 juillet 2026 (branche fix/formulaires, sur restructure)
+- [x] Restructuration code : app.py monolithe (2289 l.) découpé en 9 blueprints par domaine (contacts, listes, formulaires, mailing, users, imports, api_integrations, settings, public) + extensions.py/helpers.py + factory create_app() — entrypoint `app:app` et `from app import app,db,init_db` inchangés
+- [x] Fix mailing.process : import pathlib.Path manquant (la copie récap à l'expéditeur échouait quand la campagne avait des pièces jointes)
+- [x] Formulaire création : champ "date de clôture" affiché + enregistré (était masqué et non lu → validité illimitée forcée)
+- [x] Formulaire : archivage soft/réversible (colonne is_archived + migration), autorisé seulement si déjà clos (date de clôture passée), section "Archivés" dépliable, réponses conservées
+- [x] Formulaire : suppression réservée admin, uniquement depuis les archivés, confirmation forte (les users archivent, les admins purgent)
+- [x] Formulaire : colonne "Clôture" dans la liste (date + illimité/clos) ; aide déconseillant les formulaires illimités
+- [x] Formulaire détail : "Copier le lien" → retour "Copié ✓" non-bloquant (plus d'alert)
+- [x] Mailing : URLs collées en texte brut rendues cliquables à l'envoi (auto-linkify, {uid} résolu par contact)
+- [x] Mailing : liens désactivés dans l'aperçu (évite qu'en prévisualisant on modifie de vraies données via un formulaire live)
+
 ## Correction Bug ou pb interface - Prioritaire
 
 
 ## A faire - Prioritaire
-- [ ] Formulaire : Sécurisation du formulaire intéractif - aujourd'hui accessible sans mot de passe : a faire
-- [ ][ ] analyse détaillée du risque ; proposition de solution (à étudier : envoi de SMS avec code unique)
-- [ ][ ] Paramètre admin pour une durée maximale de validité (conseil : indéfini ou très long interdit)
-- [ ][ ] Insertion de champs de la base (ceux accessible dans le mailing) avec donnée courante et auto-update
+### Formulaires — 2 gros sujets liés (analyse cadrée le 6/07, à traiter ensemble, sécurité intégrée dès la conception)
+- [ ] Champs de la base éditables dans le formulaire (self-service auto-correction)
+- [ ][ ] Liste blanche de champs éditables par formulaire (comme la sélection des listes → table type PreferenceFormField ou colonne JSON)
+- [ ][ ] Page publique : pré-remplissage des valeurs, édition, update du contact ; email/uid exclus par défaut (identité + dedup import) ; traçabilité "modifié par le contact"
+- [ ] Sécuriser l'accès quand des champs sont exposés (le lien est une "capability URL" : token 128 bits + expiry, HTTPS ; risque = fuite du lien)
+- [ ][ ] Option retenue à décider : (préféré) proposition→validation admin — supprime la surface d'injection ; ou OTP e-mail ; ou confirmer un champ connu ; ou SMS OTP (option forte, mais coût provider + numéros mobiles peu fiables)
+- [ ][ ] ⚠️ Auth ≠ sanitisation : échapper/sanitiser les champs contact partout où ils ressortent NON échappés — mailer replace_vars (HTML des mails), export CSV/TSV (formula injection Excel), export vCard
+- [ ][ ] Paramètre admin : durée maximale de validité (conseil : illimité/très long interdit)
+- [ ] Formulaire public : mode "aperçu sans enregistrement" (preview no-data) — reporté en version avancée
 - [?] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
 - [?] Support templates .eml (brouillons Thunderbird) - format standard RFC 5322
 
