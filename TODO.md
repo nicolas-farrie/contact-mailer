@@ -1,5 +1,6 @@
 # Contact Mailer - TODO
-
+# le [ ] vide indique non fait ; le [x] fait ; le [~] partiellement fait ; le [?] pas sûr qu'il faille le faire (à rediscuter)
+# - [ ][ ] - sous point
 ## Fait
 - [x] Gestion contacts (CRUD)
 - [x] Gestion listes (many-to-many)
@@ -33,7 +34,16 @@
 - [x] Sauvegarde automatique du brouillon mailing (localStorage)
 - [x] Interface responsive mobile : hamburger nav, cards contacts, numéros en clic-to-call
 - [x] Lien utilisateur ↔ fiche contact (contact_id FK, select admin, info-box profil)
-- [x] Retour à la liste filtrée après édition d'un contact
+- [x] Retour à la liste filtrée après édition d'un contact 
+- [x] Gestion multi-utilisateurs : CRUD users, rôles admin/user, qui a fait quoi
+- [x] Déploiement multi-instance : middleware ReverseProxied, templates systemd/nginx, script create_instance.sh, landing page
+- [x] Mot de passe oublié : notification admin par email (sans tokens)
+- [x] Intégration API BookStack : sync rôles, push contacts avec rôle, invitation optionnelle, langue fr par défaut
+- [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
+- [x] Liste des messages déjà envoyés, réutilisation pour nouvel envoi
+- [x] user_edit : erreur 500 sur chemins d'erreur (contacts non passé au template)
+- [x] Bulk actions : "Retirer de la liste" corrigé (formulaires imbriqués), retour au filtre courant, confirmation avant action
+- [x] Historique mailing : réutilisation du texte et de la liste corrigée
 - [x] Bulk actions disponibles sur mobile : checkboxes sur les cards, barre toggle "Actions ▾"
 - [x] Code couleur boutons : bleu création, orange modification, vert foncé action/filtre, rouge suppression
 - [x] Filtre contacts : réorganisation (liste → source → recherche → bouton), source réservée aux admins
@@ -65,20 +75,15 @@
 - [x] Gestion des bounces SMTP : Return-Path configurable, scan IMAP dédié, marquage has_bounced + badge, réinitialisation admin
 
 ## Correction Bug ou pb interface - Prioritaire
-- [x] Problème de cohérence entre les dénominations de champ, dans la base, à l'import, et en affichage (ex listes | catégories | groups)
-- [x] Liste des messages déjà envoyés, réutilisation pour nouvel envoi
-- [x] user_edit : erreur 500 sur chemins d'erreur (contacts non passé au template)
-- [x] Bulk actions : "Retirer de la liste" corrigé (formulaires imbriqués), retour au filtre courant, confirmation avant action
-- [x] Historique mailing : réutilisation du texte et de la liste corrigée
 
 
 ## A faire - Prioritaire
-- [x] Gestion multi-utilisateurs : CRUD users, rôles admin/user, qui a fait quoi
-- [x] Déploiement multi-instance : middleware ReverseProxied, templates systemd/nginx, script create_instance.sh, landing page
-- [x] Mot de passe oublié : notification admin par email (sans tokens)
-- [x] Intégration API BookStack : sync rôles, push contacts avec rôle, invitation optionnelle, langue fr par défaut
-- [ ] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
-- [ ] Support templates .eml (brouillons Thunderbird) - format standard RFC 5322
+- [ ] Formulaire : Sécurisation du formulaire intéractif - aujourd'hui accessible sans mot de passe : a faire
+- [ ][ ] analyse détaillée du risque ; proposition de solution (à étudier : envoi de SMS avec code unique)
+- [ ][ ] Paramètre admin pour une durée maximale de validité (conseil : indéfini ou très long interdit)
+- [ ][ ] Insertion de champs de la base (ceux accessible dans le mailing) avec donnée courante et auto-update
+- [?] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
+- [?] Support templates .eml (brouillons Thunderbird) - format standard RFC 5322
 
 ## A faire - Améliorations
 - [x] Export vCard (réutiliser vcard_converter.py en sens inverse)
@@ -86,7 +91,7 @@
 - [x] Spinner overlay "Envoi en cours" sur le bouton de lancement de campagne
 - [x] Pièces jointes dans les mailings (upload, stockage, envoi MIMEBase)
 - [x] Affichage du message dans la file d'attente : toggle afficher/masquer, rendu HTML via iframe
-- [ ] Historique mailing : affichage du détail d'une campagne (corps du mail, liste, pièces jointes) — clic sur ligne ou bouton dédié
+- [~] Historique mailing : affichage du détail d'une campagne (corps du mail, liste, pièces jointes) — clic sur ligne ou bouton dédié
 - [ ] Envoi asynchrone (ne pas bloquer l'interface pendant l'envoi)
 - [ ] Pagination de la liste des contacts
 - [ ] Recherche avancée (filtres multiples)
