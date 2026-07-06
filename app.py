@@ -46,7 +46,9 @@ login_manager.init_app(app)
 # === BLUEPRINTS ===
 # Enregistrés au fur et à mesure de la modularisation de app.py.
 from blueprints.contacts import bp as contacts_bp
+from blueprints.listes import bp as listes_bp
 app.register_blueprint(contacts_bp)
+app.register_blueprint(listes_bp)
 
 
 def init_db():
@@ -408,67 +410,6 @@ def logout():
 
 
 # === CONTACTS ===
-
-# === LISTES ===
-
-@app.route('/listes')
-@login_required
-def listes():
-    listes_list = Liste.query.order_by(Liste.nom).all()
-    return render_template('listes.html', listes=listes_list)
-
-
-@app.route('/listes/new', methods=['GET', 'POST'])
-@login_required
-def liste_new():
-    if request.method == 'POST':
-        liste = Liste(
-            nom=request.form.get('nom', '').strip(),
-            description=request.form.get('description', '').strip()
-        )
-        db.session.add(liste)
-        try:
-            db.session.commit()
-            flash(f'Liste "{liste.nom}" créée', 'success')
-            return redirect(url_for('listes'))
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Erreur: {e}', 'error')
-
-    return render_template('liste_form.html', liste=None)
-
-
-@app.route('/listes/<int:id>/edit', methods=['GET', 'POST'])
-@login_required
-def liste_edit(id):
-    liste = Liste.query.get_or_404(id)
-
-    if request.method == 'POST':
-        liste.nom = request.form.get('nom', '').strip()
-        liste.description = request.form.get('description', '').strip()
-        try:
-            db.session.commit()
-            flash(f'Liste mise à jour', 'success')
-            return redirect(url_for('listes'))
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Erreur: {e}', 'error')
-
-    return render_template('liste_form.html', liste=liste)
-
-
-@app.route('/listes/<int:id>/delete', methods=['POST'])
-@login_required
-def liste_delete(id):
-    liste = Liste.query.get_or_404(id)
-    nom = liste.nom
-    db.session.delete(liste)
-    db.session.commit()
-    flash(f'Liste "{nom}" supprimée', 'success')
-    return redirect(url_for('listes'))
-
-
-# === ACTIONS EN MASSE ===
 
 # === IMPORT / EXPORT ===
 
