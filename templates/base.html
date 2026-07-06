@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Contact Mailer{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
+    <link rel="manifest" href="{{ url_for('public.pwa_manifest') }}">
     {% if config.INSTANCE_NAME %}
     <meta name="theme-color" content="{{ config.INSTANCE_COLOR or '#2563eb' }}">
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('pwa_icon', size=192) }}">
-    <link rel="apple-touch-icon" href="{{ url_for('pwa_icon', size=192) }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('public.pwa_icon', size=192) }}">
+    <link rel="apple-touch-icon" href="{{ url_for('public.pwa_icon', size=192) }}">
     {% else %}
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='contact-mailer.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='contact-mailer.png') }}">
@@ -19,7 +19,7 @@
     {% if current_user.is_authenticated %}
     <nav class="navbar">
         <div class="nav-brand">
-            <img src="{% if config.INSTANCE_NAME %}{{ url_for('pwa_icon', size=32) }}{% else %}{{ url_for('static', filename='contact-mailer.png') }}{% endif %}" class="nav-brand-icon" alt="">
+            <img src="{% if config.INSTANCE_NAME %}{{ url_for('public.pwa_icon', size=32) }}{% else %}{{ url_for('static', filename='contact-mailer.png') }}{% endif %}" class="nav-brand-icon" alt="">
             {{ app_name }} <span class="version-tag" title="Version de l'image déployée">v{{ config.APP_VERSION }}</span>{% set display = config.DISPLAY_NAME or config.INSTANCE_NAME %}{% if display %} <span class="instance-tag">{{ display }}</span>{% endif %}
         </div>
         <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">&#9776;</button>
@@ -35,7 +35,7 @@
             {% endif %}
             <span class="nav-separator"></span>
             <a href="{{ url_for('users.profile') }}" class="nav-user" {% if request.endpoint == 'users.profile' %}style="color:white"{% endif %}>{{ current_user.display_name }}{% if current_user.is_admin %} <span class="role-badge">admin</span>{% endif %}</a>
-            <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
+            <a href="{{ url_for('public.logout') }}" class="logout">Déconnexion</a>
         </div>
     </nav>
     <script>

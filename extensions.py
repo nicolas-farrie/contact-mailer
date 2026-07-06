@@ -8,7 +8,7 @@ from flask_login import LoginManager
 
 login_manager = LoginManager()
 # login_view est mis à jour en 'public.login' lors de la migration du blueprint public.
-login_manager.login_view = 'login'
+login_manager.login_view = 'public.login'
 login_manager.login_message = 'Veuillez vous connecter.'
 
 
