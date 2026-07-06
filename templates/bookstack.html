@@ -26,7 +26,7 @@
 <div class="form-card">
     <div class="page-header" style="margin-bottom: 1rem;">
         <h2>Rôles BookStack</h2>
-        <form method="POST" action="{{ url_for('bookstack_sync_roles') }}">
+        <form method="POST" action="{{ url_for('api_integrations.bookstack_sync_roles') }}">
             <button type="submit" class="btn btn-primary" {% if not bs_configured %}disabled{% endif %}>Synchroniser les rôles</button>
         </form>
     </div>
@@ -59,7 +59,7 @@
 <div class="form-card">
     <h2>Pousser une liste vers BookStack</h2>
 
-    <form method="POST" action="{{ url_for('bookstack_push') }}">
+    <form method="POST" action="{{ url_for('api_integrations.bookstack_push') }}">
         <div class="form-group">
             <label for="liste_id">Liste de contacts</label>
             <select id="liste_id" name="liste_id" required>

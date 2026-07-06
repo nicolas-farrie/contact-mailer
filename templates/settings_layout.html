@@ -11,14 +11,14 @@
                class="{% if active_tab == 'general' %}active{% endif %}">
                 <span>Paramètres</span>
             </a>
-            <a href="{{ url_for('seafile') }}"
+            <a href="{{ url_for('api_integrations.seafile') }}"
                class="{% if active_tab == 'seafile' %}active{% endif %}">
                 <span>Seafile</span>
                 {% if not config.SEAFILE_URL %}
                 <span class="settings-warn-dot" title="Non configuré"></span>
                 {% endif %}
             </a>
-            <a href="{{ url_for('bookstack') }}"
+            <a href="{{ url_for('api_integrations.bookstack') }}"
                class="{% if active_tab == 'bookstack' %}active{% endif %}">
                 <span>BookStack</span>
                 {% if not config.BOOKSTACK_URL %}
