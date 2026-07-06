@@ -5,14 +5,14 @@
 <div class="page-header">
     <h1>Historique des campagnes</h1>
     <div>
-        <a href="{{ url_for('mailing_queue') }}" class="btn">File d'attente</a>
-        <a href="{{ url_for('mailing_submissions') }}" class="btn">Demandes</a>
+        <a href="{{ url_for('mailing.queue') }}" class="btn">File d'attente</a>
+        <a href="{{ url_for('mailing.submissions') }}" class="btn">Demandes</a>
         {% if archived %}
         <button type="button" class="btn btn-secondary" onclick="toggleArchived()">
             Archivées <span class="badge badge-pending">{{ archived|length }}</span>
         </button>
         {% endif %}
-        <a href="{{ url_for('mailing') }}" class="btn btn-primary">+ Nouveau mailing</a>
+        <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
     </div>
 </div>
 
@@ -53,20 +53,20 @@
             </td>
             <td class="actions-cell">
                 {% if c.template %}
-                <a href="{{ url_for('mailing', from_campaign=c.id) }}"
+                <a href="{{ url_for('mailing.compose', from_campaign=c.id) }}"
                    class="btn btn-sm btn-warning" title="Réutiliser ce message">Réutiliser</a>
                 {% endif %}
                 {% if c.stats.pending > 0 or c.stats.error > 0 %}
-                <a href="{{ url_for('mailing_queue', campaign=c.id) }}"
+                <a href="{{ url_for('mailing.queue', campaign=c.id) }}"
                    class="btn btn-sm {% if c.stats.error > 0 and c.stats.pending == 0 %}btn-warning{% else %}btn-primary{% endif %}"
                    title="Voir la file d'attente">File{% if c.stats.error > 0 and c.stats.pending == 0 %} ↺{% endif %}</a>
                 {% endif %}
-                <form method="POST" action="{{ url_for('mailing_history_archive', campaign_id=c.id) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('mailing.history_archive', campaign_id=c.id) }}" style="display:inline">
                     <button type="submit" class="btn btn-sm btn-secondary"
                             onclick="return confirm('Archiver cette campagne ? Elle disparaîtra de l\'historique.')">Archiver</button>
                 </form>
                 {% if current_user.is_admin %}
-                <form method="POST" action="{{ url_for('mailing_history_delete', campaign_id=c.id) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('mailing.history_delete', campaign_id=c.id) }}" style="display:inline">
                     <button type="submit" class="btn btn-sm btn-danger"
                             onclick="return confirm('Supprimer définitivement cette campagne et tout son historique ?')">Supprimer</button>
                 </form>
@@ -93,7 +93,7 @@
 {% else %}
 <div class="empty-state">
     <p>Aucune campagne envoyée pour le moment.</p>
-    <a href="{{ url_for('mailing') }}" class="btn btn-primary">Créer un mailing</a>
+    <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">Créer un mailing</a>
 </div>
 {% endif %}
 
@@ -128,11 +128,11 @@
                     {% if c.stats.bounced > 0 %}<span class="badge badge-bounce" title="Bounces">{{ c.stats.bounced }}</span>{% endif %}
                 </td>
                 <td class="actions-cell">
-                    <form method="POST" action="{{ url_for('mailing_history_unarchive', campaign_id=c.id) }}" style="display:inline">
+                    <form method="POST" action="{{ url_for('mailing.history_unarchive', campaign_id=c.id) }}" style="display:inline">
                         <button type="submit" class="btn btn-sm btn-action">Restaurer</button>
                     </form>
                     {% if current_user.is_admin %}
-                    <form method="POST" action="{{ url_for('mailing_history_delete', campaign_id=c.id) }}" style="display:inline">
+                    <form method="POST" action="{{ url_for('mailing.history_delete', campaign_id=c.id) }}" style="display:inline">
                         <button type="submit" class="btn btn-sm btn-danger"
                                 onclick="return confirm('Supprimer définitivement ?')">Supprimer</button>
                     </form>

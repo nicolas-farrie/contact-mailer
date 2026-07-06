@@ -5,9 +5,9 @@
 <div class="page-header">
     <h1>Demandes de diffusion {% if submissions %}<span class="count">({{ submissions|length }})</span>{% endif %}</h1>
     <div>
-        <a href="{{ url_for('mailing_history') }}" class="btn">Historique</a>
-        <a href="{{ url_for('mailing_queue') }}" class="btn">File d'attente</a>
-        <a href="{{ url_for('mailing') }}" class="btn btn-primary">+ Nouveau mailing</a>
+        <a href="{{ url_for('mailing.history') }}" class="btn">Historique</a>
+        <a href="{{ url_for('mailing.queue') }}" class="btn">File d'attente</a>
+        <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
     </div>
 </div>
 
@@ -65,10 +65,10 @@
                 {% endfor %}
             </td>
             <td class="actions-cell">
-                <form method="POST" action="{{ url_for('mailing_submission_use', uid=s.uid) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('mailing.submission_use', uid=s.uid) }}" style="display:inline">
                     <button type="submit" class="btn btn-sm btn-primary">Utiliser pour un mailing</button>
                 </form>
-                <form method="POST" action="{{ url_for('mailing_submission_archive', uid=s.uid) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('mailing.submission_archive', uid=s.uid) }}" style="display:inline">
                     <button type="submit" class="btn btn-sm btn-secondary"
                             onclick="return confirm('Archiver cette demande sans créer de mailing ?')">Archiver</button>
                 </form>

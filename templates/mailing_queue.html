@@ -5,9 +5,9 @@
 <div class="page-header">
     <h1>File d'attente {% if campaign %}- {{ campaign }}{% endif %}</h1>
     <div>
-        <a href="{{ url_for('mailing_history') }}" class="btn">Historique</a>
-        <a href="{{ url_for('mailing_submissions') }}" class="btn">Demandes</a>
-        <a href="{{ url_for('mailing') }}" class="btn btn-primary">+ Nouveau mailing</a>
+        <a href="{{ url_for('mailing.history') }}" class="btn">Historique</a>
+        <a href="{{ url_for('mailing.submissions') }}" class="btn">Demandes</a>
+        <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
     </div>
 </div>
 
@@ -55,7 +55,7 @@
 
 <div class="process-section">
 {% if stats.pending > 0 and campaign %}
-    <form method="POST" action="{{ url_for('mailing_process') }}" id="process-form" style="display:inline">
+    <form method="POST" action="{{ url_for('mailing.process') }}" id="process-form" style="display:inline">
         <input type="hidden" name="campaign" value="{{ campaign }}">
         <button type="button" class="btn btn-primary btn-large" id="send-btn" onclick="confirmAndSend()">
             Envoyer {{ stats.pending }} emails maintenant
@@ -70,7 +70,7 @@
 {% endif %}
 
 {% if stats.error > 0 and campaign %}
-    <form method="POST" action="{{ url_for('mailing_queue_retry', campaign_id=campaign) }}" style="display:inline;margin-left:0.5rem;">
+    <form method="POST" action="{{ url_for('mailing.queue_retry', campaign_id=campaign) }}" style="display:inline;margin-left:0.5rem;">
         <button type="submit" class="btn btn-warning"
                 onclick="return confirm('Remettre {{ stats.error }} email(s) en erreur en attente pour réessayer ?')">
             ↺ Réessayer {{ stats.error }} erreur{{ 's' if stats.error > 1 }}
@@ -79,7 +79,7 @@
 {% endif %}
 
 {% if campaign and stats.pending == 0 and stats.error == 0 %}
-    <form method="POST" action="{{ url_for('mailing_history_delete', campaign_id=campaign) }}" style="display:inline;margin-left:0.5rem;">
+    <form method="POST" action="{{ url_for('mailing.history_delete', campaign_id=campaign) }}" style="display:inline;margin-left:0.5rem;">
         <button type="submit" class="btn btn-secondary"
                 onclick="return confirm('Supprimer définitivement cette campagne de la file ?')">
             Supprimer la campagne
@@ -116,7 +116,7 @@
             <td>{{ item.id }}</td>
             {% if not campaign %}
             <td style="font-size:0.75rem;color:var(--gray-500);">
-                <a href="{{ url_for('mailing_queue', campaign=item.campaign_id) }}" title="{{ item.campaign_id }}">
+                <a href="{{ url_for('mailing.queue', campaign=item.campaign_id) }}" title="{{ item.campaign_id }}">
                     {{ item.campaign_id[-20:] }}
                 </a>
             </td>

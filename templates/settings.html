@@ -130,8 +130,8 @@
             const checked = document.querySelectorAll('.trash-cb:checked');
             if (!checked.length) { alert('Sélectionnez au moins un contact.'); return; }
             const url = action === 'restore'
-                ? '{{ url_for("settings_trash_restore") }}'
-                : '{{ url_for("settings_trash_purge") }}';
+                ? '{{ url_for("settings.trash_restore") }}'
+                : '{{ url_for("settings.trash_purge") }}';
             const msg = action === 'restore'
                 ? `Restaurer ${checked.length} contact(s) ?`
                 : `Supprimer définitivement ${checked.length} contact(s) ? Cette action est irréversible.`;

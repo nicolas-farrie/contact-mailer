@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Confirmer l'envoi</h1>
-    <a href="{{ url_for('mailing') }}" class="btn btn-secondary">Annuler</a>
+    <a href="{{ url_for('mailing.compose') }}" class="btn btn-secondary">Annuler</a>
 </div>
 
 <div class="info-box" style="margin-bottom:1.5rem;">
@@ -17,7 +17,7 @@
     {% endif %}
 </div>
 
-<form method="POST" action="{{ url_for('mailing_add_to_queue') }}" id="confirm-form">
+<form method="POST" action="{{ url_for('mailing.add_to_queue') }}" id="confirm-form">
     <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
     {% if template.submission_id %}
     <input type="hidden" name="submission_id" value="{{ template.submission_id }}">
@@ -61,7 +61,7 @@
         <button type="submit" class="btn btn-primary" id="submit-btn">
             Mettre en file d'envoi (<span id="submit-count">{{ contacts|length }}</span> contacts)
         </button>
-        <a href="{{ url_for('mailing') }}" class="btn btn-secondary">Annuler</a>
+        <a href="{{ url_for('mailing.compose') }}" class="btn btn-secondary">Annuler</a>
     </div>
 </form>
 
