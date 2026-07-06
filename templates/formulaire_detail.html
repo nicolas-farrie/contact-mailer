@@ -69,7 +69,7 @@
         <tr>
             <td>
                 {% if r.contact %}
-                <a href="{{ url_for('contact_edit', id=r.contact.id) }}">{{ r.contact.nom }} {{ r.contact.prenom }}</a>
+                <a href="{{ url_for('contacts.edit', id=r.contact.id) }}">{{ r.contact.nom }} {{ r.contact.prenom }}</a>
                 {% else %}—{% endif %}
             </td>
             <td>{{ r.contact.email if r.contact else '—' }}</td>

@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Contacts <span class="count">({{ contacts|length }})</span></h1>
-    <a href="{{ url_for('contact_new') }}" class="btn btn-primary">+ Nouveau contact</a>
+    <a href="{{ url_for('contacts.new') }}" class="btn btn-primary">+ Nouveau contact</a>
 </div>
 
 <div class="filters">
@@ -29,11 +29,11 @@
         <input type="text" name="q" value="{{ search }}" placeholder="Rechercher..." class="search-input">
         <button type="submit" class="btn btn-action">Filtrer</button>
         {% if search or liste_filter or source_filter %}
-        <a href="{{ url_for('contacts') }}" class="btn btn-secondary">Effacer</a>
+        <a href="{{ url_for('contacts.index') }}" class="btn btn-secondary">Effacer</a>
         {% endif %}
     </form>
     {% if config.BOUNCE_IMAP_HOST %}
-    <form method="POST" action="{{ url_for('scan_bounces') }}" style="margin-top:0.5rem;">
+    <form method="POST" action="{{ url_for('contacts.scan_bounces') }}" style="margin-top:0.5rem;">
         <button type="submit" class="btn btn-small btn-secondary"
                 onclick="return confirm('Scanner la boîte bounce et mettre à jour les contacts ?')">
             ⟳ Scanner les bounces
@@ -42,7 +42,7 @@
     {% endif %}
 </div>
 
-<form method="POST" action="{{ url_for('contacts_bulk_action') }}" id="bulk-form">
+<form method="POST" action="{{ url_for('contacts.bulk_action') }}" id="bulk-form">
     <button type="button" class="bulk-toggle" onclick="toggleBulk(this)">Actions ▾</button>
     <div class="bulk-actions" id="bulk-actions-bar">
         <label class="select-all-label">
@@ -95,8 +95,8 @@
                     {% endfor %}
                 </td>
                 <td class="actions">
-                    <a href="{{ url_for('contact_edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-warning btn-small">Modifier</a>
-                    <form method="POST" action="{{ url_for('contact_delete', id=contact.id) }}" style="display:inline">
+                    <a href="{{ url_for('contacts.edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-warning btn-small">Modifier</a>
+                    <form method="POST" action="{{ url_for('contacts.delete', id=contact.id) }}" style="display:inline">
                         <button type="submit" class="btn btn-danger btn-small"
                                 onclick="return confirm('Supprimer ce contact ?')">Suppr.</button>
                     </form>
@@ -126,8 +126,8 @@
                 {% if contact.organisation %}<div style="font-size:0.8rem;color:var(--gray-500);">{{ contact.organisation }}</div>{% endif %}
             </div>
             <div class="contact-card-actions">
-                <a href="{{ url_for('contact_edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-warning btn-small">Modifier</a>
-                <form method="POST" action="{{ url_for('contact_delete', id=contact.id) }}" style="display:inline">
+                <a href="{{ url_for('contacts.edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-warning btn-small">Modifier</a>
+                <form method="POST" action="{{ url_for('contacts.delete', id=contact.id) }}" style="display:inline">
                     <button type="submit" class="btn btn-danger btn-small"
                             onclick="return confirm('Supprimer ce contact ?')">Suppr.</button>
                 </form>
