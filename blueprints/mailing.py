@@ -242,6 +242,14 @@ def preview():
     preview_subject, preview_body_text, preview_body_html = tpl.render(contact_dict, unsubscribe_url=unsub_url)
     preview_body = preview_body_html if mail_format == 'html' else preview_body_text
 
+    # Aperçu : désactiver les liens pour éviter qu'en prévisualisant on clique
+    # sur un lien live (ex. formulaire de préférences) et qu'on modifie de vraies
+    # données. Les liens restent fonctionnels dans l'email réellement envoyé.
+    if mail_format == 'html' and preview_body:
+        import re as _re
+        preview_body = _re.sub(r'<a\b', '<a onclick="return false;" style="cursor:default;"',
+                               preview_body, flags=_re.IGNORECASE)
+
     return jsonify({
         'subject': preview_subject,
         'body': preview_body,
