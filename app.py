@@ -1,23 +1,19 @@
-from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, Response
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, Contact, Liste, User, BookstackRole, Setting, PreferenceForm, PreferenceFormListe, PreferenceResponse
-from config import Config
-import csv
-import io
-import os
-from datetime import datetime
-import uuid
-from werkzeug.utils import secure_filename
-from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
+"""Point d'entrée de l'application Contact Mailer.
 
+Assemble l'application via la factory create_app() : configuration, extensions
+(db, login_manager), context_processor global et enregistrement des blueprints
+(un module par domaine métier dans blueprints/).
+
+Expose `app` au niveau module pour gunicorn (`app:app`) et les scripts
+d'administration (`from app import app, db, init_db`).
+"""
+from flask import Flask, url_for
+from werkzeug.security import generate_password_hash
+
+from models import db, User
+from config import Config
 from extensions import login_manager
-from helpers import (
-    admin_required,
-    get_setting, set_setting, _upload_dir, _delete_current_login_bg,
-    SETTING_DEFAULTS, ALLOWED_IMAGE_EXT, MAX_IMAGE_BYTES,
-)
+from helpers import get_setting
 
 
 class ReverseProxied:
@@ -35,60 +31,27 @@ class ReverseProxied:
         return self.app(environ, start_response)
 
 
-app = Flask(__name__)
-app.config.from_object(Config)
-app.wsgi_app = ReverseProxied(app.wsgi_app)
+def register_blueprints(app):
+    """Enregistre les blueprints : un module par domaine métier."""
+    from blueprints.contacts import bp as contacts_bp
+    from blueprints.listes import bp as listes_bp
+    from blueprints.formulaires import bp as formulaires_bp
+    from blueprints.users import bp as users_bp
+    from blueprints.imports import bp as imports_bp
+    from blueprints.api_integrations import bp as api_integrations_bp
+    from blueprints.settings import bp as settings_bp
+    from blueprints.public import bp as public_bp
+    from blueprints.mailing import bp as mailing_bp
 
-db.init_app(app)
-login_manager.init_app(app)
-
-
-# === BLUEPRINTS ===
-# Enregistrés au fur et à mesure de la modularisation de app.py.
-from blueprints.contacts import bp as contacts_bp
-from blueprints.listes import bp as listes_bp
-from blueprints.formulaires import bp as formulaires_bp
-from blueprints.users import bp as users_bp
-from blueprints.imports import bp as imports_bp
-from blueprints.api_integrations import bp as api_integrations_bp
-from blueprints.settings import bp as settings_bp
-from blueprints.public import bp as public_bp
-from blueprints.mailing import bp as mailing_bp
-app.register_blueprint(contacts_bp)
-app.register_blueprint(listes_bp)
-app.register_blueprint(formulaires_bp)
-app.register_blueprint(users_bp)
-app.register_blueprint(imports_bp)
-app.register_blueprint(api_integrations_bp)
-app.register_blueprint(settings_bp)
-app.register_blueprint(public_bp)
-app.register_blueprint(mailing_bp)
+    for bp in (contacts_bp, listes_bp, formulaires_bp, users_bp, imports_bp,
+               api_integrations_bp, settings_bp, public_bp, mailing_bp):
+        app.register_blueprint(bp)
 
 
-def init_db():
-    """Initialise la base et crée l'admin si nécessaire"""
-    with app.app_context():
-        db.create_all()
-        if not User.query.filter_by(username=Config.ADMIN_USERNAME).first():
-            admin = User(
-                username=Config.ADMIN_USERNAME,
-                password_hash=generate_password_hash(Config.ADMIN_PASSWORD),
-                role='admin',
-                is_active=True
-            )
-            db.session.add(admin)
-            db.session.commit()
-
-
-# === PARAMÈTRES APPLICATIFS ===
-# get_setting / set_setting / _upload_dir / _delete_current_login_bg et les
-# constantes SETTING_DEFAULTS / ALLOWED_IMAGE_EXT / MAX_IMAGE_BYTES vivent
-# désormais dans helpers.py (importés en tête de fichier).
-
-
-@app.context_processor
-def inject_settings():
-    with app.app_context():
+def register_context_processors(app):
+    """Injecte les paramètres d'apparence (nom, fond de login) dans tous les templates."""
+    @app.context_processor
+    def inject_settings():
         try:
             fname = get_setting('login_bg_filename', '')
             login_bg_url = url_for('static', filename=f'uploads/{fname}') if fname else None
@@ -103,6 +66,38 @@ def inject_settings():
             }
         except Exception:
             return {'app_name': 'Contact Mailer', 'login_bg_url': None, 'login_overlay': 0.35}
+
+
+def create_app(config_object=Config):
+    """Factory applicative : configure et assemble l'app Flask."""
+    app = Flask(__name__)
+    app.config.from_object(config_object)
+    app.wsgi_app = ReverseProxied(app.wsgi_app)
+
+    db.init_app(app)
+    login_manager.init_app(app)
+
+    register_blueprints(app)
+    register_context_processors(app)
+    return app
+
+
+app = create_app()
+
+
+def init_db():
+    """Initialise la base et crée l'admin si nécessaire."""
+    with app.app_context():
+        db.create_all()
+        if not User.query.filter_by(username=Config.ADMIN_USERNAME).first():
+            admin = User(
+                username=Config.ADMIN_USERNAME,
+                password_hash=generate_password_hash(Config.ADMIN_PASSWORD),
+                role='admin',
+                is_active=True
+            )
+            db.session.add(admin)
+            db.session.commit()
 
 
 init_db()

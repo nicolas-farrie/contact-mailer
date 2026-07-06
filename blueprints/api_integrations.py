@@ -341,4 +341,4 @@ def seafile_send_invitations():
     db.session.commit()
 
     flash(f'Campagne d\'invitation créée : {len(contacts)} contacts en attente d\'envoi.', 'success')
-    return redirect(url_for('mailing_queue', campaign=campaign_id))
+    return redirect(url_for('mailing.queue', campaign=campaign_id))
