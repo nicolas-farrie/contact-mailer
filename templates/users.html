@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Utilisateurs <span class="count">({{ users|length }})</span></h1>
-    <a href="{{ url_for('user_new') }}" class="btn btn-primary">+ Nouvel utilisateur</a>
+    <a href="{{ url_for('users.new') }}" class="btn btn-primary">+ Nouvel utilisateur</a>
 </div>
 
 <div class="table-responsive">
@@ -40,14 +40,14 @@
                 {% endif %}
             </td>
             <td class="actions">
-                <a href="{{ url_for('user_edit', id=user.id) }}" class="btn btn-warning btn-small">Modifier</a>
+                <a href="{{ url_for('users.edit', id=user.id) }}" class="btn btn-warning btn-small">Modifier</a>
                 {% if user.id != current_user.id %}
-                <form method="POST" action="{{ url_for('user_toggle_active', id=user.id) }}" style="display:inline">
+                <form method="POST" action="{{ url_for('users.toggle_active', id=user.id) }}" style="display:inline">
                     <button type="submit" class="btn btn-small">
                         {{ 'Désactiver' if user.is_active else 'Activer' }}
                     </button>
                 </form>
-                <form method="POST" action="{{ url_for('user_delete', id=user.id) }}" style="display:inline"
+                <form method="POST" action="{{ url_for('users.delete', id=user.id) }}" style="display:inline"
                       onsubmit="return confirm('Supprimer l\'utilisateur {{ user.username }} ?')">
                     <button type="submit" class="btn btn-small btn-danger">Supprimer</button>
                 </form>
