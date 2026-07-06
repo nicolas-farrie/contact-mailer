@@ -19,7 +19,7 @@
         {% endif %}
         <div class="card-actions">
             <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-small">Voir contacts</a>
-            <a href="{{ url_for('export_contacts', liste=liste.id) }}" class="btn btn-small">Exporter</a>
+            <a href="{{ url_for('imports.export_contacts', liste=liste.id) }}" class="btn btn-small">Exporter</a>
             <a href="{{ url_for('listes.edit', id=liste.id) }}" class="btn btn-warning btn-small">Modifier</a>
             <form method="POST" action="{{ url_for('listes.delete', id=liste.id) }}" style="display:inline">
                 <button type="submit" class="btn btn-danger btn-small"

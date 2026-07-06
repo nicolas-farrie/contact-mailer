@@ -29,7 +29,7 @@
             <a href="{{ url_for('mailing_history') }}" {% if request.endpoint in ['mailing', 'mailing_queue', 'mailing_history'] %}class="active"{% endif %}>Mailing</a>
             <a href="{{ url_for('formulaires.index') }}" {% if request.endpoint in ['formulaires.index', 'formulaires.new', 'formulaires.edit', 'formulaires.detail'] %}class="active"{% endif %}>Formulaires</a>
             {% if current_user.is_admin %}
-            <a href="{{ url_for('import_contacts') }}" {% if request.endpoint == 'import_contacts' %}class="active"{% endif %}>Import</a>
+            <a href="{{ url_for('imports.index') }}" {% if request.endpoint == 'imports.index' %}class="active"{% endif %}>Import</a>
             <a href="{{ url_for('users.index') }}" {% if request.endpoint in ['users.index', 'users.new', 'users.edit'] %}class="active"{% endif %}>Utilisateurs</a>
             <a href="{{ url_for('settings') }}" {% if request.endpoint in ['settings', 'settings_clear_login_bg', 'settings_trash', 'settings_trash_restore', 'settings_trash_purge', 'seafile', 'seafile_sync_groups', 'seafile_push', 'seafile_reset_passwords', 'seafile_send_invitations', 'bookstack', 'bookstack_sync_roles', 'bookstack_push'] %}class="active"{% endif %}>Paramètres</a>
             {% endif %}
