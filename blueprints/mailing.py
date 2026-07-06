@@ -434,6 +434,7 @@ def queue():
 def process():
     """Traite la file d'attente (envoie les emails en attente)"""
     from mailer import Mailer, EmailTemplate, MailQueue
+    from pathlib import Path  # utilisé pour le récap des pièces jointes (copie expéditeur)
 
     campaign = request.form.get('campaign')
 
