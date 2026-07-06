@@ -92,10 +92,10 @@
         <button type="submit" class="btn {% if form %}btn-warning{% else %}btn-primary{% endif %}">
             {{ 'Enregistrer' if form else 'Créer le formulaire' }}
         </button>
-        <a href="{{ url_for('formulaire_detail', id=form.id) if form else url_for('formulaires') }}"
+        <a href="{{ url_for('formulaires.detail', id=form.id) if form else url_for('formulaires.index') }}"
            class="btn btn-secondary">Annuler</a>
         {% if form %}
-        <form method="POST" action="{{ url_for('formulaire_delete', id=form.id) }}" style="display:inline;margin-left:auto;"
+        <form method="POST" action="{{ url_for('formulaires.delete', id=form.id) }}" style="display:inline;margin-left:auto;"
               onsubmit="return confirm('Supprimer ce formulaire et toutes ses réponses ?')">
             <button type="submit" class="btn btn-danger">Supprimer</button>
         </form>

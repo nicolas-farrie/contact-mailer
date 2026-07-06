@@ -5,7 +5,7 @@
 <div class="page-header">
     <h1>{{ form.nom }}</h1>
     <div style="display:flex;gap:0.5rem;">
-        <a href="{{ url_for('formulaire_edit', id=form.id) }}" class="btn btn-warning">Modifier</a>
+        <a href="{{ url_for('formulaires.edit', id=form.id) }}" class="btn btn-warning">Modifier</a>
     </div>
 </div>
 
@@ -48,7 +48,7 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p class="hint">Aucun groupe configuré. <a href="{{ url_for('formulaire_edit', id=form.id) }}">Modifier le formulaire</a></p>
+        <p class="hint">Aucun groupe configuré. <a href="{{ url_for('formulaires.edit', id=form.id) }}">Modifier le formulaire</a></p>
         {% endif %}
     </div>
 </div>

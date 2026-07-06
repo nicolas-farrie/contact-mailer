@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Formulaires de préférences</h1>
-    <a href="{{ url_for('formulaire_new') }}" class="btn btn-primary">+ Nouveau formulaire</a>
+    <a href="{{ url_for('formulaires.new') }}" class="btn btn-primary">+ Nouveau formulaire</a>
 </div>
 
 {% if forms %}
@@ -22,7 +22,7 @@
     <tbody>
         {% for f in forms %}
         <tr>
-            <td><a href="{{ url_for('formulaire_detail', id=f.id) }}">{{ f.nom }}</a></td>
+            <td><a href="{{ url_for('formulaires.detail', id=f.id) }}">{{ f.nom }}</a></td>
             <td>{{ f.created_by.display_name if f.created_by else '—' }}</td>
             <td>{{ f.created_at.strftime('%d/%m/%Y') }}</td>
             <td>{{ f.responses|length }}</td>
@@ -34,8 +34,8 @@
                 {% endif %}
             </td>
             <td class="table-actions">
-                <a href="{{ url_for('formulaire_detail', id=f.id) }}" class="btn btn-small">Voir</a>
-                <a href="{{ url_for('formulaire_edit', id=f.id) }}" class="btn btn-small btn-warning">Modifier</a>
+                <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="btn btn-small">Voir</a>
+                <a href="{{ url_for('formulaires.edit', id=f.id) }}" class="btn btn-small btn-warning">Modifier</a>
             </td>
         </tr>
         {% endfor %}
@@ -44,7 +44,7 @@
 {% else %}
 <div class="empty-state">
     <p>Aucun formulaire créé.</p>
-    <a href="{{ url_for('formulaire_new') }}" class="btn btn-primary">Créer le premier formulaire</a>
+    <a href="{{ url_for('formulaires.new') }}" class="btn btn-primary">Créer le premier formulaire</a>
 </div>
 {% endif %}
 {% endblock %}
