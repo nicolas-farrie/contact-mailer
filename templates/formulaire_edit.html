@@ -21,7 +21,12 @@
         <input type="date" id="expires_at" name="expires_at"
                value="{{ form.expires_at.strftime('%Y-%m-%d') if form and form.expires_at else '' }}"
                style="max-width:200px;">
-        <p class="field-help">Le formulaire se fermera automatiquement à minuit à cette date. Laissez vide pour une durée illimitée.</p>
+        <p class="field-help">Le formulaire se fermera automatiquement à minuit à cette date.
+        <strong>Conseillé :</strong> fixez toujours une échéance — une campagne de préférences
+        est par nature temporaire, et une date de clôture est requise pour pouvoir archiver
+        ensuite. Ne laissez « illimité » (champ vide) que pour un formulaire à vocation
+        permanente, par exemple un espace de réglages personnels ouvert en continu aux
+        contacts.</p>
     </div>
     <hr style="border:none;border-top:1px solid var(--gray-200);margin:1rem 0;">
 
@@ -94,12 +99,6 @@
         </button>
         <a href="{{ url_for('formulaires.detail', id=form.id) if form else url_for('formulaires.index') }}"
            class="btn btn-secondary">Annuler</a>
-        {% if form %}
-        <form method="POST" action="{{ url_for('formulaires.delete', id=form.id) }}" style="display:inline;margin-left:auto;"
-              onsubmit="return confirm('Supprimer ce formulaire et toutes ses réponses ?')">
-            <button type="submit" class="btn btn-danger">Supprimer</button>
-        </form>
-        {% endif %}
     </div>
 </form>
 

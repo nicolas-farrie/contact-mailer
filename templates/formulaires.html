@@ -86,6 +86,12 @@
                     <form method="POST" action="{{ url_for('formulaires.unarchive', id=f.id) }}" style="display:inline">
                         <button type="submit" class="btn btn-small btn-action">Désarchiver</button>
                     </form>
+                    {% if current_user.is_admin %}
+                    <form method="POST" action="{{ url_for('formulaires.delete', id=f.id) }}" style="display:inline"
+                          onsubmit="return confirm('Supprimer DÉFINITIVEMENT « {{ f.nom }} » et ses {{ f.responses|length }} réponse(s) ?\n\nAction irréversible.');">
+                        <button type="submit" class="btn btn-small btn-danger">Supprimer</button>
+                    </form>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

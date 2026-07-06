@@ -11,6 +11,7 @@ from flask_login import login_required, current_user
 
 from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
                     PreferenceResponse)
+from helpers import admin_required
 
 bp = Blueprint('formulaires', __name__)
 
@@ -100,13 +101,18 @@ def edit(id):
 
 
 @bp.route('/formulaires/<int:id>/delete', methods=['POST'])
-@login_required
+@admin_required
 def delete(id):
+    """Suppression définitive (admin). Réservée aux formulaires déjà archivés :
+    l'utilisateur archive, l'admin purge. Supprime aussi les réponses (cascade)."""
     pf = PreferenceForm.query.get_or_404(id)
+    if not pf.is_archived:
+        flash("Un formulaire doit d'abord être archivé avant de pouvoir être supprimé.", 'error')
+        return redirect(url_for('formulaires.index'))
     nom = pf.nom
     db.session.delete(pf)
     db.session.commit()
-    flash(f'Formulaire "{nom}" supprimé.', 'success')
+    flash(f'Formulaire "{nom}" supprimé définitivement.', 'success')
     return redirect(url_for('formulaires.index'))
 
 
