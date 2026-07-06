@@ -14,6 +14,7 @@
             <th data-sort>Nom</th>
             <th data-sort>Créé par</th>
             <th data-sort>Créé le</th>
+            <th data-sort>Clôture</th>
             <th data-sort>Réponses</th>
             <th>Statut</th>
             <th></th>
@@ -25,6 +26,13 @@
             <td><a href="{{ url_for('formulaires.detail', id=f.id) }}">{{ f.nom }}</a></td>
             <td>{{ f.created_by.display_name if f.created_by else '—' }}</td>
             <td>{{ f.created_at.strftime('%d/%m/%Y') }}</td>
+            <td>
+                {% if f.expires_at %}
+                {{ f.expires_at.strftime('%d/%m/%Y') }}{% if f.expires_at < now %} <span class="badge badge-gray" title="Date de clôture dépassée">clos</span>{% endif %}
+                {% else %}
+                <span style="color:var(--gray-500)">illimité</span>
+                {% endif %}
+            </td>
             <td>{{ f.responses|length }}</td>
             <td>
                 {% if f.is_active %}
