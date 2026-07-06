@@ -31,7 +31,7 @@
             {% else %}
             <span class="badge badge-green">Actif · durée illimitée</span>
             {% endif %}
-            <button class="btn btn-small" onclick="copyLink()">Copier le lien</button>
+            <button class="btn btn-small" onclick="copyLink(this)">Copier le lien</button>
         </div>
     </div>
 
@@ -83,9 +83,12 @@
 {% endif %}
 
 <script>
-function copyLink() {
+function copyLink(btn) {
     navigator.clipboard.writeText('{{ link_template }}').then(function() {
-        alert('Lien copié !');
+        var original = btn.textContent;
+        btn.textContent = 'Copié ✓';
+        btn.disabled = true;
+        setTimeout(function() { btn.textContent = original; btn.disabled = false; }, 1500);
     });
 }
 </script>

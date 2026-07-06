@@ -36,6 +36,15 @@
             <td class="table-actions">
                 <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="btn btn-small">Voir</a>
                 <a href="{{ url_for('formulaires.edit', id=f.id) }}" class="btn btn-small btn-warning">Modifier</a>
+                {% if f.expires_at and f.expires_at < now %}
+                <form method="POST" action="{{ url_for('formulaires.archive', id=f.id) }}" style="display:inline"
+                      onsubmit="return confirm('Archiver « {{ f.nom }} » ? Il sera masqué de la liste (réversible, les réponses sont conservées).');">
+                    <button type="submit" class="btn btn-small btn-secondary">Archiver</button>
+                </form>
+                {% else %}
+                <button type="button" class="btn btn-small btn-secondary"
+                        onclick="alert('Seuls les formulaires dont la date de clôture est dépassée peuvent être archivés.\n\nFixez d\'abord une date de clôture passée (Modifier) pour clore ce formulaire, puis archivez-le.');">Archiver</button>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}
@@ -47,4 +56,48 @@
     <a href="{{ url_for('formulaires.new') }}" class="btn btn-primary">Créer le premier formulaire</a>
 </div>
 {% endif %}
+
+{% if archived %}
+<div style="margin-top:1.5rem;">
+    <button type="button" class="btn btn-secondary" onclick="toggleArchived()">
+        Archivés <span class="badge badge-gray">{{ archived|length }}</span>
+    </button>
+</div>
+<div id="archived-section" style="display:none; margin-top:1rem;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th data-sort>Nom</th>
+                <th data-sort>Créé par</th>
+                <th data-sort>Créé le</th>
+                <th data-sort>Réponses</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in archived %}
+            <tr>
+                <td><a href="{{ url_for('formulaires.detail', id=f.id) }}">{{ f.nom }}</a></td>
+                <td>{{ f.created_by.display_name if f.created_by else '—' }}</td>
+                <td>{{ f.created_at.strftime('%d/%m/%Y') }}</td>
+                <td>{{ f.responses|length }}</td>
+                <td class="table-actions">
+                    <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="btn btn-small">Voir</a>
+                    <form method="POST" action="{{ url_for('formulaires.unarchive', id=f.id) }}" style="display:inline">
+                        <button type="submit" class="btn btn-small btn-action">Désarchiver</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+function toggleArchived() {
+    const section = document.getElementById('archived-section');
+    if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
+}
+</script>
 {% endblock %}

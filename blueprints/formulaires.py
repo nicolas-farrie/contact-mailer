@@ -18,8 +18,12 @@ bp = Blueprint('formulaires', __name__)
 @bp.route('/formulaires')
 @login_required
 def index():
-    forms = PreferenceForm.query.order_by(PreferenceForm.created_at.desc()).all()
-    return render_template('formulaires.html', forms=forms)
+    forms = (PreferenceForm.query.filter_by(is_archived=False)
+             .order_by(PreferenceForm.created_at.desc()).all())
+    archived = (PreferenceForm.query.filter_by(is_archived=True)
+                .order_by(PreferenceForm.created_at.desc()).all())
+    return render_template('formulaires.html', forms=forms, archived=archived,
+                           now=datetime.utcnow())
 
 
 @bp.route('/formulaires/new', methods=['GET', 'POST'])
@@ -34,6 +38,13 @@ def new():
         pf = PreferenceForm(nom=nom,
                             description=request.form.get('description', '').strip() or None,
                             created_by_id=current_user.id)
+        # Date de clôture optionnelle (même logique qu'à l'édition)
+        raw_exp = request.form.get('expires_at', '').strip()
+        if raw_exp:
+            try:
+                pf.expires_at = datetime.strptime(raw_exp, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            except ValueError:
+                pass
         db.session.add(pf)
         db.session.flush()
         _save_form_listes(pf, request.form, listes)
@@ -96,6 +107,39 @@ def delete(id):
     db.session.delete(pf)
     db.session.commit()
     flash(f'Formulaire "{nom}" supprimé.', 'success')
+    return redirect(url_for('formulaires.index'))
+
+
+@bp.route('/formulaires/<int:id>/archive', methods=['POST'])
+@login_required
+def archive(id):
+    """Archive un formulaire (masqué de la liste, réversible, réponses conservées).
+
+    Autorisé uniquement si le formulaire est déjà clos : date de clôture
+    (expires_at) renseignée ET dépassée. Sinon, l'utilisateur doit d'abord
+    fixer une date de clôture passée — garde-fou contre un archivage accidentel
+    d'un formulaire encore en cours de collecte."""
+    pf = PreferenceForm.query.get_or_404(id)
+    now = datetime.utcnow()
+    if not (pf.expires_at and pf.expires_at < now):
+        flash("Seuls les formulaires dont la date de clôture est dépassée peuvent être "
+              "archivés. Fixez d'abord une date de clôture passée (Modifier) pour clore "
+              "le formulaire, puis archivez-le.", 'error')
+        return redirect(url_for('formulaires.index'))
+    pf.is_archived = True
+    db.session.commit()
+    flash(f'Formulaire "{pf.nom}" archivé.', 'success')
+    return redirect(url_for('formulaires.index'))
+
+
+@bp.route('/formulaires/<int:id>/unarchive', methods=['POST'])
+@login_required
+def unarchive(id):
+    """Désarchive un formulaire (le remet dans la liste active)."""
+    pf = PreferenceForm.query.get_or_404(id)
+    pf.is_archived = False
+    db.session.commit()
+    flash(f'Formulaire "{pf.nom}" désarchivé.', 'success')
     return redirect(url_for('formulaires.index'))
 
 
