@@ -12,6 +12,13 @@ import uuid
 from werkzeug.utils import secure_filename
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
 
+from extensions import login_manager
+from helpers import (
+    admin_required,
+    get_setting, set_setting, _upload_dir, _delete_current_login_bg,
+    SETTING_DEFAULTS, ALLOWED_IMAGE_EXT, MAX_IMAGE_BYTES,
+)
+
 
 class ReverseProxied:
     """Middleware WSGI pour supporter un préfixe de chemin (reverse proxy par sous-répertoire).
@@ -33,28 +40,7 @@ app.config.from_object(Config)
 app.wsgi_app = ReverseProxied(app.wsgi_app)
 
 db.init_app(app)
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
-login_manager.login_message = 'Veuillez vous connecter.'
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    user = User.query.get(int(user_id))
-    if user and not user.is_active:
-        return None
-    return user
-
-
-def admin_required(f):
-    @wraps(f)
-    @login_required
-    def decorated(*args, **kwargs):
-        if not current_user.is_admin:
-            flash('Accès réservé aux administrateurs', 'error')
-            return redirect(url_for('contacts'))
-        return f(*args, **kwargs)
-    return decorated
+login_manager.init_app(app)
 
 
 def init_db():
@@ -118,47 +104,9 @@ def pwa_icon(size):
 
 
 # === PARAMÈTRES APPLICATIFS ===
-
-SETTING_DEFAULTS = {
-    'app_name': 'Contact Mailer',
-    'login_bg_filename': '',
-    'login_overlay': '0.35',
-}
-ALLOWED_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp'}
-MAX_IMAGE_BYTES = 5 * 1024 * 1024
-
-
-def get_setting(key, default=None):
-    row = Setting.query.get(key)
-    if row is not None and row.value is not None:
-        return row.value
-    return SETTING_DEFAULTS.get(key, default)
-
-
-def set_setting(key, value):
-    row = Setting.query.get(key)
-    if row is None:
-        row = Setting(key=key, value=value)
-        db.session.add(row)
-    else:
-        row.value = value
-    db.session.commit()
-
-
-def _upload_dir():
-    path = os.path.join(app.static_folder, 'uploads')
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def _delete_current_login_bg():
-    fname = get_setting('login_bg_filename', '')
-    if fname:
-        path = os.path.join(_upload_dir(), secure_filename(fname))
-        try:
-            os.remove(path)
-        except OSError:
-            pass
+# get_setting / set_setting / _upload_dir / _delete_current_login_bg et les
+# constantes SETTING_DEFAULTS / ALLOWED_IMAGE_EXT / MAX_IMAGE_BYTES vivent
+# désormais dans helpers.py (importés en tête de fichier).
 
 
 @app.context_processor
