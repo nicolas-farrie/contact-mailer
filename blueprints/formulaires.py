@@ -11,6 +11,7 @@ from flask_login import login_required, current_user
 
 from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
                     PreferenceResponse)
+from config import Config
 from helpers import admin_required
 
 bp = Blueprint('formulaires', __name__)
@@ -59,7 +60,9 @@ def new():
 @login_required
 def detail(id):
     pf = PreferenceForm.query.get_or_404(id)
-    base_url = request.host_url.rstrip('/')
+    # URL PUBLIQUE configurée (pas request.host_url, qui vaut l'hôte interne
+    # http://127.0.0.1:8100 derrière nginx → liens morts pour les destinataires).
+    base_url = (Config.BASE_URL or request.host_url).rstrip('/')
     link_template = f"{base_url}/p/{pf.token}/{{uid}}"
     responses = (PreferenceResponse.query
                  .filter_by(form_id=pf.id)
