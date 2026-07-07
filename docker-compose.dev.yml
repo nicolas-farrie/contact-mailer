@@ -12,6 +12,9 @@ services:
       - ./app.py:/app/app.py
       - ./models.py:/app/models.py
       - ./config.py:/app/config.py
+      - ./extensions.py:/app/extensions.py
+      - ./helpers.py:/app/helpers.py
+      - ./blueprints:/app/blueprints
       - ./mailer.py:/app/mailer.py
       - ./imap_submissions.py:/app/imap_submissions.py
       - ./templates:/app/templates
