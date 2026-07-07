@@ -492,15 +492,19 @@ class Mailer:
 
             context = ssl.create_default_context()
 
+            # L'expéditeur d'ENVELOPPE (MAIL FROM) détermine où reviennent les bounces.
+            # Le header Return-Path seul ne suffit PAS — il faut le passer ici.
+            envelope_from = return_path or self.sender_email
+
             if self.use_tls:
                 with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
                     server.starttls(context=context)
                     server.login(self.smtp_user, self.smtp_password)
-                    server.sendmail(self.sender_email, to_email, msg.as_string())
+                    server.sendmail(envelope_from, to_email, msg.as_string())
             else:
                 with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, context=context) as server:
                     server.login(self.smtp_user, self.smtp_password)
-                    server.sendmail(self.sender_email, to_email, msg.as_string())
+                    server.sendmail(envelope_from, to_email, msg.as_string())
 
             return True
 
