@@ -43,6 +43,32 @@ def _extract_inline_images(body_html):
     return new_html, images
 
 
+# URL nue (http/https) non précédée d'un caractère d'attribut/tag : évite de
+# re-linker une URL déjà dans href="..." ou dans le texte visible d'un <a>.
+_BARE_URL_RE = re.compile(r'(?<!["\'=>])(https?://[^\s<>"\']+)')
+
+
+def _autolink_html(html):
+    """Transforme les URLs nues d'un corps HTML en liens cliquables <a href>.
+
+    Un lien collé en texte brut dans l'éditeur reste sinon du texte non
+    cliquable dans la partie HTML du mail. Les URLs déjà dans un <a> sont
+    ignorées (lookbehind). La ponctuation finale (. , ) …) est laissée hors du lien.
+    """
+    if not html:
+        return html
+
+    def _link(m):
+        url = m.group(1)
+        trail = ''
+        while url and url[-1] in '.,;:!?)':
+            trail = url[-1] + trail
+            url = url[:-1]
+        return f'<a href="{url}">{url}</a>{trail}'
+
+    return _BARE_URL_RE.sub(_link, html)
+
+
 class EmailTemplate:
     """Gère les templates d'email (texte, HTML ou .eml)"""
 
@@ -157,6 +183,11 @@ class EmailTemplate:
         subject = replace_vars(self.subject, contact)
         body_text = replace_vars(self.body_text, contact)
         body_html = replace_vars(self.body_html, contact) if self.body_html else None
+
+        # Rendre cliquables les URLs collées en texte brut (partie HTML uniquement) :
+        # sinon un lien collé dans l'éditeur reste du texte non cliquable.
+        if body_html:
+            body_html = _autolink_html(body_html)
 
         # Ajouter le footer de désabonnement
         if unsubscribe_url:

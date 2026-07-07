@@ -12,7 +12,7 @@
     <section class="card settings-section">
         <h2>Général</h2>
         <p class="settings-hint">Paramètres globaux de l'application.</p>
-        <form method="POST" action="{{ url_for('settings') }}">
+        <form method="POST" action="{{ url_for('settings.index') }}">
             <input type="hidden" name="section" value="general">
             <div class="form-group">
                 <label for="app_name">Nom de l'application</label>
@@ -45,7 +45,7 @@
 
             <!-- Contrôles -->
             <div>
-                <form method="POST" action="{{ url_for('settings') }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ url_for('settings.index') }}" enctype="multipart/form-data">
                     <input type="hidden" name="section" value="login_appearance">
                     <div class="form-group">
                         <label for="login_bg">Image de fond</label>
@@ -67,7 +67,7 @@
                 </form>
 
                 {% if login_bg_url %}
-                <form method="POST" action="{{ url_for('settings_clear_login_bg') }}" style="margin-top: 0.75rem;"
+                <form method="POST" action="{{ url_for('settings.clear_login_bg') }}" style="margin-top: 0.75rem;"
                       onsubmit="return confirm('Supprimer l\'image de fond de la page de connexion ?')">
                     <button type="submit" class="btn btn-small btn-danger">Supprimer l'image</button>
                 </form>
@@ -130,8 +130,8 @@
             const checked = document.querySelectorAll('.trash-cb:checked');
             if (!checked.length) { alert('Sélectionnez au moins un contact.'); return; }
             const url = action === 'restore'
-                ? '{{ url_for("settings_trash_restore") }}'
-                : '{{ url_for("settings_trash_purge") }}';
+                ? '{{ url_for("settings.trash_restore") }}'
+                : '{{ url_for("settings.trash_purge") }}';
             const msg = action === 'restore'
                 ? `Restaurer ${checked.length} contact(s) ?`
                 : `Supprimer définitivement ${checked.length} contact(s) ? Cette action est irréversible.`;

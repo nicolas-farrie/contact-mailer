@@ -10,7 +10,7 @@
 {% endif %}
 
 <div class="login-container{% if login_bg_url %} login-container--over-image{% endif %}">
-    <img src="{% if config.INSTANCE_NAME %}{{ url_for('pwa_icon', size=96) }}{% else %}{{ url_for('static', filename='contact-mailer.png') }}{% endif %}" class="login-app-icon" alt="">
+    <img src="{% if config.INSTANCE_NAME %}{{ url_for('public.pwa_icon', size=96) }}{% else %}{{ url_for('static', filename='contact-mailer.png') }}{% endif %}" class="login-app-icon" alt="">
     <h1>{{ app_name }}</h1>{% set display = config.DISPLAY_NAME or config.INSTANCE_NAME %}{% if display %}<p class="login-instance-name">{{ display }}</p>{% endif %}
     <form method="POST" class="login-form">
         <div class="form-group">
@@ -23,6 +23,6 @@
         </div>
         <button type="submit" class="btn btn-primary">Se connecter</button>
     </form>
-    <p style="margin-top: 1rem; text-align: center;"><a href="{{ url_for('forgot_password') }}">Mot de passe oubli&eacute; ?</a></p>
+    <p style="margin-top: 1rem; text-align: center;"><a href="{{ url_for('public.forgot_password') }}">Mot de passe oubli&eacute; ?</a></p>
 </div>
 {% endblock %}

@@ -133,6 +133,7 @@ class PreferenceForm(db.Model):
     description = db.Column(db.Text, nullable=True)
     token = db.Column(db.String(32), unique=True, nullable=False, default=lambda: uuid.uuid4().hex)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)

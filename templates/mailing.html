@@ -8,9 +8,9 @@
 <div class="page-header">
     <h1>Nouveau mailing</h1>
     <div>
-        <a href="{{ url_for('mailing_history') }}" class="btn">Historique</a>
-        <a href="{{ url_for('mailing_queue') }}" class="btn">File d'attente</a>
-        <a href="{{ url_for('mailing_submissions') }}" class="btn">Demandes</a>
+        <a href="{{ url_for('mailing.history') }}" class="btn">Historique</a>
+        <a href="{{ url_for('mailing.queue') }}" class="btn">File d'attente</a>
+        <a href="{{ url_for('mailing.submissions') }}" class="btn">Demandes</a>
     </div>
 </div>
 
@@ -21,7 +21,7 @@
 {% endif %}
 
 <div class="mailing-container">
-    <form method="POST" action="{{ url_for('mailing_send') }}" class="form-card mailing-form" id="mailing-form" enctype="multipart/form-data">
+    <form method="POST" action="{{ url_for('mailing.send') }}" class="form-card mailing-form" id="mailing-form" enctype="multipart/form-data">
         {% if submission_id %}
         <input type="hidden" name="submission_id" value="{{ submission_id }}">
         <div class="alert alert-info">
@@ -31,7 +31,7 @@
             <ul class="submission-attachments-list">
                 {% for filename in submission_attachments %}
                 <li>
-                    <a href="{{ url_for('mailing_submission_attachment', submission_id=submission_id, filename=filename) }}" target="_blank">{{ filename }}</a>
+                    <a href="{{ url_for('mailing.submission_attachment', submission_id=submission_id, filename=filename) }}" target="_blank">{{ filename }}</a>
                     (voir / télécharger)
                     <label class="checkbox-label">
                         <input type="checkbox" name="submission_attachments" value="{{ filename }}">
@@ -115,6 +115,7 @@
             </div>
         </div>
         <p class="hint" id="preview-contact"></p>
+        <p class="hint" style="color:var(--gray-500);">🔒 Les liens sont désactivés dans l'aperçu (ils resteront cliquables dans l'email envoyé).</p>
         <div class="preview-subject" id="preview-subject"></div>
         <div class="preview-body" id="preview-body">
             <iframe id="preview-iframe" srcdoc="" style="display:none;width:100%;border:none;min-height:300px;"></iframe>
@@ -299,7 +300,7 @@ function loadPreview() {
     const formData = new FormData(form);
     formData.set('contact_index', previewIndex);
 
-    fetch('{{ url_for("mailing_preview") }}', {
+    fetch('{{ url_for("mailing.preview") }}', {
         method: 'POST',
         body: formData
     })

@@ -38,7 +38,7 @@
     {% if contact.is_unsubscribed %}
     <div class="unsub-banner">
         <span class="unsub-status">Désabonné le {{ contact.unsubscribed_at.strftime('%d/%m/%Y') if contact.unsubscribed_at else '?' }}</span>
-        <form method="POST" action="{{ url_for('contact_resubscribe', id=contact.id) }}" style="display:inline">
+        <form method="POST" action="{{ url_for('contacts.resubscribe', id=contact.id) }}" style="display:inline">
             <button type="submit" class="btn btn-small" onclick="return confirm('Réabonner ce contact ?')">Réabonner</button>
         </form>
     </div>
@@ -47,7 +47,7 @@
     <div class="unsub-banner" style="background:#fef3c7;border-color:#fde68a;color:#92400e;">
         <span class="unsub-status">⚠ Email en erreur (bounce détecté le {{ contact.bounced_at.strftime('%d/%m/%Y') if contact.bounced_at else '?' }})</span>
         {% if current_user.is_admin %}
-        <form method="POST" action="{{ url_for('contact_clear_bounce', id=contact.id) }}" style="display:inline">
+        <form method="POST" action="{{ url_for('contacts.clear_bounce', id=contact.id) }}" style="display:inline">
             <button type="submit" class="btn btn-small" onclick="return confirm('Marquer cet email comme valide ?')">Réinitialiser</button>
         </form>
         {% endif %}
@@ -147,13 +147,13 @@
             {% endfor %}
         </div>
         {% if not listes %}
-        <p class="hint">Aucune liste créée. <a href="{{ url_for('liste_new') }}">Créer une liste</a></p>
+        <p class="hint">Aucune liste créée. <a href="{{ url_for('listes.new') }}">Créer une liste</a></p>
         {% endif %}
     </div>
 
     <div class="form-actions">
         <button type="submit" class="btn {% if contact %}btn-warning{% else %}btn-primary{% endif %}">{{ 'Modifier' if contact else 'Créer' }}</button>
-        <a href="{{ url_for('contacts', liste=back_liste) if back_liste else url_for('contacts') }}" class="btn btn-secondary">Annuler</a>
+        <a href="{{ url_for('contacts.index', liste=back_liste) if back_liste else url_for('contacts.index') }}" class="btn btn-secondary">Annuler</a>
     </div>
 </form>
 
