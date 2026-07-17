@@ -25,3 +25,6 @@ static/uploads/
 test_*
 .github-token.txt
 pycharm-dockerisation_token.txt
+
+# Documents de travail (notes de debug, protocoles) — gardés en local, hors git
+doc-travail/
