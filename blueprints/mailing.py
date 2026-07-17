@@ -202,10 +202,20 @@ def submission_archive(uid):
 @bp.route('/mailing/submission-attachment/<submission_id>/<filename>')
 @login_required
 def submission_attachment(submission_id, filename):
-    """Téléchargement d'une pièce jointe extraite d'une demande de diffusion"""
+    """Affiche (images/PDF, dans l'onglet) ou télécharge une pièce jointe de demande.
+
+    Sécurité : on ne sert INLINE que des types sûrs à afficher. Un SVG ou un HTML
+    servi inline depuis notre origine pourrait exécuter du script (XSS) avec la
+    session de l'utilisateur connecté — ceux-là restent en téléchargement forcé.
+    nosniff empêche le navigateur de re-deviner un type exécutable."""
     from pathlib import Path
+    import mimetypes
     attach_dir = Path(f'data/attachments/submission_{submission_id}').absolute()
-    return send_from_directory(attach_dir, filename, as_attachment=True)
+    mime, _ = mimetypes.guess_type(filename)
+    inline_ok = mime in {'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'}
+    resp = send_from_directory(attach_dir, filename, as_attachment=not inline_ok)
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    return resp
 
 
 @bp.route('/mailing/preview', methods=['POST'])

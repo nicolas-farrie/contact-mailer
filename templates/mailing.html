@@ -166,6 +166,13 @@ function initTinyMCE(onReady) {
         selector: '#body',
         base_url: 'https://cdn.jsdelivr.net/npm/tinymce@6.8.5',
         suffix: '.min',
+        // Ne PAS relativiser les URLs : par défaut TinyMCE convertit les URLs du
+        // même domaine en relatif, ce qui casse les liens dans un email (pas de
+        // base) → « https://listes-lfll.asso34.fr/p/... » devient « p/... » puis
+        // « http://p/... » (NXDOMAIN). On garde les URLs telles quelles.
+        convert_urls: false,
+        relative_urls: false,
+        remove_script_host: false,
         plugins: 'lists code link',
         toolbar: 'undo redo | styles | bold italic underline | bullist numlist | outdent indent | link | code | removeformat',
         menubar: false,
