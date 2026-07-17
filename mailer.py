@@ -274,8 +274,11 @@ class MailQueue:
         return self.campaigns.get(campaign_id, {})
 
     def add(self, contact: dict, campaign_id: str):
+        # id unique = max existant + 1 (pas len()+1 : après suppression de campagnes,
+        # la longueur baisse et len()+1 recycle un id encore présent → collisions →
+        # mark_sent/mark_error frappent le mauvais item, le vrai reste figé en pending).
         self.queue.append({
-            'id': len(self.queue) + 1,
+            'id': max((i['id'] for i in self.queue), default=0) + 1,
             'campaign_id': campaign_id,
             'contact': contact,
             'status': 'pending',  # pending, sent, error

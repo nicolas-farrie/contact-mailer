@@ -114,4 +114,13 @@
 - [ ] Fusionner deux listes
 - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
 
+## Session debug 2026-07 (régressions post-restructuration blueprints)
+- [ ] Bouton « Envoyer un email de test » : câbler la route POST /mailing/test-smtp (existe déjà) dans la page **Paramètres** — page à renommer **« Généraux »**
+- [ ] Régler le bloqueur bounce 553 (MAIL FROM=bounce@ rejeté par le SMTP) — décision config/infra
+- [ ] Test exhaustif bouton par bouton : Mailing (M1–M18) puis Formulaires (F1–F11)
+- [ ] Éditeur mailing : vérifier la version de l'éditeur utilisée ; passer l'UI/commandes en français (actuellement en anglais) ; ajouter un bouton « insérer une image » (seul Ctrl+V/Ctrl+C fonctionne)
+- [ ] Bouton « Envoyer X emails maintenant » : feedback visuel selon le résultat — échec → rouge + texte « Recommencer… » / « Afficher le log de l'envoi » ; succès → vert + texte différent de celui d'avant l'envoi
+- [x] BUG : après envoi, item reste « En attente » — cause = ids non uniques (len()+1 recyclé après suppression de campagnes) → mark_sent/mark_error frappent le mauvais item. Corrigé (id=max+1) + outil tools/fix_queue_ids.py pour les fichiers existants
+- [ ] Paramètres : ajouter une case à cocher « Gestion du Bounce » (activer/désactiver). Sur les petites structures (cœur de cible de l'app), le suivi des bounces n'est pas indispensable → permettre de le désactiver proprement dans l'UI, au lieu de bidouiller les variables .env (quand OFF : pas d'adresse bounce forcée en enveloppe → règle aussi le rejet SMTP 553)
+
 
