@@ -148,6 +148,12 @@ class EmailTemplate:
             if not text:
                 return ''
 
+            # Filet de sécurité : quand un lien contenant {uid} est inséré via la
+            # boîte de dialogue de l'éditeur, TinyMCE URL-encode les accolades
+            # ({uid} -> %7Buid%7D). On les redécode pour que la substitution de
+            # variables ci-dessous retrouve bien {uid}, {prenom}, etc.
+            text = text.replace('%7B', '{').replace('%7b', '{').replace('%7D', '}').replace('%7d', '}')
+
             # Pass 1 : variables simples {varname}
             def replace_simple(m):
                 return str(data.get(m.group(1)) or '')
