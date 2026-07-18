@@ -177,3 +177,71 @@ class Setting(db.Model):
     __tablename__ = 'settings'
     key = db.Column(db.String(64), primary_key=True)
     value = db.Column(db.Text, nullable=True)
+
+
+class MailCampaign(db.Model):
+    """Template d'une campagne d'emailing (ex-`campaigns` du mail_queue.json).
+
+    L'id est la chaîne de campagne existante (« {nom_liste}_{AAAAMMJJ_HHMMSS} »),
+    conservée telle quelle pour compat avec le reste du code."""
+    __tablename__ = 'mail_campaign'
+    id = db.Column(db.String(255), primary_key=True, autoincrement=False)
+    subject = db.Column(db.Text, default='')
+    body = db.Column(db.Text, default='')
+    format = db.Column(db.String(10), default='text')
+    sent_by = db.Column(db.String(200), nullable=True)
+    include_unsubscribe = db.Column(db.Boolean, default=False)
+    attachments = db.Column(db.JSON, nullable=True)   # liste de chemins
+    liste_id = db.Column(db.Integer, nullable=True)
+    submission_id = db.Column(db.String(255), nullable=True)
+    archived = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    def to_template(self) -> dict:
+        """Reconstruit le dict de template attendu par le reste du code
+        (mêmes clés que l'ancien mail_queue.json : clés optionnelles omises
+        si vides)."""
+        data = {'subject': self.subject or '', 'body': self.body or '',
+                'format': self.format or 'text',
+                'include_unsubscribe': bool(self.include_unsubscribe)}
+        if self.sent_by:
+            data['sent_by'] = self.sent_by
+        if self.attachments:
+            data['attachments'] = self.attachments
+        if self.liste_id:
+            data['liste_id'] = self.liste_id
+        if self.submission_id:
+            data['submission_id'] = self.submission_id
+        if self.archived:
+            data['archived'] = True
+        return data
+
+
+class MailQueueItem(db.Model):
+    """Un destinataire dans la file d'envoi (ex-`queue` du mail_queue.json).
+
+    Le contact est stocké en SNAPSHOT (colonne JSON) : l'envoi utilise l'état du
+    contact au moment de la mise en file, indépendamment des modifs ultérieures.
+    L'id est auto-incrémenté → plus de collision possible (ancien bug len()+1)."""
+    __tablename__ = 'mail_queue_item'
+    id = db.Column(db.Integer, primary_key=True)
+    campaign_id = db.Column(db.String(255), index=True)
+    contact = db.Column(db.JSON)   # snapshot Contact.to_dict()
+    status = db.Column(db.String(12), default='pending', index=True)  # pending/sent/error/cancelled
+    attempts = db.Column(db.Integer, default=0)
+    error = db.Column(db.Text, nullable=True)
+    sent_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    def to_dict(self) -> dict:
+        """Même forme que les items de l'ancien mail_queue.json (dates en ISO)."""
+        return {
+            'id': self.id,
+            'campaign_id': self.campaign_id,
+            'contact': self.contact,
+            'status': self.status,
+            'attempts': self.attempts or 0,
+            'error': self.error,
+            'sent_at': self.sent_at.isoformat() if self.sent_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }

@@ -114,11 +114,19 @@
 - [ ] Fusionner deux listes
 - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
 
+## Robustesse du service (analyse 2026-07-18)
+- [x] File d'envoi migrée du fichier JSON vers la DB (tables mail_campaign / mail_queue_item, colonnes JSON pour snapshot contact + PJ). Écritures transactionnelles, ids auto-incrémentés (fin des collisions), sauvegardé avec la DB. Interface MailQueue inchangée. Migration : tools/migrate_queue_to_db.py. (tools/fix_queue_ids.py devient obsolète.)
+- [ ] Timeout IMAP dans le chemin des requêtes (`IMAP4_SSL(..., timeout=10)`) — évite le gel d'un worker si le serveur mail ne répond pas
+- [ ] Ajouter la protection CSRF (Flask-WTF) sur les formulaires POST
+- [ ] Fork-safety : `init_db()`/`db.engine.dispose()` en post_fork (gunicorn --preload) ; assert SECRET_KEY ≠ défaut en prod
+- [ ] (Confort) WAL SQLite, pages d'erreur 404/500 personnalisées, envoi asynchrone si les listes grossissent
+
 ## Session debug 2026-07 (régressions post-restructuration blueprints)
 - [ ] Bouton « Envoyer un email de test » : câbler la route POST /mailing/test-smtp (existe déjà) dans la page **Paramètres** — page à renommer **« Généraux »**
 - [ ] Régler le bloqueur bounce 553 (MAIL FROM=bounce@ rejeté par le SMTP) — décision config/infra
 - [ ] Test exhaustif bouton par bouton : Mailing (M1–M18) puis Formulaires (F1–F11)
-- [ ] Éditeur mailing : vérifier la version de l'éditeur utilisée ; passer l'UI/commandes en français (actuellement en anglais) ; ajouter un bouton « insérer une image » (seul Ctrl+V/Ctrl+C fonctionne)
+- [ ] Éditeur mailing : passer l'UI/commandes en français ; ajouter un bouton « insérer une image » (seul Ctrl+V/Ctrl+C fonctionne)
+  - EN ATTENTE de la proposition UI de Claude Design avant de trancher l'éditeur. Faits établis (2026-07-18) : version actuelle **TinyMCE 6.8.5**, dernière **8.8.0**. Depuis la v7, auto-hébergement en GPLv2+ exige `license_key: 'gpl'` (gratuit) ; en **v8, sans clé l'éditeur passe en lecture seule**. Options : garder 6.8.5 (OK, aucune clé) / upgrade 8.8.0 + `license_key:'gpl'` / remplacer par TipTap ou Unlayer (builder email, merge-tags cliquables). Ne pas migrer avant de savoir si on garde TinyMCE.
 - [ ] Bouton « Envoyer X emails maintenant » : feedback visuel selon le résultat — échec → rouge + texte « Recommencer… » / « Afficher le log de l'envoi » ; succès → vert + texte différent de celui d'avant l'envoi
 - [x] File d'envoi — état « terminé » : alerte de succès verte « ✓ Campagne envoyée » (mailing_queue.html)
 - [x] File d'envoi — DANGER UX : bouton « Supprimer la campagne » remplacé par « ← Retour aux mailings » (vers mailing.history). Suppression toujours possible depuis l'historique

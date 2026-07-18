@@ -15,6 +15,8 @@ from datetime import datetime
 import re
 import json
 
+from models import db, MailCampaign, MailQueueItem
+
 
 _DATA_URI_RE = re.compile(r'data:(image/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)')
 
@@ -229,114 +231,112 @@ class EmailTemplate:
 
 
 class MailQueue:
-    """File d'attente persistante pour les envois"""
+    """File d'attente persistante des envois (backend SQLite via SQLAlchemy).
 
-    def __init__(self, db_path: str = "data/mail_queue.json"):
-        self.db_path = Path(db_path)
-        self.queue = []
-        self.campaigns = {}  # {campaign_id: {subject, body}}
-        self._load()
+    L'interface publique est identique à l'ancienne version fichier-JSON (les
+    blueprints et templates sont inchangés), mais chaque opération est désormais
+    une transaction courte sur la base : plus de réécriture d'un fichier global,
+    plus de course entre workers, ids auto-incrémentés (fin du bug de collision).
 
-    def _load(self):
-        if self.db_path.exists():
-            with open(self.db_path, 'r') as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    self.queue = data.get('queue', [])
-                    self.campaigns = data.get('campaigns', {})
-                else:
-                    # Migration depuis l'ancien format (liste simple)
-                    self.queue = data
-                    self.campaigns = {}
+    À utiliser dans un contexte d'application Flask (toutes les routes en ont un ;
+    le CLI de ce module pousse le contexte explicitement)."""
+
+    def __init__(self, db_path=None):
+        # db_path est ignoré : conservé uniquement pour compat de signature avec
+        # l'ancienne version fichier (personne ne le passe en pratique).
+        pass
 
     def save(self):
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.db_path, 'w') as f:
-            json.dump({
-                'queue': self.queue,
-                'campaigns': self.campaigns
-            }, f, indent=2, default=str)
+        """Compat : les mutations committent déjà d'elles-mêmes. Commit sûr."""
+        db.session.commit()
+
+    # --- Templates de campagne ---
 
     def set_campaign_template(self, campaign_id: str, subject: str, body: str, format: str = 'text',
                               sent_by: str = None, include_unsubscribe: bool = False,
                               attachments: list = None, liste_id: int = None,
                               submission_id: str = None):
-        """Stocke le sujet, corps et format du mail pour une campagne"""
-        data = {'subject': subject, 'body': body, 'format': format,
-                'include_unsubscribe': include_unsubscribe}
-        if sent_by:
-            data['sent_by'] = sent_by
-        if attachments:
-            data['attachments'] = attachments
-        if liste_id:
-            data['liste_id'] = liste_id
-        if submission_id:
-            data['submission_id'] = submission_id
-        self.campaigns[campaign_id] = data
-        self.save()
+        """Crée ou met à jour le template (sujet, corps, format…) d'une campagne."""
+        camp = db.session.get(MailCampaign, campaign_id)
+        if camp is None:
+            camp = MailCampaign(id=campaign_id)
+            db.session.add(camp)
+        camp.subject = subject
+        camp.body = body
+        camp.format = format
+        camp.include_unsubscribe = include_unsubscribe
+        camp.sent_by = sent_by
+        camp.attachments = attachments or None
+        camp.liste_id = liste_id
+        camp.submission_id = submission_id
+        db.session.commit()
 
     def get_campaign_template(self, campaign_id: str) -> dict:
-        """Récupère le template d'une campagne"""
-        return self.campaigns.get(campaign_id, {})
+        """Récupère le template d'une campagne ({} si inconnue)."""
+        camp = db.session.get(MailCampaign, campaign_id)
+        return camp.to_template() if camp else {}
+
+    # --- Items de la file ---
 
     def add(self, contact: dict, campaign_id: str):
-        # id unique = max existant + 1 (pas len()+1 : après suppression de campagnes,
-        # la longueur baisse et len()+1 recycle un id encore présent → collisions →
-        # mark_sent/mark_error frappent le mauvais item, le vrai reste figé en pending).
-        self.queue.append({
-            'id': max((i['id'] for i in self.queue), default=0) + 1,
-            'campaign_id': campaign_id,
-            'contact': contact,
-            'status': 'pending',  # pending, sent, error
-            'attempts': 0,
-            'error': None,
-            'sent_at': None,
-            'created_at': datetime.now().isoformat()
-        })
-        self.save()
+        db.session.add(MailQueueItem(campaign_id=campaign_id, contact=contact,
+                                     status='pending'))
+        db.session.commit()
+
+    @property
+    def queue(self):
+        """Compat : liste de tous les items (mêmes dicts qu'avant), lue directement
+        par certains blueprints (ex: mailing.queue)."""
+        items = MailQueueItem.query.order_by(MailQueueItem.id).all()
+        return [i.to_dict() for i in items]
 
     def get_pending(self, campaign_id: str = None):
-        return [
-            item for item in self.queue
-            if item['status'] == 'pending'
-            and (campaign_id is None or item['campaign_id'] == campaign_id)
-        ]
+        q = MailQueueItem.query.filter_by(status='pending')
+        if campaign_id is not None:
+            q = q.filter_by(campaign_id=campaign_id)
+        return [i.to_dict() for i in q.order_by(MailQueueItem.id).all()]
 
     def mark_sent(self, item_id: int):
-        for item in self.queue:
-            if item['id'] == item_id:
-                item['status'] = 'sent'
-                item['sent_at'] = datetime.now().isoformat()
-                break
-        self.save()
+        item = db.session.get(MailQueueItem, item_id)
+        if item:
+            item.status = 'sent'
+            item.sent_at = datetime.now()
+            db.session.commit()
 
     def mark_error(self, item_id: int, error: str):
-        for item in self.queue:
-            if item['id'] == item_id:
-                item['status'] = 'error'
-                item['attempts'] += 1
-                item['error'] = error
-                break
-        self.save()
+        item = db.session.get(MailQueueItem, item_id)
+        if item:
+            item.status = 'error'
+            item.attempts = (item.attempts or 0) + 1
+            item.error = error
+            db.session.commit()
 
     def reset_errors(self, campaign_id: str = None):
-        """Remet les erreurs en pending pour retry"""
-        for item in self.queue:
-            if item['status'] == 'error':
-                if campaign_id is None or item['campaign_id'] == campaign_id:
-                    item['status'] = 'pending'
-                    item['error'] = None
-        self.save()
+        """Remet les erreurs en pending pour retry."""
+        q = MailQueueItem.query.filter_by(status='error')
+        if campaign_id is not None:
+            q = q.filter_by(campaign_id=campaign_id)
+        q.update({'status': 'pending', 'error': None}, synchronize_session=False)
+        db.session.commit()
 
     def get_stats(self, campaign_id: str = None):
-        items = [i for i in self.queue if campaign_id is None or i['campaign_id'] == campaign_id]
+        q = db.session.query(MailQueueItem.status, db.func.count()).group_by(MailQueueItem.status)
+        if campaign_id is not None:
+            q = q.filter(MailQueueItem.campaign_id == campaign_id)
+        by = dict(q.all())
         return {
-            'total': len(items),
-            'pending': len([i for i in items if i['status'] == 'pending']),
-            'sent': len([i for i in items if i['status'] == 'sent']),
-            'error': len([i for i in items if i['status'] == 'error']),
-            'cancelled': len([i for i in items if i['status'] == 'cancelled']),
+            'total': sum(by.values()),
+            'pending': by.get('pending', 0),
+            'sent': by.get('sent', 0),
+            'error': by.get('error', 0),
+            'cancelled': by.get('cancelled', 0),
         }
+
+    # --- Vues « campagnes » (dérivées des items, comme avant) ---
+
+    def _campaign_ids(self):
+        rows = db.session.query(MailQueueItem.campaign_id).distinct().all()
+        return [r[0] for r in rows]
 
     def _build_campaign_entry(self, cid):
         template = self.get_campaign_template(cid)
@@ -350,65 +350,61 @@ class MailQueue:
                 ).strftime('%d/%m/%Y %H:%M')
             except ValueError:
                 pass
-        sent_emails = {
-            item['contact'].get('email', '')
-            for item in self.queue
-            if item['campaign_id'] == cid and item['status'] == 'sent'
-        }
+        rows = (db.session.query(MailQueueItem.contact)
+                .filter(MailQueueItem.campaign_id == cid,
+                        MailQueueItem.status == 'sent').all())
+        sent_emails = {(r[0] or {}).get('email', '') for r in rows}
         return {'id': cid, 'date': date_str, 'stats': stats,
                 'template': template, 'sent_emails': sent_emails}
 
     def get_campaigns_list(self):
-        """Retourne les campagnes non archivées, triées par date décroissante."""
-        campaign_ids = set(item['campaign_id'] for item in self.queue)
-        campaigns = [
-            self._build_campaign_entry(cid)
-            for cid in campaign_ids
-            if not self.get_campaign_template(cid).get('archived')
-        ]
+        """Campagnes non archivées, triées par date décroissante."""
+        campaigns = [self._build_campaign_entry(cid) for cid in self._campaign_ids()
+                     if not self.get_campaign_template(cid).get('archived')]
         campaigns.sort(key=lambda c: c['id'], reverse=True)
         return campaigns
 
     def get_archived_campaigns_list(self):
-        """Retourne les campagnes archivées, triées par date décroissante."""
-        campaign_ids = set(item['campaign_id'] for item in self.queue)
-        campaigns = [
-            self._build_campaign_entry(cid)
-            for cid in campaign_ids
-            if self.get_campaign_template(cid).get('archived')
-        ]
+        """Campagnes archivées, triées par date décroissante."""
+        campaigns = [self._build_campaign_entry(cid) for cid in self._campaign_ids()
+                     if self.get_campaign_template(cid).get('archived')]
         campaigns.sort(key=lambda c: c['id'], reverse=True)
         return campaigns
 
     def archive_campaign(self, campaign_id: str):
         """Masque une campagne de l'historique et annule les envois en attente."""
-        for item in self.queue:
-            if item['campaign_id'] == campaign_id and item['status'] == 'pending':
-                item['status'] = 'cancelled'
-        if campaign_id in self.campaigns:
-            self.campaigns[campaign_id]['archived'] = True
-        self.save()
+        (MailQueueItem.query
+         .filter_by(campaign_id=campaign_id, status='pending')
+         .update({'status': 'cancelled'}, synchronize_session=False))
+        camp = db.session.get(MailCampaign, campaign_id)
+        if camp:
+            camp.archived = True
+        db.session.commit()
 
     def unarchive_campaign(self, campaign_id: str):
-        """Remet une campagne dans l'historique et restaure les envois annulés en pending."""
-        for item in self.queue:
-            if item['campaign_id'] == campaign_id and item['status'] == 'cancelled':
-                item['status'] = 'pending'
-        if campaign_id in self.campaigns:
-            self.campaigns[campaign_id]['archived'] = False
-        self.save()
+        """Remet une campagne dans l'historique et restaure les envois annulés."""
+        (MailQueueItem.query
+         .filter_by(campaign_id=campaign_id, status='cancelled')
+         .update({'status': 'pending'}, synchronize_session=False))
+        camp = db.session.get(MailCampaign, campaign_id)
+        if camp:
+            camp.archived = False
+        db.session.commit()
 
     def clear(self, campaign_id: str = None):
+        q = MailQueueItem.query
         if campaign_id:
-            self.queue = [i for i in self.queue if i['campaign_id'] != campaign_id]
-        else:
-            self.queue = []
-        self.save()
+            q = q.filter_by(campaign_id=campaign_id)
+        q.delete(synchronize_session=False)
+        db.session.commit()
 
     def delete_campaign(self, campaign_id: str):
-        self.queue = [i for i in self.queue if i['campaign_id'] != campaign_id]
-        self.campaigns.pop(campaign_id, None)
-        self.save()
+        (MailQueueItem.query.filter_by(campaign_id=campaign_id)
+         .delete(synchronize_session=False))
+        camp = db.session.get(MailCampaign, campaign_id)
+        if camp:
+            db.session.delete(camp)
+        db.session.commit()
 
 
 class Mailer:
@@ -608,16 +604,19 @@ if __name__ == '__main__':
             print(f"✗ Erreur : {e}")
 
     elif args.command == 'stats':
-        queue = MailQueue()
-        stats = queue.get_stats(args.campaign)
+        # La file est en base : besoin d'un contexte d'application.
+        from app import app as _flask_app
+        with _flask_app.app_context():
+            stats = MailQueue().get_stats(args.campaign)
         print(f"Total: {stats['total']}")
         print(f"En attente: {stats['pending']}")
         print(f"Envoyés: {stats['sent']}")
         print(f"Erreurs: {stats['error']}")
 
     elif args.command == 'clear':
-        queue = MailQueue()
-        queue.clear(args.campaign)
+        from app import app as _flask_app
+        with _flask_app.app_context():
+            MailQueue().clear(args.campaign)
         print("File vidée.")
 
     else:
