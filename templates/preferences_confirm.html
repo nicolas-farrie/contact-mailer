@@ -11,6 +11,9 @@
         .icon { font-size: 3rem; margin-bottom: 1rem; }
         h1 { font-size: 1.2rem; margin: 0 0 0.75rem; }
         p { color: #6b7280; font-size: 0.9rem; margin: 0; }
+        .btn-review { display: inline-block; margin-top: 1.25rem; padding: 0.55rem 1.1rem; background: #2563eb; color: #fff; text-decoration: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; }
+        .btn-review:hover { background: #1d4ed8; }
+        .note { margin-top: 0.85rem; font-size: 0.8rem; }
     </style>
 </head>
 <body>
@@ -18,6 +21,8 @@
     <div class="icon">✓</div>
     <h1>Préférences enregistrées</h1>
     <p>Merci {{ contact.prenom }}, vos choix ont bien été pris en compte.</p>
+    <a href="{{ url_for('formulaires.public', form_token=form.token, contact_uid=contact.uid) }}" class="btn-review">Revoir mes choix</a>
+    <p class="note">Vous pouvez rouvrir cette page à tout moment depuis le lien reçu par email.</p>
 </div>
 </body>
 </html>

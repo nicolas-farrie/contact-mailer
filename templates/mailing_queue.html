@@ -79,12 +79,8 @@
 {% endif %}
 
 {% if campaign and stats.pending == 0 and stats.error == 0 %}
-    <form method="POST" action="{{ url_for('mailing.history_delete', campaign_id=campaign) }}" style="display:inline;margin-left:0.5rem;">
-        <button type="submit" class="btn btn-secondary"
-                onclick="return confirm('Supprimer définitivement cette campagne de la file ?')">
-            Supprimer la campagne
-        </button>
-    </form>
+    <div class="alert alert-success" style="margin-bottom:1rem;">✓ Campagne envoyée — tous les emails ont été traités.</div>
+    <a href="{{ url_for('mailing.history') }}" class="btn btn-primary">← Retour aux mailings</a>
 {% endif %}
 </div>
 

@@ -120,18 +120,21 @@
 - [ ] Test exhaustif bouton par bouton : Mailing (M1–M18) puis Formulaires (F1–F11)
 - [ ] Éditeur mailing : vérifier la version de l'éditeur utilisée ; passer l'UI/commandes en français (actuellement en anglais) ; ajouter un bouton « insérer une image » (seul Ctrl+V/Ctrl+C fonctionne)
 - [ ] Bouton « Envoyer X emails maintenant » : feedback visuel selon le résultat — échec → rouge + texte « Recommencer… » / « Afficher le log de l'envoi » ; succès → vert + texte différent de celui d'avant l'envoi
-- [ ] File d'envoi — état « terminé » : afficher un état de succès explicite (vert, « ✓ Campagne envoyée ») au lieu de l'actuel bouton contextuel
-- [ ] File d'envoi — DANGER UX : quand tout est envoyé, l'emplacement affiche « Supprimer la campagne » (`mailing_queue.html:81`), qui appelle `delete_campaign` → **efface aussi l'historique** (queue + template), pas seulement la file. Remplacer par un simple bouton **« Retour »** vers l'accueil Mailing (prudence : un utilisateur ne doit pas supprimer sans en connaître les conséquences)
+- [x] File d'envoi — état « terminé » : alerte de succès verte « ✓ Campagne envoyée » (mailing_queue.html)
+- [x] File d'envoi — DANGER UX : bouton « Supprimer la campagne » remplacé par « ← Retour aux mailings » (vers mailing.history). Suppression toujours possible depuis l'historique
 - [x] BUG : après envoi, item reste « En attente » — cause = ids non uniques (len()+1 recyclé après suppression de campagnes) → mark_sent/mark_error frappent le mauvais item. Corrigé (id=max+1) + outil tools/fix_queue_ids.py pour les fichiers existants
 - [ ] Demandes de diffusion — liste : pouvoir prévisualiser le CONTENU du mail (corps + PJ) directement depuis la liste, AVANT « Utiliser pour un mailing »
 - [ ] Demandes de diffusion — traçabilité expéditeur : conserver l'adresse du demandeur (en pied de mail / métadonnée) pour lui renvoyer un compte-rendu d'exécution du mailing (qui a validé + infos du mailing envoyé)
 - [ ] Demandes de diffusion — UX pièces jointes : la PJ d'une demande n'apparaît PAS dans le champ habituel des pièces jointes, mais comme case « Ajouter à l'envoi » décochée dans l'encart bleu (mailing.html:37) → trop facile à manquer, on envoie sans la PJ. À rendre évident (pré-cocher ? remonter dans la zone PJ standard ? avertir si non cochée à l'envoi)
 - [ ] Demandes de diffusion — archivées invisibles : le bouton « Archiver » déplace vers le dossier IMAP `Traite`, mais AUCUNE vue in-app ne permet de consulter les demandes archivées (submissions() ne scanne que INBOX). Ajouter un affichage des demandes archivées
 - [x] BUG lien formulaire cassé dans l'email (http://p/... NXDOMAIN) : TinyMCE relativisait les URLs same-domain (convert_urls défaut=true). Corrigé dans mailing.html (convert_urls/relative_urls/remove_script_host = false). NB : ne se manifestait que quand domaine du lien == domaine de l'app (cas prod). À redéployer (v1.2.12) pour lfll.
-- [ ] Formulaire — page de confirmation (« Préférences enregistrées ») : ajouter un bouton « Revoir mes choix » (ou une note « vous pouvez rouvrir la page de vos choix depuis le lien reçu par email »)
+- [x] Formulaire — page de confirmation (« Préférences enregistrées ») : bouton « Revoir mes choix » (relien vers /p/token/uid) + note de réouverture via le lien email
 - [ ] Formulaire — sécurité du lien public : token + uid permanents, pas d'expiration par lien → un formulaire sans date de clôture = lien bearer permanent (consultation/modif des abonnements du contact ad vitam). Suggérer/imposer une date de clôture ; envisager expiration/rotation du lien. Cf. [[formulaires-next-subjects]]
-- [ ] Formulaire (édition/création) : le formulaire est contraint sur une demi-page ; l'étendre sur toute la largeur disponible (moins les marges esthétiques)
+- [x] Formulaire (édition/création) : contraint sur une demi-page (form-card max-width 600px) → modificateur .form-card-wide (max-width:none) sur formulaire_edit
+- [x] Mineur — page « confirmation de l'envoi » : toggle « tout sélectionner » coché par défaut (mailing_confirm.html)
 - [ ] Documentation utilisateur : rédiger une vraie doc par fonction (menus Mailing, Formulaires, Contacts, Listes, Paramètres… chaque bouton/action), destinée aux utilisateurs finaux des petites structures
 - [ ] Paramètres : ajouter une case à cocher « Gestion du Bounce » (activer/désactiver). Sur les petites structures (cœur de cible de l'app), le suivi des bounces n'est pas indispensable → permettre de le désactiver proprement dans l'UI, au lieu de bidouiller les variables .env (quand OFF : pas d'adresse bounce forcée en enveloppe → règle aussi le rejet SMTP 553)
+- [x] Page "Listes" : bouton « Exporter » désormais affiché uniquement si current_user.is_admin (listes.html)
+
 
 

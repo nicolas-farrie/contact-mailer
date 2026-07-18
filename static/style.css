@@ -300,6 +300,12 @@ select:focus {
     max-width: 600px;
 }
 
+/* Formulaires larges (ex: édition d'un formulaire de préférences avec de
+   nombreuses listes) : occupe toute la largeur du conteneur au lieu du cap 600px. */
+.form-card.form-card-wide {
+    max-width: none;
+}
+
 .form-group {
     margin-bottom: 1rem;
 }
