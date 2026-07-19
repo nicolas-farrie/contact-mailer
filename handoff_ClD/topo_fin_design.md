@@ -23,3 +23,13 @@ le travail visuel déjà fait, ils cadrent les écrans restants :
    champs (fieldName / display_name / type / group / layout), donc le design doit
    raisonner en « champs = données », pas en champs figés. Cela n'impose aucune
    contrainte esthétique — juste une structure claire par sections.
+
+4. FICHE UTILISATEUR — champ « Signature de modération (diffusions) »
+   Ajouter un champ texte libre, OPTIONNEL, distinct du nom réel de l'utilisateur,
+   avec une aide EXPLICITE sous le champ : « Ce nom apparaîtra publiquement en bas
+   des diffusions que vous modérez. Laissez vide pour ne pas signer. »
+   Contexte : les utilisateurs peuvent être des militants — ce champ leur permet de
+   signer sous un pseudonyme (ou pas du tout) plutôt qu'avec leur vrai nom.
+   Côté écran d'ENVOI d'un mailing issu d'une demande de diffusion : prévoir une
+   case à cocher « Signer cette diffusion » (aperçu « demande de diffusion modérée
+   par : … », en petit, en pied du mail), DÉCOCHÉE par défaut si aucune signature.
