@@ -133,6 +133,13 @@
 - [x] BUG : après envoi, item reste « En attente » — cause = ids non uniques (len()+1 recyclé après suppression de campagnes) → mark_sent/mark_error frappent le mauvais item. Corrigé (id=max+1) + outil tools/fix_queue_ids.py pour les fichiers existants
 - [ ] Demandes de diffusion — liste : pouvoir prévisualiser le CONTENU du mail (corps + PJ) directement depuis la liste, AVANT « Utiliser pour un mailing »
 - [ ] Demandes de diffusion — traçabilité expéditeur : conserver l'adresse du demandeur (en pied de mail / métadonnée) pour lui renvoyer un compte-rendu d'exécution du mailing (qui a validé + infos du mailing envoyé)
+- [ ] Demandes de diffusion — signature de modération (contexte MILITANT / confidentialité) : afficher par défaut en pied des mailings ISSUS d'une demande (campagne avec submission_id) une ligne « demande de diffusion modérée par : <signature> ». GARDE-FOUS :
+  1. Découpler **audit interne** (toujours stocker le vrai `user_id` du modérateur sur la campagne — aujourd'hui `sent_by` en texte, préférer un user_id — visible **admins seulement**) de la **signature externe**.
+  2. Nouveau champ `User.moderator_signature` (texte libre, optionnel, **distinct de `display_name`** qui = prénom+nom réel). **JAMAIS** de repli sur nom réel / username.
+  3. **Vide = AUCUNE ligne** (défaut sûr) — ou libellé générique type « l'équipe ».
+  4. UI **explicite** : le champ est public (« ce nom apparaîtra en bas des diffusions que vous modérez »).
+  5. Interrupteur **« signer cette diffusion »** à l'envoi (exposition contextuelle, décoché par défaut si pas de signature).
+  Limite à documenter côté UI/doc : un email est transférable/archivable/découvrable → c'est de la **réduction de surface, pas de l'anonymat garanti**.
 - [ ] Demandes de diffusion — UX pièces jointes : la PJ d'une demande n'apparaît PAS dans le champ habituel des pièces jointes, mais comme case « Ajouter à l'envoi » décochée dans l'encart bleu (mailing.html:37) → trop facile à manquer, on envoie sans la PJ. À rendre évident (pré-cocher ? remonter dans la zone PJ standard ? avertir si non cochée à l'envoi)
 - [ ] Demandes de diffusion — archivées invisibles : le bouton « Archiver » déplace vers le dossier IMAP `Traite`, mais AUCUNE vue in-app ne permet de consulter les demandes archivées (submissions() ne scanne que INBOX). Ajouter un affichage des demandes archivées
 - [x] BUG lien formulaire cassé dans l'email (http://p/... NXDOMAIN) : TinyMCE relativisait les URLs same-domain (convert_urls défaut=true). Corrigé dans mailing.html (convert_urls/relative_urls/remove_script_host = false). NB : ne se manifestait que quand domaine du lien == domaine de l'app (cas prod). À redéployer (v1.2.12) pour lfll.
