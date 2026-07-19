@@ -138,6 +138,21 @@
 - [x] BUG lien formulaire cassé dans l'email (http://p/... NXDOMAIN) : TinyMCE relativisait les URLs same-domain (convert_urls défaut=true). Corrigé dans mailing.html (convert_urls/relative_urls/remove_script_host = false). NB : ne se manifestait que quand domaine du lien == domaine de l'app (cas prod). À redéployer (v1.2.12) pour lfll.
 - [x] Formulaire — page de confirmation (« Préférences enregistrées ») : bouton « Revoir mes choix » (relien vers /p/token/uid) + note de réouverture via le lien email
 - [ ] Formulaire — sécurité du lien public : token + uid permanents, pas d'expiration par lien → un formulaire sans date de clôture = lien bearer permanent (consultation/modif des abonnements du contact ad vitam). Suggérer/imposer une date de clôture ; envisager expiration/rotation du lien. Cf. [[formulaires-next-subjects]]
+- [ ] Formulaires — sémantique d'édition & versionnement (DESIGN, à trancher avec la refonte) :
+  aujourd'hui l'édition modifie le formulaire EN PLACE (même id, même token, même lien) → tous les
+  visiteurs suivants voient la version modifiée ; `PreferenceResponse` ne stocke aucun snapshot
+  (juste contact_id/form_id/date), donc anciennes et nouvelles réponses sont indissociables.
+  3 options : (A) édition en place [actuel] ; (B) versionnement = une modif structurelle crée une
+  NOUVELLE instance (nouvel id/token/lien), l'ancienne figée ; (C) snapshot JSON dans
+  PreferenceResponse (ce qui était proposé/coché) pour rester interprétable après édition.
+  → Reco cible petites structures : garder A + le verrou ci-dessous + éventuellement C.
+- [ ] Formulaires — VERROU structurel tant que le formulaire est ouvert (is_active ET date de
+  clôture non dépassée) : interdire l'AJOUT/RETRAIT de listes, n'autoriser que les retouches de
+  texte (nom, description, label/help de chaque liste, ordre) + la date de clôture. Pour
+  restructurer : clore d'abord le formulaire (déverrouille). Enforcement SERVEUR obligatoire
+  (edit() ignore tout changement du jeu de liste_ids si ouvert), + UI : cases de listes
+  désactivées avec bandeau explicatif. NB : garde-fou anti-erreur, pas une garantie d'intégrité
+  totale (compléter par l'option C si l'auditabilité compte).
 - [x] Formulaire (édition/création) : contraint sur une demi-page (form-card max-width 600px) → modificateur .form-card-wide (max-width:none) sur formulaire_edit
 - [x] Mineur — page « confirmation de l'envoi » : toggle « tout sélectionner » coché par défaut (mailing_confirm.html)
 - [ ] Documentation utilisateur : rédiger une vraie doc par fonction (menus Mailing, Formulaires, Contacts, Listes, Paramètres… chaque bouton/action), destinée aux utilisateurs finaux des petites structures
