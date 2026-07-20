@@ -58,18 +58,20 @@ def main():
         ).fetchone() is not None
         cfd_cols = _cols(conn, 'custom_field_definition') if has_cfd else []
         add_help = has_cfd and 'help_text' not in cfd_cols
+        add_req = has_cfd and 'required' not in cfd_cols
 
         print(f"Base : {path}")
         print(f"  contact.custom_fields   : {'à ajouter' if add_custom else 'présent'}")
         print(f"  contact.civilite        : {'à ajouter' if add_civilite else 'présent'}")
         print(f"  custom_field_definition : {'à créer' if not has_cfd else 'présente'}")
         print(f"  cfd.help_text           : {'à ajouter' if add_help else ('inclus' if not has_cfd else 'présent')}")
+        print(f"  cfd.required            : {'à ajouter' if add_req else ('inclus' if not has_cfd else 'présent')}")
         print(f"  normalisation genre→accord + civilite : {'OUI' if add_civilite else 'déjà fait (skip)'}")
 
         if dry_run:
             print("(--dry-run : aucune écriture)")
             return
-        if not (add_custom or add_civilite or not has_cfd or add_help):
+        if not (add_custom or add_civilite or not has_cfd or add_help or add_req):
             print("✓ Rien à faire.")
             return
 
@@ -90,13 +92,17 @@ def main():
                     type VARCHAR(20) DEFAULT 'text',
                     options TEXT,
                     help_text VARCHAR(300),
+                    required BOOLEAN DEFAULT 0 NOT NULL,
                     ordre INTEGER DEFAULT 0,
                     is_active BOOLEAN DEFAULT 1 NOT NULL,
                     created_at DATETIME
                 )
             """)
-        elif add_help:
-            conn.execute("ALTER TABLE custom_field_definition ADD COLUMN help_text VARCHAR(300)")
+        else:
+            if add_help:
+                conn.execute("ALTER TABLE custom_field_definition ADD COLUMN help_text VARCHAR(300)")
+            if add_req:
+                conn.execute("ALTER TABLE custom_field_definition ADD COLUMN required BOOLEAN DEFAULT 0 NOT NULL")
 
         normalized = 0
         if add_civilite:

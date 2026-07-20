@@ -104,7 +104,7 @@ def _custom_field_defs():
     return tuple(
         FieldDef(key=d.key, label=d.display_name, type=d.type, group=GROUP_PERSO,
                  order=d.ordre or 0, source='custom', options=tuple(d.options or ()),
-                 help=d.help_text or '')
+                 help=d.help_text or '', required=bool(d.required))
         for d in defs
     )
 

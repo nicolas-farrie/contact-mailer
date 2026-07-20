@@ -184,6 +184,7 @@ def custom_field_new():
         key=key, display_name=label, type=ftype,
         options=_parse_options(request.form, ftype),
         help_text=(request.form.get('help_text') or '').strip() or None,
+        required=(request.form.get('required') == 'on'),
         ordre=max_ordre + 1))
     db.session.commit()
     flash(f'Champ « {label} » créé (clé : {key}).', 'success')
@@ -201,6 +202,7 @@ def custom_field_edit(id):
     cf.type = request.form.get('type') or cf.type
     cf.options = _parse_options(request.form, cf.type)
     cf.help_text = (request.form.get('help_text') or '').strip() or None
+    cf.required = request.form.get('required') == 'on'
     db.session.commit()
     flash('Champ mis à jour.', 'success')
     return redirect(url_for('settings.custom_fields'))

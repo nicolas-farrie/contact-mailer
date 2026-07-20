@@ -1,48 +1,49 @@
 {% extends "settings_layout.html" %}
 {% block title %}Champs personnalisés - Contact Mailer{% endblock %}
 
-{% set TYPES = [('text','Texte'),('textarea','Texte long'),('number','Nombre'),('date','Date'),('select','Liste déroulante'),('checkbox','Case à cocher')] %}
+{% set TYPES = [('text','📝 Texte court'),('textarea','📄 Texte long'),('number','🔢 Nombre'),('date','📅 Date'),('select','▾ Liste déroulante'),('checkbox','☑ Oui / Non')] %}
+
+{# --- Champs du formulaire (partagés modale création / édition) --- #}
+{% macro cffields(cf, idp) %}
+    <div class="form-group">
+        <label for="{{ idp }}label">Libellé du champ *</label>
+        <input type="text" id="{{ idp }}label" name="display_name" value="{{ cf.display_name if cf else '' }}" required placeholder="ex : Taille de t-shirt">
+    </div>
+    <div class="form-group">
+        <label for="{{ idp }}type">Type de champ</label>
+        <select id="{{ idp }}type" name="type" class="cf-type" onchange="toggleOptions(this)">
+            {% for t, lbl in TYPES %}<option value="{{ t }}"{% if cf and cf.type == t %} selected{% endif %}>{{ lbl }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="form-group cf-options">
+        <label for="{{ idp }}options">Options de la liste déroulante</label>
+        <textarea id="{{ idp }}options" name="options" rows="4" placeholder="Adhérent&#10;Sympathisant&#10;Donateur">{% if cf %}{% for o in cf.options or [] %}{{ o }}
+{% endfor %}{% endif %}</textarea>
+        <p class="hint">Une option par ligne. La <strong>1re option est la valeur par défaut</strong> dans la fiche (pratique pour imposer un choix courant). Pour un champ <strong>sans valeur par défaut</strong> (« — non précisé — »), laissez la <strong>1re ligne vide</strong>.</p>
+    </div>
+    <div class="form-group">
+        <label for="{{ idp }}help">Aide / description <span class="hint" style="font-weight:normal;">(optionnel — affichée sous le champ dans la fiche)</span></label>
+        <input type="text" id="{{ idp }}help" name="help_text" maxlength="300" value="{{ cf.help_text if cf and cf.help_text else '' }}" placeholder="ex : numéro figurant sur la carte de membre">
+    </div>
+    <label class="checkbox-inline" style="margin-top:0.25rem;">
+        <input type="checkbox" name="required" value="on"{% if cf and cf.required %} checked{% endif %}>
+        <span>Champ obligatoire à la saisie</span>
+    </label>
+{% endmacro %}
 
 {% block settings_content %}
-<div class="page-header"><h1>Champs personnalisés</h1></div>
-<p class="hint" style="margin-bottom:1.25rem;">
-    Champs supplémentaires ajoutés à la fiche contact. La clé machine (fieldName) est
-    <strong>dérivée automatiquement du libellé</strong> et sert de variable de fusion
-    <code>{clé}</code> dans les mailings. Les clés des champs standards sont réservées.
-</p>
-
-<div class="form-card" style="max-width:none; margin-bottom:1.5rem;">
-    <h3 style="margin-bottom:1rem;">Ajouter un champ</h3>
-    <form method="POST" action="{{ url_for('settings.custom_field_new') }}">
-        <div class="form-row">
-            <div class="form-group">
-                <label for="cf_label">Libellé affiché *</label>
-                <input type="text" id="cf_label" name="display_name" required placeholder="ex : N° d'adhésion">
-            </div>
-            <div class="form-group">
-                <label for="cf_type">Type</label>
-                <select id="cf_type" name="type" class="cf-type" onchange="toggleOptions(this)">
-                    {% for t, lbl in TYPES %}<option value="{{ t }}">{{ lbl }}</option>{% endfor %}
-                </select>
-            </div>
-        </div>
-        <div class="form-group cf-options">
-            <label for="cf_options">Options de la liste déroulante</label>
-            <textarea id="cf_options" name="options" rows="3" placeholder="Adhérent&#10;Sympathisant&#10;Donateur"></textarea>
-            <p class="hint">Une option par ligne. La <strong>première option est sélectionnée par défaut</strong> dans la fiche contact (pratique pour imposer un choix courant). Pour un champ <strong>sans valeur par défaut</strong> (« — non précisé — »), laissez la <strong>première ligne vide</strong>.</p>
-        </div>
-        <div class="form-group">
-            <label for="cf_help">Aide / description <span class="hint" style="font-weight:normal;">(optionnel — affichée sous le champ dans la fiche, pour guider la saisie)</span></label>
-            <input type="text" id="cf_help" name="help_text" maxlength="300" placeholder="ex : numéro figurant sur la carte de membre">
-        </div>
-        <div class="form-actions"><button type="submit" class="btn btn-primary">Ajouter</button></div>
-    </form>
+<div class="page-header">
+    <div>
+        <h1>Champs personnalisés</h1>
+        <p class="hint">Vos propres champs sur la fiche contact (ex : taille de t-shirt, date d'adhésion). La clé (fieldName) est dérivée du libellé et sert de variable de fusion <code>{clé}</code> ; les clés des champs standards sont réservées.</p>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="openModal('modal-cf-new')">+ Nouveau champ</button>
 </div>
 
 {% if defs %}
 <table class="data-table">
     <thead>
-        <tr><th>Libellé</th><th>Clé</th><th>Type</th><th>Options</th><th>Statut</th><th class="col-actions">Actions</th></tr>
+        <tr><th>Libellé</th><th>Clé</th><th>Type</th><th>Options</th><th>Obligatoire</th><th>Statut</th><th class="col-actions">Actions</th></tr>
     </thead>
     <tbody>
     {% for d in defs %}
@@ -51,67 +52,67 @@
         <td><code>{{ d.key }}</code></td>
         <td>{{ (TYPES | selectattr('0','equalto',d.type) | map(attribute=1) | first) or d.type }}</td>
         <td>{{ d.options | join(', ') if d.options else '—' }}</td>
+        <td>{% if d.required %}<span class="status-dot">Oui</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
         <td>{% if d.is_active %}<span class="badge badge-green">Actif</span>{% else %}<span class="badge badge-gray">Inactif</span>{% endif %}</td>
         <td>
             <div class="table-actions">
                 <form method="POST" action="{{ url_for('settings.custom_field_move', id=d.id) }}"><input type="hidden" name="dir" value="up"><button class="btn btn-small" title="Monter">&uarr;</button></form>
                 <form method="POST" action="{{ url_for('settings.custom_field_move', id=d.id) }}"><input type="hidden" name="dir" value="down"><button class="btn btn-small" title="Descendre">&darr;</button></form>
-                <button type="button" class="btn btn-small" onclick="document.getElementById('edit-{{ d.id }}').classList.toggle('open')">Modifier</button>
+                <button type="button" class="btn btn-small" onclick="openModal('modal-cf-edit-{{ d.id }}')">Modifier</button>
                 <form method="POST" action="{{ url_for('settings.custom_field_toggle', id=d.id) }}"><button class="btn btn-small">{{ 'Désactiver' if d.is_active else 'Activer' }}</button></form>
                 <form method="POST" action="{{ url_for('settings.custom_field_delete', id=d.id) }}" onsubmit="return confirm('Supprimer le champ « {{ d.display_name }} » ? Les valeurs déjà saisies dans les contacts seront conservées mais masquées.')"><button class="btn btn-small btn-danger">Suppr.</button></form>
             </div>
-        </td>
-    </tr>
-    <tr class="cf-edit-row" id="edit-{{ d.id }}">
-        <td colspan="6">
-            <form method="POST" action="{{ url_for('settings.custom_field_edit', id=d.id) }}" class="cf-edit-form">
-                <div class="form-row">
-                    <div class="form-group"><label>Libellé</label><input type="text" name="display_name" value="{{ d.display_name }}"></div>
-                    <div class="form-group"><label>Type</label>
-                        <select name="type" class="cf-type" onchange="toggleOptions(this)">{% for t, lbl in TYPES %}<option value="{{ t }}"{% if d.type == t %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select>
-                    </div>
-                </div>
-                <div class="form-group cf-options"><label>Options de la liste déroulante</label>
-                    <textarea name="options" rows="3">{% for o in d.options or [] %}{{ o }}
-{% endfor %}</textarea>
-                    <p class="hint">Une par ligne. 1re option = défaut ; 1re ligne vide = sans valeur par défaut.</p>
-                </div>
-                <div class="form-group"><label>Aide / description</label>
-                    <input type="text" name="help_text" maxlength="300" value="{{ d.help_text or '' }}" placeholder="Affichée sous le champ dans la fiche">
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-small btn-primary">Enregistrer</button>
-                    <button type="button" class="btn btn-small btn-secondary" onclick="document.getElementById('edit-{{ d.id }}').classList.remove('open')">Fermer</button>
-                    <span class="hint">La clé <code>{{ d.key }}</code> n'est pas modifiable (stabilité des données).</span>
-                </div>
-            </form>
         </td>
     </tr>
     {% endfor %}
     </tbody>
 </table>
 {% else %}
-<p class="hint">Aucun champ personnalisé pour l'instant. Ajoutez-en un ci-dessus.</p>
+<p class="hint">Aucun champ personnalisé pour l'instant. Créez-en un avec « + Nouveau champ ».</p>
 {% endif %}
 
-<style>
-.cf-inactive { opacity: 0.55; }
-.cf-edit-row { display: none; }
-.cf-edit-row.open { display: table-row; }
-.cf-edit-row > td { background: var(--bg-muted); padding: 1rem 1.4rem; }
-.cf-edit-form { max-width: 620px; }
-.cf-edit-form .form-actions { align-items: center; flex-wrap: wrap; }
-</style>
+<!-- Modale : nouveau champ -->
+<div class="modal-overlay" id="modal-cf-new" onclick="if(event.target===this)closeModal('modal-cf-new')">
+    <div class="modal">
+        <div class="modal-header"><h2>Nouveau champ personnalisé</h2><button type="button" class="modal-close" onclick="closeModal('modal-cf-new')" aria-label="Fermer">&times;</button></div>
+        <div class="modal-body">
+            <form method="POST" action="{{ url_for('settings.custom_field_new') }}">
+                {{ cffields(None, 'nu_') }}
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Créer le champ</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-cf-new')">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modales : édition (une par champ) -->
+{% for d in defs %}
+<div class="modal-overlay" id="modal-cf-edit-{{ d.id }}" onclick="if(event.target===this)closeModal('modal-cf-edit-{{ d.id }}')">
+    <div class="modal">
+        <div class="modal-header"><h2>Modifier « {{ d.display_name }} »</h2><button type="button" class="modal-close" onclick="closeModal('modal-cf-edit-{{ d.id }}')" aria-label="Fermer">&times;</button></div>
+        <div class="modal-body">
+            <form method="POST" action="{{ url_for('settings.custom_field_edit', id=d.id) }}">
+                {{ cffields(d, 'e' ~ d.id ~ '_') }}
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-cf-edit-{{ d.id }}')">Annuler</button>
+                    <span class="hint">Clé <code>{{ d.key }}</code> non modifiable (stabilité des données).</span>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
 
 <script>
-// Le champ « Options » n'a de sens que pour une liste déroulante : on l'affiche
-// uniquement quand le type sélectionné est « select » (form d'ajout + éditions inline).
-function toggleOptions(sel) {
-    var g = sel.form.querySelector('.cf-options');
-    if (g) g.style.display = (sel.value === 'select') ? '' : 'none';
-}
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.cf-type').forEach(function (s) { toggleOptions(s); });
-});
+function openModal(id){ document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ document.querySelectorAll('.modal-overlay.open').forEach(function(m){ m.classList.remove('open'); }); document.body.style.overflow=''; } });
+
+// Le champ « Options » n'a de sens que pour une liste déroulante.
+function toggleOptions(sel){ var g = sel.form.querySelector('.cf-options'); if(g) g.style.display = (sel.value === 'select') ? '' : 'none'; }
+document.addEventListener('DOMContentLoaded', function(){ document.querySelectorAll('.cf-type').forEach(function(s){ toggleOptions(s); }); });
 </script>
 {% endblock %}

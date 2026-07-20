@@ -1173,3 +1173,7 @@ select:focus {
     background: var(--bg-muted); color: var(--text-secondary); border: 1px solid var(--border);
 }
 .role-pill.is-admin { background: var(--primary-tint); color: var(--primary-text); border-color: var(--primary-border); }
+
+/* Ligne de tableau désactivée + texte discret (réutilisés : users, champs perso) */
+.cf-inactive { opacity: 0.55; }
+.text-muted { color: var(--text-muted); }
