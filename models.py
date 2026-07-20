@@ -20,7 +20,7 @@ class Contact(db.Model):
     prenom = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(200), nullable=False, index=True)
     civilite = db.Column(db.String(40))   # identité / formule d'appel (Madame, Monsieur, Mx…)
-    genre = db.Column(db.String(20))      # accord grammatical (Féminin/Masculin/Inclusif) — clé stable {genre==…}
+    genre = db.Column(db.String(20), default='Inclusif')   # accord grammatical (Féminin/Masculin/Inclusif) — clé stable {genre==…} ; défaut inclusif (jamais vide)
     titre = db.Column(db.String(50))
     telephone = db.Column(db.String(20))
     organisation = db.Column(db.String(200))

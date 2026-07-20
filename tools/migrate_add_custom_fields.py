@@ -38,7 +38,7 @@ def _normalize(genre):
         return '', 'Féminin'
     if s in ('inclusif', 'neutre', 'nb', 'non-binaire', 'non binaire'):
         return '', 'Inclusif'
-    return '', ''   # inconnu / vide -> on ne pollue pas les accords
+    return '', 'Inclusif'   # inconnu / vide -> accord inclusif par défaut (jamais vide → conditionnelles prévisibles)
 
 
 def main():

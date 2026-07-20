@@ -56,6 +56,7 @@ class FieldDef:
     width: str = 'full'       # hint layout : 'full' | 'half' | 'third'
     mailing_var: bool = True  # exposé comme variable de fusion {key} ?
     editable: bool = True     # saisi via le formulaire ? (False = champ système, lecture seule)
+    default: str = ''         # valeur par défaut (ex: select sans option vide)
 
 
 # --- Champs « colonne » (miroir des colonnes actuelles de Contact) ---
@@ -66,8 +67,8 @@ CONTACT_COLUMN_FIELDS = (
              options=('', 'Madame', 'Monsieur', 'Mx', 'Autre'), options_source='choices.civilite',
              help="Formule d'appel affichée dans les mailings (Madame, Monsieur…)."),
     FieldDef('genre',              'Accord de genre', type='select', group=GROUP_IDENTITE, order=40, width='half',
-             options=('', 'Féminin', 'Masculin', 'Inclusif'),
-             help="Sert aux accords dans les mailings — ex. {genre==Féminin:accueillie:accueilli}. Distinct de la civilité."),
+             options=('Féminin', 'Masculin', 'Inclusif'), default='Inclusif',
+             help="Sert aux accords dans les mailings — ex. {genre==Féminin:accueillie:accueilli}. « Inclusif » par défaut (évite un masculin implicite). Distinct de la civilité."),
     FieldDef('titre',              'Titre',        group=GROUP_IDENTITE, order=50, width='half'),
     FieldDef('email',              'E-mail',       type='email', group=GROUP_CONTACT, order=10, unique=True, width='half'),
     FieldDef('telephone',          'Téléphone',    type='tel',   group=GROUP_CONTACT, order=20, width='half'),
