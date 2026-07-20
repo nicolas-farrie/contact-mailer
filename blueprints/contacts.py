@@ -12,8 +12,37 @@ from flask_login import login_required, current_user
 from models import db, Contact, Liste
 from config import Config
 from helpers import admin_required
+import fields
 
 bp = Blueprint('contacts', __name__)
+
+
+def _apply_form(contact, form):
+    """Écrit le formulaire sur le contact via le registre fields.py :
+    colonnes éditables → attributs ; champs perso → contact.custom_fields.
+    Les valeurs des champs perso désactivés (absents du registre) sont préservées."""
+    custom = dict(contact.custom_fields or {})
+    for f in fields.contact_fields():
+        if not f.editable:
+            continue
+        val = (form.get(f.key) or '').strip()
+        if f.source == 'custom':
+            if val:
+                custom[f.key] = val
+            else:
+                custom.pop(f.key, None)
+        else:
+            setattr(contact, f.key, val)
+    contact.custom_fields = custom or None
+
+
+def _apply_listes(contact, form, clear=False):
+    if clear:
+        contact.listes.clear()
+    for lid in form.getlist('listes'):
+        liste = Liste.query.get(int(lid))
+        if liste and liste not in contact.listes:
+            contact.listes.append(liste)
 
 
 @bp.route('/')
@@ -65,31 +94,9 @@ def index():
 @login_required
 def new():
     if request.method == 'POST':
-        contact = Contact(
-            nom=request.form.get('nom', '').strip(),
-            prenom=request.form.get('prenom', '').strip(),
-            genre=request.form.get('genre', '').strip(),
-            titre=request.form.get('titre', '').strip(),
-            email=request.form.get('email', '').strip(),
-            telephone=request.form.get('telephone', '').strip(),
-            organisation=request.form.get('organisation', '').strip(),
-            adresse_rue=request.form.get('adresse_rue', '').strip(),
-            adresse_complement=request.form.get('adresse_complement', '').strip(),
-            adresse_ville=request.form.get('adresse_ville', '').strip(),
-            adresse_cp=request.form.get('adresse_cp', '').strip(),
-            adresse_region=request.form.get('adresse_region', '').strip(),
-            adresse_pays=request.form.get('adresse_pays', '').strip(),
-            notes=request.form.get('notes', '').strip(),
-            source='Manuel',
-            created_by_id=current_user.id
-        )
-
-        # Ajouter aux listes sélectionnées
-        liste_ids = request.form.getlist('listes')
-        for lid in liste_ids:
-            liste = Liste.query.get(int(lid))
-            if liste:
-                contact.listes.append(liste)
+        contact = Contact(source='Manuel', created_by_id=current_user.id)
+        _apply_form(contact, request.form)
+        _apply_listes(contact, request.form)
 
         db.session.add(contact)
         try:
@@ -111,29 +118,9 @@ def edit(id):
 
     if request.method == 'POST':
         back_liste = request.form.get('back_liste', '') or None
-        contact.nom = request.form.get('nom', '').strip()
-        contact.prenom = request.form.get('prenom', '').strip()
-        contact.genre = request.form.get('genre', '').strip()
-        contact.titre = request.form.get('titre', '').strip()
-        contact.email = request.form.get('email', '').strip()
-        contact.telephone = request.form.get('telephone', '').strip()
-        contact.organisation = request.form.get('organisation', '').strip()
-        contact.adresse_rue = request.form.get('adresse_rue', '').strip()
-        contact.adresse_complement = request.form.get('adresse_complement', '').strip()
-        contact.adresse_ville = request.form.get('adresse_ville', '').strip()
-        contact.adresse_cp = request.form.get('adresse_cp', '').strip()
-        contact.adresse_region = request.form.get('adresse_region', '').strip()
-        contact.adresse_pays = request.form.get('adresse_pays', '').strip()
-        contact.notes = request.form.get('notes', '').strip()
+        _apply_form(contact, request.form)
         contact.updated_by_id = current_user.id
-
-        # Mettre à jour les listes
-        contact.listes.clear()
-        liste_ids = request.form.getlist('listes')
-        for lid in liste_ids:
-            liste = Liste.query.get(int(lid))
-            if liste:
-                contact.listes.append(liste)
+        _apply_listes(contact, request.form, clear=True)
 
         try:
             db.session.commit()

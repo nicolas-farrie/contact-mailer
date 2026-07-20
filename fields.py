@@ -55,6 +55,7 @@ class FieldDef:
     help: str = ''
     width: str = 'full'       # hint layout : 'full' | 'half' | 'third'
     mailing_var: bool = True  # exposé comme variable de fusion {key} ?
+    editable: bool = True     # saisi via le formulaire ? (False = champ système, lecture seule)
 
 
 # --- Champs « colonne » (miroir des colonnes actuelles de Contact) ---
@@ -77,7 +78,7 @@ CONTACT_COLUMN_FIELDS = (
     FieldDef('adresse_ville',      'Ville',        group=GROUP_ADRESSE, order=40, width='third'),
     FieldDef('adresse_region',     'Région',       group=GROUP_ADRESSE, order=50, width='third'),
     FieldDef('adresse_pays',       'Pays',         group=GROUP_ADRESSE, order=60, width='half'),
-    FieldDef('source',             'Source',       group=GROUP_AUTRES, order=10, mailing_var=False),
+    FieldDef('source',             'Source',       group=GROUP_AUTRES, order=10, mailing_var=False, editable=False),
     FieldDef('notes',              'Notes',        type='textarea', group=GROUP_AUTRES, order=20, mailing_var=False),
 )
 
@@ -129,6 +130,11 @@ def fields_by_group(include_custom: bool = True):
 def field_map(include_custom: bool = True):
     """{ key: FieldDef }."""
     return {f.key: f for f in contact_fields(include_custom)}
+
+
+def group(gkey: str, include_custom: bool = True):
+    """Champs d'un groupe donné (pour le rendu ciblé d'une section)."""
+    return [f for f in contact_fields(include_custom) if f.group == gkey]
 
 
 def label(key: str, default: str = None) -> str:

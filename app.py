@@ -79,6 +79,14 @@ def create_app(config_object=Config):
 
     register_blueprints(app)
     register_context_processors(app)
+
+    # Registre de champs accessible dans les templates (couche metadata-driven)
+    import fields
+    app.jinja_env.globals.update(
+        fields_group=fields.group,
+        field_options=fields.field_options,
+        field_def=lambda key: fields.field_map().get(key),
+    )
     return app
 
 

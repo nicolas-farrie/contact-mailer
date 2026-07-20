@@ -1,142 +1,92 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Modifier' if contact else 'Nouveau' }} contact - Contact Mailer{% endblock %}
 
-{% block content %}
-<div class="page-header">
-    <h1>{{ 'Modifier le contact' if contact else 'Nouveau contact' }}</h1>
+{# --- Rendu générique d'un champ à partir de sa définition (registre fields.py) --- #}
+{% macro render_field(f, contact) %}
+{% if f.source == 'custom' %}
+    {% set val = (contact.custom_fields or {}).get(f.key, '') if contact else '' %}
+{% else %}
+    {% set val = contact[f.key] if contact else '' %}
+{% endif %}
+{% set val = val if val is not none else '' %}
+<div class="field field--{{ f.width }}">
+    <label for="f_{{ f.key }}">{{ f.label }}{% if f.required %} <span class="req">*</span>{% endif %}</label>
+    {% if f.type == 'select' %}
+    <select id="f_{{ f.key }}" name="{{ f.key }}"{% if f.required %} required{% endif %}>
+        {% for opt in field_options(f) %}
+        <option value="{{ opt }}"{% if opt|string == val|string %} selected{% endif %}>{{ opt or '— non précisé —' }}</option>
+        {% endfor %}
+    </select>
+    {% elif f.type == 'textarea' %}
+    <textarea id="f_{{ f.key }}" name="{{ f.key }}" rows="3">{{ val }}</textarea>
+    {% elif f.type == 'checkbox' %}
+    <label class="checkbox-label"><input type="checkbox" name="{{ f.key }}" value="1"{% if val %} checked{% endif %}> Oui</label>
+    {% else %}
+    <input type="{{ f.type }}" id="f_{{ f.key }}" name="{{ f.key }}" value="{{ val }}"{% if f.required %} required{% endif %}>
+    {% endif %}
+    {% if f.help %}<p class="hint">{{ f.help }}</p>{% endif %}
 </div>
+{% endmacro %}
 
-<form method="POST" class="form-card">
-    <input type="hidden" name="back_liste" value="{{ back_liste or '' }}">
+{% block content %}
+{% set cancel_url = url_for('contacts.index', liste=back_liste) if back_liste else url_for('contacts.index') %}
+
+<div class="fiche-header">
+    <a href="{{ cancel_url }}" class="btn btn-secondary btn-small">&larr; Contacts</a>
     {% if contact %}
-    {% if current_user.is_admin %}
-    <div class="form-row">
-        <div class="form-group">
-            <label for="uid">UID</label>
-            <input type="text" id="uid" value="{{ contact.uid }}" readonly disabled
-                   style="font-family: monospace; font-size: 0.8rem; color: var(--gray-500); background: var(--gray-100);">
-        </div>
-        <div class="form-group">
-            <label for="source">Source</label>
-            <input type="text" id="source" value="{{ contact.source or '' }}" readonly disabled
-                   style="color: var(--gray-500); background: var(--gray-100);">
-        </div>
-    </div>
-    <div class="form-row">
-        <div class="form-group">
-            <label>Créé par</label>
-            <input type="text" value="{{ contact.created_by.display_name if contact.created_by else '-' }}" readonly disabled
-                   style="color: var(--gray-500); background: var(--gray-100);">
-        </div>
-        <div class="form-group">
-            <label>Modifié par</label>
-            <input type="text" value="{{ contact.updated_by.display_name if contact.updated_by else '-' }}" readonly disabled
-                   style="color: var(--gray-500); background: var(--gray-100);">
-        </div>
-    </div>
+    <div class="fiche-avatar">{{ ((contact.prenom or ' ')[0] ~ (contact.nom or ' ')[0])|upper }}</div>
     {% endif %}
-    {% if contact.is_unsubscribed %}
-    <div class="unsub-banner">
-        <span class="unsub-status">Désabonné le {{ contact.unsubscribed_at.strftime('%d/%m/%Y') if contact.unsubscribed_at else '?' }}</span>
-        <form method="POST" action="{{ url_for('contacts.resubscribe', id=contact.id) }}" style="display:inline">
-            <button type="submit" class="btn btn-small" onclick="return confirm('Réabonner ce contact ?')">Réabonner</button>
-        </form>
-    </div>
-    {% endif %}
-    {% if contact.has_bounced %}
-    <div class="unsub-banner" style="background:#fef3c7;border-color:#fde68a;color:#92400e;">
-        <span class="unsub-status">⚠ Email en erreur (bounce détecté le {{ contact.bounced_at.strftime('%d/%m/%Y') if contact.bounced_at else '?' }})</span>
-        {% if current_user.is_admin %}
-        <form method="POST" action="{{ url_for('contacts.clear_bounce', id=contact.id) }}" style="display:inline">
-            <button type="submit" class="btn btn-small" onclick="return confirm('Marquer cet email comme valide ?')">Réinitialiser</button>
-        </form>
+    <div class="fiche-title">
+        <h1>{% if contact %}{{ contact.prenom }} {{ contact.nom }}{% else %}Nouveau contact{% endif %}</h1>
+        {% if contact %}
+        <span class="fiche-status {{ 'is-unsub' if contact.is_unsubscribed }}">{{ 'Désabonné' if contact.is_unsubscribed else 'Abonné' }}</span>
         {% endif %}
     </div>
+    <div class="fiche-actions">
+        <a href="{{ cancel_url }}" class="btn btn-secondary">Annuler</a>
+        <button type="submit" form="contact-form" class="btn btn-primary">Enregistrer</button>
+    </div>
+</div>
+
+{# Bandeaux (hors du formulaire principal : évite l'imbrication de formulaires) #}
+{% if contact and contact.is_unsubscribed %}
+<div class="unsub-banner">
+    <span class="unsub-status">Désabonné le {{ contact.unsubscribed_at.strftime('%d/%m/%Y') if contact.unsubscribed_at else '?' }}</span>
+    <form method="POST" action="{{ url_for('contacts.resubscribe', id=contact.id) }}" style="display:inline">
+        <button type="submit" class="btn btn-small" onclick="return confirm('Réabonner ce contact ?')">Réabonner</button>
+    </form>
+</div>
+{% endif %}
+{% if contact and contact.has_bounced %}
+<div class="unsub-banner unsub-banner--warn">
+    <span class="unsub-status">⚠ Email en erreur (bounce détecté le {{ contact.bounced_at.strftime('%d/%m/%Y') if contact.bounced_at else '?' }})</span>
+    {% if current_user.is_admin %}
+    <form method="POST" action="{{ url_for('contacts.clear_bounce', id=contact.id) }}" style="display:inline">
+        <button type="submit" class="btn btn-small" onclick="return confirm('Marquer cet email comme valide ?')">Réinitialiser</button>
+    </form>
     {% endif %}
-    {% endif %}
+</div>
+{% endif %}
 
-    <div class="form-row">
-        <div class="form-group">
-            <label for="nom">Nom *</label>
-            <input type="text" id="nom" name="nom" value="{{ contact.nom if contact else '' }}" required>
-        </div>
-        <div class="form-group">
-            <label for="prenom">Prénom *</label>
-            <input type="text" id="prenom" name="prenom" value="{{ contact.prenom if contact else '' }}" required>
-        </div>
-    </div>
+<form method="POST" id="contact-form" class="fiche-form">
+    <input type="hidden" name="back_liste" value="{{ back_liste or '' }}">
 
-    <div class="form-row">
-        <div class="form-group">
-            <label for="genre">Genre</label>
-            <input type="text" id="genre" name="genre" value="{{ contact.genre if contact else '' }}" placeholder="ex: M, F, …">
+    <section class="fiche-card">
+        <h3>Identité</h3>
+        <div class="field-grid">
+            {% for f in fields_group('identite') if f.editable %}{{ render_field(f, contact) }}{% endfor %}
         </div>
-        <div class="form-group">
-            <label for="titre">Titre</label>
-            <input type="text" id="titre" name="titre" value="{{ contact.titre if contact else '' }}" placeholder="ex: Dr, Pr, Me, …">
-        </div>
-    </div>
+    </section>
 
-    <div class="form-row">
-        <div class="form-group">
-            <label for="email">Email *</label>
-            <input type="email" id="email" name="email" value="{{ contact.email if contact else '' }}" required>
+    <section class="fiche-card">
+        <h3>Coordonnées</h3>
+        <div class="field-grid">
+            {% for f in fields_group('contact') if f.editable %}{{ render_field(f, contact) }}{% endfor %}
         </div>
-        <div class="form-group">
-            <label for="telephone">Téléphone</label>
-            <input type="tel" id="telephone" name="telephone" value="{{ contact.telephone if contact else '' }}">
-        </div>
-    </div>
+    </section>
 
-    <div class="form-group">
-        <label for="organisation">Organisation</label>
-        <input type="text" id="organisation" name="organisation" value="{{ contact.organisation if contact else '' }}">
-    </div>
-
-    <fieldset class="form-fieldset">
-        <legend>Adresse</legend>
-        <div class="form-group">
-            <label for="adresse_rue">Rue</label>
-            <input type="text" id="adresse_rue" name="adresse_rue" value="{{ contact.adresse_rue if contact else '' }}"
-                   placeholder="12, rue de la Paix">
-        </div>
-        <div class="form-group">
-            <label for="adresse_complement">Complément</label>
-            <input type="text" id="adresse_complement" name="adresse_complement" value="{{ contact.adresse_complement if contact else '' }}"
-                   placeholder="Bât. B, Appt 42">
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="adresse_cp">Code postal</label>
-                <input type="text" id="adresse_cp" name="adresse_cp" value="{{ contact.adresse_cp if contact else '' }}"
-                       placeholder="34000" style="max-width: 8rem;">
-            </div>
-            <div class="form-group">
-                <label for="adresse_ville">Ville</label>
-                <input type="text" id="adresse_ville" name="adresse_ville" value="{{ contact.adresse_ville if contact else '' }}"
-                       placeholder="Montpellier">
-            </div>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="adresse_region">Région</label>
-                <input type="text" id="adresse_region" name="adresse_region" value="{{ contact.adresse_region if contact else '' }}">
-            </div>
-            <div class="form-group">
-                <label for="adresse_pays">Pays</label>
-                <input type="text" id="adresse_pays" name="adresse_pays" value="{{ contact.adresse_pays if contact else '' }}"
-                       placeholder="France">
-            </div>
-        </div>
-    </fieldset>
-
-    <div class="form-group">
-        <label for="notes">Notes</label>
-        <textarea id="notes" name="notes" rows="3">{{ contact.notes if contact else '' }}</textarea>
-    </div>
-
-    <div class="form-group">
-        <label>Listes</label>
+    <section class="fiche-card">
+        <h3>Listes</h3>
         <div class="checkbox-group">
             {% for liste in listes %}
             <label class="checkbox-label">
@@ -149,28 +99,42 @@
         {% if not listes %}
         <p class="hint">Aucune liste créée. <a href="{{ url_for('listes.new') }}">Créer une liste</a></p>
         {% endif %}
-    </div>
+    </section>
 
-    <div class="form-actions">
-        <button type="submit" class="btn {% if contact %}btn-warning{% else %}btn-primary{% endif %}">{{ 'Modifier' if contact else 'Créer' }}</button>
-        <a href="{{ url_for('contacts.index', liste=back_liste) if back_liste else url_for('contacts.index') }}" class="btn btn-secondary">Annuler</a>
-    </div>
+    <section class="fiche-card">
+        <h3>Adresse</h3>
+        <div class="field-grid">
+            {% for f in fields_group('adresse') if f.editable %}{{ render_field(f, contact) }}{% endfor %}
+        </div>
+    </section>
+
+    {% set perso = fields_group('perso') %}
+    {% if perso %}
+    <section class="fiche-card">
+        <h3>Champs personnalisés</h3>
+        <div class="field-grid">
+            {% for f in perso if f.editable %}{{ render_field(f, contact) }}{% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="fiche-card">
+        <h3>Notes</h3>
+        <div class="field-grid">
+            {{ render_field(field_def('notes'), contact) }}
+        </div>
+    </section>
+
+    {% if contact and current_user.is_admin %}
+    <section class="fiche-card fiche-card--muted">
+        <h3>Informations système</h3>
+        <div class="field-grid">
+            <div class="field field--half"><label>UID</label><input type="text" value="{{ contact.uid }}" readonly disabled class="sysinfo"></div>
+            <div class="field field--half"><label>Source</label><input type="text" value="{{ contact.source or '-' }}" readonly disabled class="sysinfo"></div>
+            <div class="field field--half"><label>Créé par</label><input type="text" value="{{ contact.created_by.display_name if contact.created_by else '-' }}" readonly disabled class="sysinfo"></div>
+            <div class="field field--half"><label>Modifié par</label><input type="text" value="{{ contact.updated_by.display_name if contact.updated_by else '-' }}" readonly disabled class="sysinfo"></div>
+        </div>
+    </section>
+    {% endif %}
 </form>
-
-<style>
-.unsub-banner {
-    background: #fee2e2;
-    border: 1px solid #fecaca;
-    color: #991b1b;
-    padding: 0.75rem 1rem;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-}
-.unsub-status {
-    font-weight: 600;
-}
-</style>
 {% endblock %}
