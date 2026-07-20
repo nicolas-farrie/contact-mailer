@@ -9,23 +9,31 @@
     {% set val = contact[f.key] if contact else '' %}
 {% endif %}
 {% set val = val if val is not none else '' %}
-<div class="field field--{{ f.width }}">
+<div class="field field--{{ f.width }}{{ ' field--check' if f.type == 'checkbox' }}">
+    {% if f.type == 'checkbox' %}
+    <label class="checkbox-inline">
+        <input type="checkbox" name="{{ f.key }}" value="1"{% if val %} checked{% endif %}>
+        <span>{{ f.label }}{% if f.required %} <span class="req">*</span>{% endif %}</span>
+    </label>
+    {% if f.help %}<p class="hint">{{ f.help }}</p>{% endif %}
+    {% else %}
     <label for="f_{{ f.key }}">{{ f.label }}{% if f.required %} <span class="req">*</span>{% endif %}</label>
     {% if f.type == 'select' %}
+    {% set opts = field_options(f) %}
     {% set sel = val if val else f.default %}
     <select id="f_{{ f.key }}" name="{{ f.key }}"{% if f.required %} required{% endif %}>
-        {% for opt in field_options(f) %}
+        {% if not f.default and '' not in opts %}<option value=""{% if not sel %} selected{% endif %}>— non précisé —</option>{% endif %}
+        {% for opt in opts %}
         <option value="{{ opt }}"{% if opt|string == sel|string %} selected{% endif %}>{{ opt or '— non précisé —' }}</option>
         {% endfor %}
     </select>
     {% elif f.type == 'textarea' %}
     <textarea id="f_{{ f.key }}" name="{{ f.key }}" rows="3">{{ val }}</textarea>
-    {% elif f.type == 'checkbox' %}
-    <label class="checkbox-label"><input type="checkbox" name="{{ f.key }}" value="1"{% if val %} checked{% endif %}> Oui</label>
     {% else %}
     <input type="{{ f.type }}" id="f_{{ f.key }}" name="{{ f.key }}" value="{{ val }}"{% if f.required %} required{% endif %}>
     {% endif %}
     {% if f.help %}<p class="hint">{{ f.help }}</p>{% endif %}
+    {% endif %}
 </div>
 {% endmacro %}
 

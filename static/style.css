@@ -1086,6 +1086,16 @@ select:focus {
 .field .sysinfo { background: var(--bg-muted); color: var(--text-muted); font-family: monospace; font-size: 0.8rem; }
 .field .hint { margin-top: 0; }
 
+/* Case à cocher : coche à gauche, libellé à droite */
+.field--check { justify-content: center; }
+.checkbox-inline { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 500; color: var(--text); cursor: pointer; }
+.checkbox-inline input { width: auto; }
+
+/* Champ nombre : pas de flèches spinner (fioriture inutile) */
+.field input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.field input[type=number]::-webkit-outer-spin-button,
+.field input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
 .unsub-banner {
     background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger-dark);
     padding: 0.7rem 1rem; border-radius: var(--radius); display: flex; align-items: center;
