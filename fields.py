@@ -50,7 +50,8 @@ class FieldDef:
     source: str = 'column'   # 'column' (colonne Contact) | 'custom' (custom_fields JSON)
     required: bool = False
     unique: bool = False
-    options: tuple = ()       # pour type 'select'
+    options: tuple = ()       # options statiques / fallback (type 'select')
+    options_source: str = ''  # clé Setting JSON pour des options éditables (sinon `options`)
     help: str = ''
     width: str = 'full'       # hint layout : 'full' | 'half' | 'third'
     mailing_var: bool = True  # exposé comme variable de fusion {key} ?
@@ -60,8 +61,13 @@ class FieldDef:
 CONTACT_COLUMN_FIELDS = (
     FieldDef('nom',                'Nom',          group=GROUP_IDENTITE, order=10, required=True, width='half'),
     FieldDef('prenom',             'Prénom',       group=GROUP_IDENTITE, order=20, width='half'),
-    FieldDef('genre',              'Genre',        group=GROUP_IDENTITE, order=30, width='half'),
-    FieldDef('titre',              'Titre',        group=GROUP_IDENTITE, order=40, width='half'),
+    FieldDef('civilite',           'Civilité',     type='select', group=GROUP_IDENTITE, order=30, width='half',
+             options=('', 'Madame', 'Monsieur', 'Mx', 'Autre'), options_source='choices.civilite',
+             help="Formule d'appel affichée dans les mailings (Madame, Monsieur…)."),
+    FieldDef('genre',              'Accord de genre', type='select', group=GROUP_IDENTITE, order=40, width='half',
+             options=('', 'Féminin', 'Masculin', 'Inclusif'),
+             help="Sert aux accords dans les mailings — ex. {genre==Féminin:accueillie:accueilli}. Distinct de la civilité."),
+    FieldDef('titre',              'Titre',        group=GROUP_IDENTITE, order=50, width='half'),
     FieldDef('email',              'E-mail',       type='email', group=GROUP_CONTACT, order=10, unique=True, width='half'),
     FieldDef('telephone',          'Téléphone',    type='tel',   group=GROUP_CONTACT, order=20, width='half'),
     FieldDef('organisation',       'Organisation', group=GROUP_CONTACT, order=30),
@@ -131,6 +137,27 @@ def label(key: str, default: str = None) -> str:
     if f:
         return f.label
     return default if default is not None else key
+
+
+def field_options(f):
+    """Options effectives d'un champ 'select'.
+
+    Résolution : override `Setting[options_source]` (JSON éditable en Paramètres)
+    s'il existe et n'est pas vide, SINON les `options` statiques/fallback du registre.
+    → sur une installation « from scratch », Setting est vide donc on lit le fallback
+    du registre (source de vérité canonique des défauts). Tolérant hors app-context."""
+    if getattr(f, 'options_source', ''):
+        try:
+            import json
+            from helpers import get_setting
+            raw = get_setting(f.options_source, None)
+            if raw:
+                vals = json.loads(raw) if isinstance(raw, str) else raw
+                if vals:
+                    return tuple(vals)
+        except Exception:
+            pass
+    return tuple(f.options or ())
 
 
 def mailing_variables(include_custom: bool = True):

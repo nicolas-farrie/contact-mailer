@@ -19,7 +19,8 @@ class Contact(db.Model):
     nom = db.Column(db.String(100), nullable=False)
     prenom = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(200), nullable=False, index=True)
-    genre = db.Column(db.String(20))
+    civilite = db.Column(db.String(40))   # identité / formule d'appel (Madame, Monsieur, Mx…)
+    genre = db.Column(db.String(20))      # accord grammatical (Féminin/Masculin/Inclusif) — clé stable {genre==…}
     titre = db.Column(db.String(50))
     telephone = db.Column(db.String(20))
     organisation = db.Column(db.String(200))
@@ -31,6 +32,7 @@ class Contact(db.Model):
     adresse_pays = db.Column(db.String(100))
     source = db.Column(db.String(100), default='Manuel')
     notes = db.Column(db.Text)
+    custom_fields = db.Column(db.JSON)   # {fieldName: valeur} — champs personnalisés (cf. CustomFieldDefinition)
     seafile_temp_pwd = db.Column(db.String(100), nullable=True)
     is_unsubscribed = db.Column(db.Boolean, default=False)
     unsubscribed_at = db.Column(db.DateTime, nullable=True)
@@ -56,11 +58,12 @@ class Contact(db.Model):
         return f'<Contact {self.prenom} {self.nom}>'
 
     def to_dict(self):
-        return {
+        data = {
             'id': self.id,
             'uid': self.uid,
             'nom': self.nom,
             'prenom': self.prenom,
+            'civilite': self.civilite,
             'genre': self.genre,
             'titre': self.titre,
             'email': self.email,
@@ -78,6 +81,10 @@ class Contact(db.Model):
             'seafile_password': self.seafile_temp_pwd,  # alias pour templates mailing
             'listes': [l.nom for l in self.listes]
         }
+        # Champs personnalisés aplatis → variables de fusion {key} (sans écraser une clé cœur)
+        for key, value in (self.custom_fields or {}).items():
+            data.setdefault(key, value)
+        return data
 
 
 class Liste(db.Model):
@@ -177,6 +184,22 @@ class Setting(db.Model):
     __tablename__ = 'settings'
     key = db.Column(db.String(64), primary_key=True)
     value = db.Column(db.Text, nullable=True)
+
+
+class CustomFieldDefinition(db.Model):
+    """Définition d'un champ personnalisé de contact, gérée par l'admin.
+
+    Les valeurs sont stockées dans `Contact.custom_fields` (JSON), clées par `key`.
+    Le registre `fields.py` (_custom_field_defs) consomme ces définitions actives."""
+    __tablename__ = 'custom_field_definition'
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(64), unique=True, nullable=False)   # fieldName (slug stable)
+    display_name = db.Column(db.String(200), nullable=False)
+    type = db.Column(db.String(20), default='text')   # text|number|date|select|checkbox|textarea
+    options = db.Column(db.JSON)                       # liste de choix (type 'select')
+    ordre = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class MailCampaign(db.Model):
