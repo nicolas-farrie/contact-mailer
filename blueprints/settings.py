@@ -5,14 +5,17 @@ Endpoints : settings.index, settings.clear_login_bg, settings.trash,
 settings.trash_restore, settings.trash_purge.
 """
 import os
+import re
 import uuid
+import unicodedata
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
-from models import db, Contact
+from models import db, Contact, CustomFieldDefinition
 from helpers import (admin_required, set_setting, _upload_dir,
                      _delete_current_login_bg, ALLOWED_IMAGE_EXT, MAX_IMAGE_BYTES)
+import fields
 
 bp = Blueprint('settings', __name__)
 
@@ -121,3 +124,115 @@ def trash_purge():
     db.session.commit()
     flash(f'{count} contact(s) supprimé(s) définitivement', 'success')
     return redirect(url_for('settings.index'))
+
+
+# --- Champs personnalisés (définitions) ---
+
+def _slugify_key(label):
+    """Dérive une clé machine stable (fieldName) depuis un libellé."""
+    s = unicodedata.normalize('NFKD', label.strip().lower())
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r'[^a-z0-9]+', '_', s).strip('_')
+    if s and s[0].isdigit():
+        s = 'f_' + s
+    return s
+
+
+def _parse_options(form, ftype):
+    """Options (une par ligne) pour un select, sinon None."""
+    if ftype != 'select':
+        return None
+    raw = (form.get('options') or '').strip()
+    return [o.strip() for o in raw.splitlines() if o.strip()] or None
+
+
+@bp.route('/settings/custom-fields')
+@admin_required
+def custom_fields():
+    defs = CustomFieldDefinition.query.order_by(
+        CustomFieldDefinition.ordre, CustomFieldDefinition.id).all()
+    return render_template('settings_custom_fields.html', active_tab='custom_fields',
+                           defs=defs, reserved=sorted(fields.RESERVED_KEYS))
+
+
+@bp.route('/settings/custom-fields/new', methods=['POST'])
+@admin_required
+def custom_field_new():
+    label = (request.form.get('display_name') or '').strip()
+    ftype = request.form.get('type') or 'text'
+    if not label:
+        flash('Le libellé est requis.', 'error')
+        return redirect(url_for('settings.custom_fields'))
+    key = _slugify_key(label)
+    if not key:
+        flash("Libellé invalide : impossible d'en dériver une clé.", 'error')
+        return redirect(url_for('settings.custom_fields'))
+    if key in fields.RESERVED_KEYS:
+        flash(f'La clé « {key} » est réservée (champ standard). Choisissez un autre libellé.', 'error')
+        return redirect(url_for('settings.custom_fields'))
+    if CustomFieldDefinition.query.filter_by(key=key).first():
+        flash(f'Un champ avec la clé « {key} » existe déjà.', 'error')
+        return redirect(url_for('settings.custom_fields'))
+    max_ordre = db.session.query(db.func.max(CustomFieldDefinition.ordre)).scalar() or 0
+    db.session.add(CustomFieldDefinition(
+        key=key, display_name=label, type=ftype,
+        options=_parse_options(request.form, ftype), ordre=max_ordre + 1))
+    db.session.commit()
+    flash(f'Champ « {label} » créé (clé : {key}).', 'success')
+    return redirect(url_for('settings.custom_fields'))
+
+
+@bp.route('/settings/custom-fields/<int:id>/edit', methods=['POST'])
+@admin_required
+def custom_field_edit(id):
+    # La clé n'est PAS modifiable (stabilité des valeurs déjà saisies).
+    cf = CustomFieldDefinition.query.get_or_404(id)
+    label = (request.form.get('display_name') or '').strip()
+    if label:
+        cf.display_name = label
+    cf.type = request.form.get('type') or cf.type
+    cf.options = _parse_options(request.form, cf.type)
+    db.session.commit()
+    flash('Champ mis à jour.', 'success')
+    return redirect(url_for('settings.custom_fields'))
+
+
+@bp.route('/settings/custom-fields/<int:id>/toggle', methods=['POST'])
+@admin_required
+def custom_field_toggle(id):
+    cf = CustomFieldDefinition.query.get_or_404(id)
+    cf.is_active = not cf.is_active
+    db.session.commit()
+    flash(f"Champ « {cf.display_name} » {'activé' if cf.is_active else 'désactivé'}.", 'success')
+    return redirect(url_for('settings.custom_fields'))
+
+
+@bp.route('/settings/custom-fields/<int:id>/move', methods=['POST'])
+@admin_required
+def custom_field_move(id):
+    direction = request.form.get('dir')
+    defs = CustomFieldDefinition.query.order_by(
+        CustomFieldDefinition.ordre, CustomFieldDefinition.id).all()
+    idx = next((i for i, d in enumerate(defs) if d.id == id), None)
+    swap = None
+    if idx is not None:
+        if direction == 'up' and idx > 0:
+            swap = defs[idx - 1]
+        elif direction == 'down' and idx < len(defs) - 1:
+            swap = defs[idx + 1]
+    if swap:
+        defs[idx].ordre, swap.ordre = swap.ordre, defs[idx].ordre
+        db.session.commit()
+    return redirect(url_for('settings.custom_fields'))
+
+
+@bp.route('/settings/custom-fields/<int:id>/delete', methods=['POST'])
+@admin_required
+def custom_field_delete(id):
+    cf = CustomFieldDefinition.query.get_or_404(id)
+    nom = cf.display_name
+    db.session.delete(cf)
+    db.session.commit()
+    flash(f'Champ « {nom} » supprimé. Les valeurs déjà saisies dans les contacts sont '
+          f'conservées mais masquées.', 'info')
+    return redirect(url_for('settings.custom_fields'))

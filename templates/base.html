@@ -38,7 +38,7 @@
                 {% if current_user.is_admin %}
                 <div class="sidebar-section">
                     <div class="sidebar-section-label">Configuration</div>
-                    <a class="sidebar-link{% if request.endpoint in ['settings.index', 'settings.clear_login_bg', 'settings.trash', 'settings.trash_restore', 'settings.trash_purge', 'api_integrations.seafile', 'api_integrations.seafile_sync_groups', 'api_integrations.seafile_push', 'api_integrations.seafile_reset_passwords', 'api_integrations.seafile_send_invitations', 'api_integrations.bookstack', 'api_integrations.bookstack_sync_roles', 'api_integrations.bookstack_push'] %} active{% endif %}" href="{{ url_for('settings.index') }}">Paramètres</a>
+                    <a class="sidebar-link{% if request.endpoint in ['settings.index', 'settings.custom_fields', 'settings.clear_login_bg', 'settings.trash', 'settings.trash_restore', 'settings.trash_purge', 'api_integrations.seafile', 'api_integrations.seafile_sync_groups', 'api_integrations.seafile_push', 'api_integrations.seafile_reset_passwords', 'api_integrations.seafile_send_invitations', 'api_integrations.bookstack', 'api_integrations.bookstack_sync_roles', 'api_integrations.bookstack_push'] %} active{% endif %}" href="{{ url_for('settings.index') }}">Paramètres</a>
                     <a class="sidebar-link{% if request.endpoint in ['users.index', 'users.new', 'users.edit'] %} active{% endif %}" href="{{ url_for('users.index') }}">Utilisateurs</a>
                     <a class="sidebar-link{% if request.endpoint == 'imports.index' %} active{% endif %}" href="{{ url_for('imports.index') }}">Import / Export</a>
                 </div>

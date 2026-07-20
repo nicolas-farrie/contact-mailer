@@ -11,6 +11,10 @@
                class="{% if active_tab == 'general' %}active{% endif %}">
                 <span>Paramètres</span>
             </a>
+            <a href="{{ url_for('settings.custom_fields') }}"
+               class="{% if active_tab == 'custom_fields' %}active{% endif %}">
+                <span>Champs personnalisés</span>
+            </a>
             <a href="{{ url_for('api_integrations.seafile') }}"
                class="{% if active_tab == 'seafile' %}active{% endif %}">
                 <span>Seafile</span>
