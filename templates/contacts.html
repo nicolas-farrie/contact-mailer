@@ -75,6 +75,7 @@
             <th data-sort>Téléphone</th>
             <th data-sort>Organisation</th>
             <th data-sort>Listes</th>
+            <th data-sort>Statut</th>
             <th class="col-actions">Actions</th>
         </tr>
     </thead>
@@ -83,8 +84,10 @@
         <tr>
             <td><input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox" form="bulk-form"></td>
                 <td>
-                    <strong>{{ contact.nom }}</strong> {{ contact.prenom }}
-                    {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}{% if contact.has_bounced %}<span class="tag tag-bounce">Bounce</span>{% endif %}
+                    <div class="user-name-cell">
+                        <span class="avatar-sm">{{ ((contact.prenom or ' ')[0] ~ (contact.nom or ' ')[0])|upper }}</span>
+                        <span><strong>{{ contact.nom }}</strong> {{ contact.prenom }}</span>
+                    </div>
                 </td>
                 <td><a href="mailto:{{ contact.email }}">{{ contact.email }}</a></td>
                 <td>{% if contact.telephone %}<a href="tel:{{ contact.telephone }}" class="tel-link">{{ contact.telephone }}</a>{% else %}-{% endif %}</td>
@@ -93,6 +96,11 @@
                     {% for liste in contact.listes %}
                     <span class="tag">{{ liste.nom }}</span>
                     {% endfor %}
+                </td>
+                <td>
+                    {% if contact.is_unsubscribed %}<span class="status-dot is-danger">Désabonné</span>
+                    {% elif contact.has_bounced %}<span class="status-dot is-warn">Bounce</span>
+                    {% else %}<span class="status-dot">Abonné</span>{% endif %}
                 </td>
                 <td class="actions">
                     <a href="{{ url_for('contacts.edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-warning btn-small">Modifier</a>
@@ -104,7 +112,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="7" class="empty">Aucun contact trouvé</td>
+                <td colspan="8" class="empty">Aucun contact trouvé</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -144,6 +152,7 @@
     {% endfor %}
 </div>
 
+{% if current_user.is_admin %}
 {% if liste_filter %}
 <div class="export-section">
     <a href="{{ url_for('imports.export_contacts', liste=liste_filter) }}" class="btn">Exporter cette liste (TSV)</a>
@@ -156,6 +165,7 @@
     <a href="{{ url_for('imports.export_vcard', version='3.0') }}" class="btn">Exporter tous (vCard 3.0)</a>
     <a href="{{ url_for('imports.export_vcard', version='4.0') }}" class="btn">Exporter tous (vCard 4.0)</a>
 </div>
+{% endif %}
 {% endif %}
 
 <script>

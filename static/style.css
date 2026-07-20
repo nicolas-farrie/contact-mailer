@@ -579,12 +579,14 @@ select:focus {
 /* === TAGS === */
 .tag {
     display: inline-block;
-    padding: 0.125rem 0.5rem;
-    background: var(--gray-200);
-    color: var(--gray-700);
-    border-radius: 99px;
+    padding: 0.125rem 0.55rem;
+    background: var(--primary-tint);
+    color: var(--primary-text);
+    border-radius: var(--radius-pill);
     font-size: 0.75rem;
-    margin-right: 0.25rem;
+    font-weight: 500;
+    margin: 0 0.25rem 0.2rem 0;
+    white-space: nowrap;
 }
 
 /* === CARDS GRID === */
@@ -1149,6 +1151,10 @@ select:focus {
 .status-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
 .status-dot.is-off { color: var(--text-muted); }
 .status-dot.is-off::before { background: var(--text-faint); }
+.status-dot.is-danger { color: var(--danger-dark); }
+.status-dot.is-danger::before { background: var(--danger); }
+.status-dot.is-warn { color: var(--warning-text); }
+.status-dot.is-warn::before { background: var(--warning); }
 .role-pill {
     display: inline-block; padding: 0.15rem 0.6rem; border-radius: var(--radius-pill);
     font-size: 0.75rem; font-weight: 600;
