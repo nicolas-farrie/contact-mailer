@@ -1,73 +1,151 @@
 {% extends "base.html" %}
-{% block title %}Utilisateurs - Contact Mailer{% endblock %}
+{% block title %}Utilisateurs - {{ app_name }}{% endblock %}
+
+{# --- Champs du formulaire utilisateur (partagés entre modale création et édition) --- #}
+{% macro userfields(user, contacts, idp) %}
+    {% if not user %}
+    <div class="field-info-box">
+        <label for="{{ idp }}contact_id">Fiche contact liée</label>
+        <select id="{{ idp }}contact_id" name="contact_id" class="nu-contact">
+            <option value="">— Aucune (saisie manuelle) —</option>
+            {% for c in contacts %}<option value="{{ c.id }}">{{ c.nom }} {{ c.prenom }}{% if c.email %} — {{ c.email }}{% endif %}</option>{% endfor %}
+        </select>
+        <p class="hint">Permet d'ouvrir la fiche depuis le profil. Sélectionner une fiche pré-remplit nom, prénom, email (et l'identifiant = email).</p>
+    </div>
+    {% endif %}
+    <div class="form-group">
+        <label for="{{ idp }}username">Identifiant *</label>
+        <input type="text" id="{{ idp }}username" name="username" value="{{ user.username if user else '' }}" required placeholder="ex : claire.m">
+    </div>
+    <div class="form-row">
+        <div class="form-group"><label for="{{ idp }}prenom">Prénom</label><input type="text" id="{{ idp }}prenom" name="prenom" value="{{ user.prenom if user and user.prenom else '' }}"></div>
+        <div class="form-group"><label for="{{ idp }}nom">Nom</label><input type="text" id="{{ idp }}nom" name="nom" value="{{ user.nom if user and user.nom else '' }}"></div>
+    </div>
+    <div class="form-group"><label for="{{ idp }}email">Email</label><input type="email" id="{{ idp }}email" name="email" value="{{ user.email if user and user.email else '' }}"></div>
+    <div class="form-group">
+        <label for="{{ idp }}role">Rôle</label>
+        <select id="{{ idp }}role" name="role">
+            <option value="user" {% if not user or user.role == 'user' %}selected{% endif %}>Utilisateur</option>
+            <option value="admin" {% if user and user.role == 'admin' %}selected{% endif %}>Administrateur</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="{{ idp }}password">Mot de passe {% if user %}<span class="hint" style="font-weight:normal;">(laisser vide pour ne pas changer)</span>{% else %}*{% endif %}</label>
+        <input type="password" id="{{ idp }}password" name="password" {% if not user %}required{% endif %}>
+    </div>
+    <div class="form-group">
+        <label for="{{ idp }}modsig">Signature de modération</label>
+        <input type="text" id="{{ idp }}modsig" name="moderation_signature" maxlength="120" value="{{ user.moderation_signature if user and user.moderation_signature else '' }}" placeholder="ex : L'équipe diffusion, ou un pseudonyme">
+        <p class="hint">Ce nom apparaîtra publiquement en bas des diffusions que vous modérez. Laissez vide pour ne pas signer.</p>
+    </div>
+    {% if user %}
+    <div class="form-group">
+        <label for="{{ idp }}contact_id">Fiche contact liée</label>
+        <select id="{{ idp }}contact_id" name="contact_id">
+            <option value="">— Aucune —</option>
+            {% for c in contacts %}<option value="{{ c.id }}" {% if user.contact_id == c.id %}selected{% endif %}>{{ c.nom }} {{ c.prenom }}{% if c.email %} — {{ c.email }}{% endif %}</option>{% endfor %}
+        </select>
+    </div>
+    {% endif %}
+{% endmacro %}
 
 {% block content %}
 <div class="page-header">
-    <h1>Utilisateurs <span class="count">({{ users|length }})</span></h1>
-    <a href="{{ url_for('users.new') }}" class="btn btn-primary">+ Nouvel utilisateur</a>
+    <div>
+        <h1>Utilisateurs <span class="count">{{ users|length }}</span></h1>
+        <p class="hint">Comptes autorisés à se connecter à {{ app_name }}.</p>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="openModal('modal-new')">+ Nouvel utilisateur</button>
 </div>
 
-<div class="table-responsive">
 <table class="data-table">
     <thead>
-        <tr>
-            <th data-sort>Identifiant</th>
-            <th data-sort>Nom</th>
-            <th data-sort>Email</th>
-            <th data-sort>Rôle</th>
-            <th data-sort>Actif</th>
-            <th>Actions</th>
-        </tr>
+        <tr><th>Utilisateur</th><th>Identifiant</th><th>Rôle</th><th>Actif</th><th class="col-actions">Actions</th></tr>
     </thead>
     <tbody>
-        {% for user in users %}
-        <tr{% if not user.is_active %} style="opacity: 0.5"{% endif %}>
-            <td>{{ user.username }}</td>
-            <td>{{ user.display_name }}</td>
-            <td>{{ user.email or '-' }}</td>
-            <td>
-                {% if user.is_admin %}
-                <span class="role-badge">admin</span>
+    {% for u in users %}
+    <tr{% if not u.is_active %} class="cf-inactive"{% endif %}>
+        <td>
+            <div class="user-name-cell">
+                <span class="avatar-sm">{{ ((u.prenom or u.username or ' ')[0] ~ (u.nom or ' ')[0])|upper }}</span>
+                <strong>{{ u.display_name }}</strong>
+            </div>
+        </td>
+        <td><code>{{ u.username }}</code></td>
+        <td><span class="role-pill {{ 'is-admin' if u.is_admin }}">{{ 'Administrateur' if u.is_admin else 'Utilisateur' }}</span></td>
+        <td><span class="status-dot {{ 'is-off' if not u.is_active }}">{{ 'Actif' if u.is_active else 'Inactif' }}</span></td>
+        <td>
+            <div class="table-actions">
+                <button type="button" class="btn btn-small" onclick="openModal('modal-edit-{{ u.id }}')">Modifier</button>
+                {% if u.id != current_user.id %}
+                <form method="POST" action="{{ url_for('users.toggle_active', id=u.id) }}"><button class="btn btn-small">{{ 'Désactiver' if u.is_active else 'Activer' }}</button></form>
+                <form method="POST" action="{{ url_for('users.delete', id=u.id) }}" onsubmit="return confirm('Supprimer l’utilisateur « {{ u.username }} » ?')"><button class="btn btn-small btn-danger">Suppr.</button></form>
                 {% else %}
-                <span class="tag">user</span>
+                <span class="hint" style="font-size:0.75rem;">(votre compte)</span>
                 {% endif %}
-            </td>
-            <td>
-                {% if user.is_active %}
-                <span style="color: var(--success);">Oui</span>
-                {% else %}
-                <span style="color: var(--danger);">Non</span>
-                {% endif %}
-            </td>
-            <td class="actions">
-                <a href="{{ url_for('users.edit', id=user.id) }}" class="btn btn-warning btn-small">Modifier</a>
-                {% if user.id != current_user.id %}
-                <form method="POST" action="{{ url_for('users.toggle_active', id=user.id) }}" style="display:inline">
-                    <button type="submit" class="btn btn-small">
-                        {{ 'Désactiver' if user.is_active else 'Activer' }}
-                    </button>
-                </form>
-                <form method="POST" action="{{ url_for('users.delete', id=user.id) }}" style="display:inline"
-                      onsubmit="return confirm('Supprimer l\'utilisateur {{ user.username }} ?')">
-                    <button type="submit" class="btn btn-small btn-danger">Supprimer</button>
-                </form>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
     </tbody>
 </table>
+<p class="hint" style="margin-top:0.75rem;">Vous ne pouvez pas désactiver ni supprimer votre propre compte.</p>
+
+<!-- Modale : nouvel utilisateur -->
+<div class="modal-overlay" id="modal-new" onclick="if(event.target===this)closeModal('modal-new')">
+    <div class="modal">
+        <div class="modal-header"><h2>Nouvel utilisateur</h2><button type="button" class="modal-close" onclick="closeModal('modal-new')" aria-label="Fermer">&times;</button></div>
+        <div class="modal-body">
+            <form method="POST" action="{{ url_for('users.new') }}">
+                {{ userfields(None, contacts, 'nu_') }}
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Créer l'utilisateur</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-new')">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
-<style>
-.role-badge {
-    display: inline-block;
-    padding: 0.125rem 0.5rem;
-    border-radius: 99px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    background: #dbeafe;
-    color: #1e40af;
-}
-</style>
+<!-- Modales : édition (une par utilisateur) -->
+{% for u in users %}
+<div class="modal-overlay" id="modal-edit-{{ u.id }}" onclick="if(event.target===this)closeModal('modal-edit-{{ u.id }}')">
+    <div class="modal">
+        <div class="modal-header"><h2>Modifier « {{ u.username }} »</h2><button type="button" class="modal-close" onclick="closeModal('modal-edit-{{ u.id }}')" aria-label="Fermer">&times;</button></div>
+        <div class="modal-body">
+            <form method="POST" action="{{ url_for('users.edit', id=u.id) }}">
+                {{ userfields(u, contacts, 'e' ~ u.id ~ '_') }}
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-{{ u.id }}')">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<script>
+function openModal(id){ document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+document.addEventListener('keydown', function(e){
+    if(e.key==='Escape'){ document.querySelectorAll('.modal-overlay.open').forEach(function(m){ m.classList.remove('open'); }); document.body.style.overflow=''; }
+});
+
+// Auto-remplissage depuis la fiche contact (modale « nouvel utilisateur »)
+const contactsData = {
+{% for c in contacts %}"{{ c.id }}": {nom: {{ (c.nom or '')|tojson }}, prenom: {{ (c.prenom or '')|tojson }}, email: {{ (c.email or '')|tojson }}},
+{% endfor %}};
+var nuContact = document.querySelector('.nu-contact');
+if (nuContact) nuContact.addEventListener('change', function(){
+    var c = contactsData[this.value]; if(!c) return;
+    var ids = ['nu_nom','nu_prenom','nu_email','nu_username'];
+    var has = ids.some(function(id){ return document.getElementById(id).value.trim() !== ''; });
+    if (has && !confirm('Des informations sont déjà saisies. Les écraser avec celles de la fiche contact ?')) return;
+    document.getElementById('nu_nom').value = c.nom || '';
+    document.getElementById('nu_prenom').value = c.prenom || '';
+    document.getElementById('nu_email').value = c.email || '';
+    document.getElementById('nu_username').value = c.email || '';
+});
+</script>
 {% endblock %}

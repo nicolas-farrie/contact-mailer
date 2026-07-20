@@ -17,7 +17,8 @@ bp = Blueprint('users', __name__)
 @admin_required
 def index():
     users_list = User.query.order_by(User.username).all()
-    return render_template('users.html', users=users_list)
+    contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
+    return render_template('users.html', users=users_list, contacts=contacts)
 
 
 @bp.route('/users/new', methods=['GET', 'POST'])
@@ -51,6 +52,8 @@ def new():
             prenom=prenom,
             email=email or None,
             role=role,
+            contact_id=request.form.get('contact_id', type=int) or None,
+            moderation_signature=request.form.get('moderation_signature', '').strip() or None,
             is_active=True
         )
         db.session.add(user)
@@ -102,6 +105,7 @@ def edit(id):
         user.email = email or None
         user.role = role
         user.contact_id = contact_id
+        user.moderation_signature = request.form.get('moderation_signature', '').strip() or None
 
         if password:
             user.password_hash = generate_password_hash(password)

@@ -1108,3 +1108,50 @@ select:focus {
     .field-grid { grid-template-columns: 1fr; }
     .field--full, .field--half, .field--third { grid-column: auto; }
 }
+
+/* === MODALE (composant réutilisable) === */
+.modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(28,26,23,0.45);
+    align-items: flex-start; justify-content: center;
+    padding: 3rem 1rem; overflow-y: auto;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+    background: var(--bg-surface); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-modal); width: 100%; max-width: 560px;
+    max-height: calc(100vh - 6rem); display: flex; flex-direction: column;
+}
+.modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--border);
+}
+.modal-header h2 { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.modal-close { background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; color: var(--text-muted); padding: 0 0.25rem; }
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 1.3rem 1.4rem; overflow-y: auto; }
+.modal-body .form-group { margin-bottom: 1rem; }
+.field-info-box {
+    background: var(--primary-tint2); border: 1px solid var(--primary-border);
+    border-radius: var(--radius); padding: 0.85rem 1rem; margin-bottom: 1rem;
+}
+.field-info-box label { color: var(--primary-text); }
+
+/* === LISTE UTILISATEURS === */
+.user-name-cell { display: flex; align-items: center; gap: 0.6rem; }
+.avatar-sm {
+    width: 34px; height: 34px; border-radius: var(--radius-pill);
+    background: var(--avatar-bg); color: var(--avatar-text);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.78rem; flex-shrink: 0;
+}
+.status-dot { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+.status-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+.status-dot.is-off { color: var(--text-muted); }
+.status-dot.is-off::before { background: var(--text-faint); }
+.role-pill {
+    display: inline-block; padding: 0.15rem 0.6rem; border-radius: var(--radius-pill);
+    font-size: 0.75rem; font-weight: 600;
+    background: var(--bg-muted); color: var(--text-secondary); border: 1px solid var(--border);
+}
+.role-pill.is-admin { background: var(--primary-tint); color: var(--primary-text); border-color: var(--primary-border); }

@@ -117,6 +117,7 @@ class User(UserMixin, db.Model):
     prenom = db.Column(db.String(100))
     email = db.Column(db.String(200))
     role = db.Column(db.String(20), default='user')
+    moderation_signature = db.Column(db.String(120))  # pseudonyme public pour signer les diffusions modérées (optionnel)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=True)
