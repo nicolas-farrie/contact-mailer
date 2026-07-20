@@ -114,6 +114,12 @@
 - [ ] Fusionner deux listes
 - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
 
+## RGPD / données personnelles (à traiter avec soin)
+- [ ] **Suppression d'un utilisateur — stratégie RGPD** (actuellement `users.delete` = hard delete sec). Constat : `MailCampaign.sent_by` est un snapshot texte (historique campagnes SAIN, non impacté) ; mais `Contact.created_by_id/updated_by_id/deleted_by_id` + `PreferenceForm.created_by_id` sont des FK vers user → sur SQLite (FK non appliquées) le delete laisse des refs orphelines (lectures gardées → « — », pas de crash) ; **planterait** si FK activées / Postgres (pas de try/except). 
+  - **Préférence retenue (à discuter au moment du traitement)** : plutôt **nullation** des refs OU **obfuscation destructive** des données signifiantes de l'utilisateur, en **laissant les historiques consultables** (plus simple à gérer que tout supprimer). Privilégier la **désactivation** (déjà là) comme geste normal ; la suppression = purge exceptionnelle (droit à l'effacement).
+  - Fix technique associé : nuller les refs + try/except à la suppression ; à terme `PRAGMA foreign_keys=ON` + `ondelete='SET NULL'`. Doit être **carré** côté conformité.
+- [ ] Vérifier plus largement les autres surfaces RGPD (export/effacement des données d'un contact, consentement formulaires, rétention).
+
 ## Robustesse du service (analyse 2026-07-18)
 - [x] File d'envoi migrée du fichier JSON vers la DB (tables mail_campaign / mail_queue_item, colonnes JSON pour snapshot contact + PJ). Écritures transactionnelles, ids auto-incrémentés (fin des collisions), sauvegardé avec la DB. Interface MailQueue inchangée. Migration : tools/migrate_queue_to_db.py. (tools/fix_queue_ids.py devient obsolète.)
 - [ ] Timeout IMAP dans le chemin des requêtes (`IMAP4_SSL(..., timeout=10)`) — évite le gel d'un worker si le serveur mail ne répond pas
