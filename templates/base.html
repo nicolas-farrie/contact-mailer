@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="manifest" href="{{ url_for('public.pwa_manifest') }}">
     {% if config.INSTANCE_NAME %}
-    <meta name="theme-color" content="{{ config.INSTANCE_COLOR or '#2563eb' }}">
+    <meta name="theme-color" content="{{ config.INSTANCE_COLOR or '#3f56cc' }}">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('public.pwa_icon', size=192) }}">
     <link rel="apple-touch-icon" href="{{ url_for('public.pwa_icon', size=192) }}">
     {% else %}
@@ -16,34 +16,57 @@
     {% endif %}
 </head>
 <body>
+    <div class="{% if current_user.is_authenticated %}layout--with-sidebar{% endif %}">
     {% if current_user.is_authenticated %}
-    <nav class="navbar">
-        <div class="nav-brand">
-            <img src="{% if config.INSTANCE_NAME %}{{ url_for('public.pwa_icon', size=32) }}{% else %}{{ url_for('static', filename='contact-mailer.png') }}{% endif %}" class="nav-brand-icon" alt="">
-            {{ app_name }} <span class="version-tag" title="Version de l'image déployée">v{{ config.APP_VERSION }}</span>{% set display = config.DISPLAY_NAME or config.INSTANCE_NAME %}{% if display %} <span class="instance-tag">{{ display }}</span>{% endif %}
-        </div>
-        <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">&#9776;</button>
-        <div class="nav-links" id="nav-links">
-            <a href="{{ url_for('contacts.index') }}" {% if request.endpoint == 'contacts.index' %}class="active"{% endif %}>Contacts</a>
-            <a href="{{ url_for('listes.index') }}" {% if request.endpoint == 'listes.index' %}class="active"{% endif %}>Listes</a>
-            <a href="{{ url_for('mailing.history') }}" {% if request.endpoint in ['mailing.compose', 'mailing.queue', 'mailing.history'] %}class="active"{% endif %}>Mailing</a>
-            <a href="{{ url_for('formulaires.index') }}" {% if request.endpoint in ['formulaires.index', 'formulaires.new', 'formulaires.edit', 'formulaires.detail'] %}class="active"{% endif %}>Formulaires</a>
-            {% if current_user.is_admin %}
-            <a href="{{ url_for('imports.index') }}" {% if request.endpoint == 'imports.index' %}class="active"{% endif %}>Import</a>
-            <a href="{{ url_for('users.index') }}" {% if request.endpoint in ['users.index', 'users.new', 'users.edit'] %}class="active"{% endif %}>Utilisateurs</a>
-            <a href="{{ url_for('settings.index') }}" {% if request.endpoint in ['settings.index', 'settings.clear_login_bg', 'settings.trash', 'settings.trash_restore', 'settings.trash_purge', 'api_integrations.seafile', 'api_integrations.seafile_sync_groups', 'api_integrations.seafile_push', 'api_integrations.seafile_reset_passwords', 'api_integrations.seafile_send_invitations', 'api_integrations.bookstack', 'api_integrations.bookstack_sync_roles', 'api_integrations.bookstack_push'] %}class="active"{% endif %}>Paramètres</a>
-            {% endif %}
-            <span class="nav-separator"></span>
-            <a href="{{ url_for('users.profile') }}" class="nav-user" {% if request.endpoint == 'users.profile' %}style="color:white"{% endif %}>{{ current_user.display_name }}{% if current_user.is_admin %} <span class="role-badge">admin</span>{% endif %}</a>
-            <a href="{{ url_for('public.logout') }}" class="logout">Déconnexion</a>
-        </div>
-    </nav>
-    <script>
-    function toggleNav() {
-        document.getElementById('nav-links').classList.toggle('nav-open');
-    }
-    </script>
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <img src="{% if config.INSTANCE_NAME %}{{ url_for('public.pwa_icon', size=32) }}{% else %}{{ url_for('static', filename='contact-mailer.png') }}{% endif %}" class="sidebar-logo" alt="">
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-app-name">{{ app_name }}</span>
+                    {% set display = config.DISPLAY_NAME or config.INSTANCE_NAME %}
+                    <span class="sidebar-meta" title="Version de l'image déployée">v{{ config.APP_VERSION }}{% if display %} · {{ display }}{% endif %}</span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="sidebar-section">
+                    <div class="sidebar-section-label">Travail</div>
+                    <a class="sidebar-link{% if request.endpoint == 'contacts.index' %} active{% endif %}" href="{{ url_for('contacts.index') }}">Contacts</a>
+                    <a class="sidebar-link{% if request.endpoint == 'listes.index' %} active{% endif %}" href="{{ url_for('listes.index') }}">Listes</a>
+                    <a class="sidebar-link{% if request.endpoint in ['mailing.compose', 'mailing.queue', 'mailing.history'] %} active{% endif %}" href="{{ url_for('mailing.history') }}">Mailing</a>
+                    <a class="sidebar-link{% if request.endpoint in ['formulaires.index', 'formulaires.new', 'formulaires.edit', 'formulaires.detail'] %} active{% endif %}" href="{{ url_for('formulaires.index') }}">Formulaires</a>
+                </div>
+                {% if current_user.is_admin %}
+                <div class="sidebar-section">
+                    <div class="sidebar-section-label">Configuration</div>
+                    <a class="sidebar-link{% if request.endpoint in ['settings.index', 'settings.clear_login_bg', 'settings.trash', 'settings.trash_restore', 'settings.trash_purge', 'api_integrations.seafile', 'api_integrations.seafile_sync_groups', 'api_integrations.seafile_push', 'api_integrations.seafile_reset_passwords', 'api_integrations.seafile_send_invitations', 'api_integrations.bookstack', 'api_integrations.bookstack_sync_roles', 'api_integrations.bookstack_push'] %} active{% endif %}" href="{{ url_for('settings.index') }}">Paramètres</a>
+                    <a class="sidebar-link{% if request.endpoint in ['users.index', 'users.new', 'users.edit'] %} active{% endif %}" href="{{ url_for('users.index') }}">Utilisateurs</a>
+                    <a class="sidebar-link{% if request.endpoint == 'imports.index' %} active{% endif %}" href="{{ url_for('imports.index') }}">Import / Export</a>
+                </div>
+                {% endif %}
+            </nav>
+            <div class="sidebar-user">
+                <a href="{{ url_for('users.profile') }}" class="sidebar-user-link">{{ current_user.display_name }}{% if current_user.is_admin %} <span class="role-badge">admin</span>{% endif %}</a>
+                <a href="{{ url_for('public.logout') }}" class="sidebar-logout">Déconnexion</a>
+            </div>
+        </aside>
     {% endif %}
+        <div class="app-main">
+        {% if current_user.is_authenticated %}
+            <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Menu">&#9776; Menu</button>
+        {% endif %}
+            <main class="container {% block container_class %}{% endblock %}">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -77,17 +100,5 @@
     th.sort-desc::after { content: ' ▼'; font-size: 0.7em; opacity: 0.6; }
     th[data-sort]:hover { background: rgba(0,0,0,0.05); }
     </style>
-
-    <main class="container {% block container_class %}{% endblock %}">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        {% block content %}{% endblock %}
-    </main>
 </body>
 </html>
