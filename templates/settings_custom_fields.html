@@ -31,6 +31,10 @@
             <textarea id="cf_options" name="options" rows="3" placeholder="Adhérent&#10;Sympathisant&#10;Donateur"></textarea>
             <p class="hint">Une option par ligne. La <strong>première option est sélectionnée par défaut</strong> dans la fiche contact (pratique pour imposer un choix courant). Pour un champ <strong>sans valeur par défaut</strong> (« — non précisé — »), laissez la <strong>première ligne vide</strong>.</p>
         </div>
+        <div class="form-group">
+            <label for="cf_help">Aide / description <span class="hint" style="font-weight:normal;">(optionnel — affichée sous le champ dans la fiche, pour guider la saisie)</span></label>
+            <input type="text" id="cf_help" name="help_text" maxlength="300" placeholder="ex : numéro figurant sur la carte de membre">
+        </div>
         <div class="form-actions"><button type="submit" class="btn btn-primary">Ajouter</button></div>
     </form>
 </div>
@@ -66,6 +70,9 @@
                         <textarea name="options" rows="3">{% for o in d.options or [] %}{{ o }}
 {% endfor %}</textarea>
                         <p class="hint">Une par ligne. 1re option = défaut ; 1re ligne vide = sans valeur par défaut.</p>
+                    </div>
+                    <div class="form-group"><label>Aide / description</label>
+                        <input type="text" name="help_text" maxlength="300" value="{{ d.help_text or '' }}" placeholder="Affichée sous le champ dans la fiche">
                     </div>
                     <button type="submit" class="btn btn-small btn-primary">Enregistrer</button>
                     <span class="hint">La clé <code>{{ d.key }}</code> n'est pas modifiable (stabilité des données).</span>

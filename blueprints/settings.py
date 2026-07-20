@@ -182,7 +182,9 @@ def custom_field_new():
     max_ordre = db.session.query(db.func.max(CustomFieldDefinition.ordre)).scalar() or 0
     db.session.add(CustomFieldDefinition(
         key=key, display_name=label, type=ftype,
-        options=_parse_options(request.form, ftype), ordre=max_ordre + 1))
+        options=_parse_options(request.form, ftype),
+        help_text=(request.form.get('help_text') or '').strip() or None,
+        ordre=max_ordre + 1))
     db.session.commit()
     flash(f'Champ « {label} » créé (clé : {key}).', 'success')
     return redirect(url_for('settings.custom_fields'))
@@ -198,6 +200,7 @@ def custom_field_edit(id):
         cf.display_name = label
     cf.type = request.form.get('type') or cf.type
     cf.options = _parse_options(request.form, cf.type)
+    cf.help_text = (request.form.get('help_text') or '').strip() or None
     db.session.commit()
     flash('Champ mis à jour.', 'success')
     return redirect(url_for('settings.custom_fields'))

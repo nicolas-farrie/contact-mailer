@@ -197,6 +197,7 @@ class CustomFieldDefinition(db.Model):
     display_name = db.Column(db.String(200), nullable=False)
     type = db.Column(db.String(20), default='text')   # text|number|date|select|checkbox|textarea
     options = db.Column(db.JSON)                       # liste de choix (type 'select')
+    help_text = db.Column(db.String(300))              # aide affichée sous le champ dans la fiche
     ordre = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
