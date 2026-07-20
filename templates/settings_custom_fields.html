@@ -21,14 +21,15 @@
             </div>
             <div class="form-group">
                 <label for="cf_type">Type</label>
-                <select id="cf_type" name="type">
+                <select id="cf_type" name="type" class="cf-type" onchange="toggleOptions(this)">
                     {% for t, lbl in TYPES %}<option value="{{ t }}">{{ lbl }}</option>{% endfor %}
                 </select>
             </div>
         </div>
-        <div class="form-group">
-            <label for="cf_options">Options <span class="hint" style="font-weight:normal;">(une par ligne — pour le type « Liste déroulante »)</span></label>
+        <div class="form-group cf-options">
+            <label for="cf_options">Options de la liste déroulante</label>
             <textarea id="cf_options" name="options" rows="3" placeholder="Adhérent&#10;Sympathisant&#10;Donateur"></textarea>
+            <p class="hint">Une option par ligne. La <strong>première option est sélectionnée par défaut</strong> dans la fiche contact (pratique pour imposer un choix courant). Pour un champ <strong>sans valeur par défaut</strong> (« — non précisé — »), laissez la <strong>première ligne vide</strong>.</p>
         </div>
         <div class="form-actions"><button type="submit" class="btn btn-primary">Ajouter</button></div>
     </form>
@@ -59,11 +60,12 @@
                 <form method="POST" action="{{ url_for('settings.custom_field_edit', id=d.id) }}" style="margin-top:0.5rem;">
                     <div class="form-group"><label>Libellé</label><input type="text" name="display_name" value="{{ d.display_name }}"></div>
                     <div class="form-group"><label>Type</label>
-                        <select name="type">{% for t, lbl in TYPES %}<option value="{{ t }}"{% if d.type == t %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select>
+                        <select name="type" class="cf-type" onchange="toggleOptions(this)">{% for t, lbl in TYPES %}<option value="{{ t }}"{% if d.type == t %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select>
                     </div>
-                    <div class="form-group"><label>Options (une par ligne)</label>
+                    <div class="form-group cf-options"><label>Options de la liste déroulante</label>
                         <textarea name="options" rows="3">{% for o in d.options or [] %}{{ o }}
 {% endfor %}</textarea>
+                        <p class="hint">Une par ligne. 1re option = défaut ; 1re ligne vide = sans valeur par défaut.</p>
                     </div>
                     <button type="submit" class="btn btn-small btn-primary">Enregistrer</button>
                     <span class="hint">La clé <code>{{ d.key }}</code> n'est pas modifiable (stabilité des données).</span>
@@ -77,4 +79,16 @@
 {% else %}
 <p class="hint">Aucun champ personnalisé pour l'instant. Ajoutez-en un ci-dessus.</p>
 {% endif %}
+
+<script>
+// Le champ « Options » n'a de sens que pour une liste déroulante : on l'affiche
+// uniquement quand le type sélectionné est « select » (form d'ajout + éditions inline).
+function toggleOptions(sel) {
+    var g = sel.form.querySelector('.cf-options');
+    if (g) g.style.display = (sel.value === 'select') ? '' : 'none';
+}
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.cf-type').forEach(function (s) { toggleOptions(s); });
+});
+</script>
 {% endblock %}

@@ -139,11 +139,17 @@ def _slugify_key(label):
 
 
 def _parse_options(form, ftype):
-    """Options (une par ligne) pour un select, sinon None."""
+    """Options (une par ligne) pour un select, sinon None.
+
+    Préserve une 1re ligne vide (→ option « — non précisé — » par défaut) et ne
+    retire que les lignes vides EN FIN de liste. La 1re option est la valeur par
+    défaut dans la fiche (comportement HTML respecté)."""
     if ftype != 'select':
         return None
-    raw = (form.get('options') or '').strip()
-    return [o.strip() for o in raw.splitlines() if o.strip()] or None
+    lines = [ln.strip() for ln in (form.get('options') or '').splitlines()]
+    while lines and lines[-1] == '':
+        lines.pop()
+    return lines or None
 
 
 @bp.route('/settings/custom-fields')

@@ -21,8 +21,8 @@
     {% if f.type == 'select' %}
     {% set opts = field_options(f) %}
     {% set sel = val if val else f.default %}
+    {# 1re option = valeur par défaut (comportement HTML) ; une 1re option vide = « non précisé ». #}
     <select id="f_{{ f.key }}" name="{{ f.key }}"{% if f.required %} required{% endif %}>
-        {% if not f.default and '' not in opts %}<option value=""{% if not sel %} selected{% endif %}>— non précisé —</option>{% endif %}
         {% for opt in opts %}
         <option value="{{ opt }}"{% if opt|string == sel|string %} selected{% endif %}>{{ opt or '— non précisé —' }}</option>
         {% endfor %}
