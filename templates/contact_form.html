@@ -13,11 +13,11 @@
     {% if f.type == 'checkbox' %}
     <label class="checkbox-inline">
         <input type="checkbox" name="{{ f.key }}" value="1"{% if val %} checked{% endif %}>
-        <span>{{ f.label }}{% if f.required %} <span class="req">*</span>{% endif %}</span>
+        <span>{{ f.label }}{% if f.required %} <span class="req" title="Champ obligatoire">*</span>{% endif %}</span>
     </label>
     {% if f.help %}<p class="hint">{{ f.help }}</p>{% endif %}
     {% else %}
-    <label for="f_{{ f.key }}">{{ f.label }}{% if f.required %} <span class="req">*</span>{% endif %}</label>
+    <label for="f_{{ f.key }}">{{ f.label }}{% if f.required %} <span class="req" title="Champ obligatoire">*</span>{% endif %}</label>
     {% if f.type == 'select' %}
     {% set opts = field_options(f) %}
     {% set sel = val if val else f.default %}

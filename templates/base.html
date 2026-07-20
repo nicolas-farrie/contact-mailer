@@ -52,8 +52,11 @@
                 {% endif %}
             </nav>
             <div class="sidebar-user">
-                <a href="{{ url_for('users.profile') }}" class="sidebar-user-link">{{ current_user.display_name }}{% if current_user.is_admin %} <span class="role-badge">admin</span>{% endif %}</a>
-                <a href="{{ url_for('public.logout') }}" class="sidebar-logout">Déconnexion</a>
+                <span class="avatar-sm">{{ ((current_user.prenom or current_user.username or ' ')[0] ~ (current_user.nom or ' ')[0])|upper }}</span>
+                <div class="sidebar-user-info">
+                    <a href="{{ url_for('users.profile') }}" class="sidebar-user-link">{{ current_user.display_name }}{% if current_user.is_admin %} <span class="role-badge">admin</span>{% endif %}</a>
+                    <a href="{{ url_for('public.logout') }}" class="sidebar-logout">Déconnexion</a>
+                </div>
             </div>
         </aside>
     {% endif %}
