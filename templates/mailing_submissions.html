@@ -5,8 +5,6 @@
 <div class="page-header">
     <h1>Demandes de diffusion {% if submissions %}<span class="count">({{ submissions|length }})</span>{% endif %}</h1>
     <div>
-        <a href="{{ url_for('mailing.history') }}" class="btn">Historique</a>
-        <a href="{{ url_for('mailing.queue') }}" class="btn">File d'attente</a>
         <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
     </div>
 </div>

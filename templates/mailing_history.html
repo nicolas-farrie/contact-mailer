@@ -5,8 +5,6 @@
 <div class="page-header">
     <h1>Historique des campagnes</h1>
     <div>
-        <a href="{{ url_for('mailing.queue') }}" class="btn">File d'attente</a>
-        <a href="{{ url_for('mailing.submissions') }}" class="btn">Demandes</a>
         {% if archived %}
         <button type="button" class="btn btn-secondary" onclick="toggleArchived()">
             Archivées <span class="badge badge-pending">{{ archived|length }}</span>
@@ -179,11 +177,10 @@ function toggleArchived() {
 }
 .subject-toggle {
     cursor: pointer;
-    text-decoration: underline dotted;
     color: var(--primary);
 }
 .subject-toggle:hover {
-    text-decoration: underline;
+    color: var(--primary-dark);
 }
 .content-row td {
     padding: 0;

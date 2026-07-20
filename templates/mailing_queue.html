@@ -5,8 +5,6 @@
 <div class="page-header">
     <h1>File d'attente {% if campaign %}- {{ campaign }}{% endif %}</h1>
     <div>
-        <a href="{{ url_for('mailing.history') }}" class="btn">Historique</a>
-        <a href="{{ url_for('mailing.submissions') }}" class="btn">Demandes</a>
         <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
     </div>
 </div>

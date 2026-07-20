@@ -32,7 +32,14 @@
                     <div class="sidebar-section-label">Travail</div>
                     <a class="sidebar-link{% if request.endpoint == 'contacts.index' %} active{% endif %}" href="{{ url_for('contacts.index') }}">Contacts</a>
                     <a class="sidebar-link{% if request.endpoint == 'listes.index' %} active{% endif %}" href="{{ url_for('listes.index') }}">Listes</a>
-                    <a class="sidebar-link{% if request.endpoint in ['mailing.compose', 'mailing.queue', 'mailing.history'] %} active{% endif %}" href="{{ url_for('mailing.history') }}">Mailing</a>
+                    <a class="sidebar-link{% if request.blueprint == 'mailing' %} active{% endif %}" href="{{ url_for('mailing.history') }}">Mailing</a>
+                    {% if request.blueprint == 'mailing' %}
+                    <div class="sidebar-subnav">
+                        <a class="sidebar-sublink{% if request.endpoint in ['mailing.history', 'mailing.history_archive', 'mailing.history_unarchive', 'mailing.history_delete'] %} active{% endif %}" href="{{ url_for('mailing.history') }}">Historique</a>
+                        <a class="sidebar-sublink{% if request.endpoint in ['mailing.queue', 'mailing.process', 'mailing.queue_retry'] %} active{% endif %}" href="{{ url_for('mailing.queue') }}">File d'attente</a>
+                        <a class="sidebar-sublink{% if request.endpoint in ['mailing.submissions', 'mailing.submission_use', 'mailing.submission_archive'] %} active{% endif %}" href="{{ url_for('mailing.submissions') }}">Demandes de diffusion</a>
+                    </div>
+                    {% endif %}
                     <a class="sidebar-link{% if request.endpoint in ['formulaires.index', 'formulaires.new', 'formulaires.edit', 'formulaires.detail'] %} active{% endif %}" href="{{ url_for('formulaires.index') }}">Formulaires</a>
                 </div>
                 {% if current_user.is_admin %}
