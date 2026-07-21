@@ -7,6 +7,8 @@ mailing.submission_use/archive/attachment, mailing.preview, mailing.send,
 mailing.confirm, mailing.add_to_queue, mailing.queue, mailing.process,
 mailing.test_smtp.
 """
+import re
+
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify, send_from_directory)
 from flask_login import login_required, current_user
@@ -18,14 +20,30 @@ from helpers import admin_required
 bp = Blueprint('mailing', __name__)
 
 
+# Bloc de signature en pied de mail : marqué (data-mail-sig) pour pouvoir le
+# retirer proprement au ré-affichage / avant de le ré-appliquer (jamais d'accumulation).
+# Matche aussi l'ancien bloc (sans marqueur) des campagnes créées avant ce correctif.
+_SIG_RE = re.compile(
+    r'\s*<p[^>]*(?:data-mail-sig="1"|color:#8a8a8a;font-size:12px)[^>]*>.*?</p>',
+    re.DOTALL)
+
+
+def _strip_signature(body):
+    """Retire tout bloc de signature déjà présent dans le corps (HTML)."""
+    if not body:
+        return body
+    return _SIG_RE.sub('', body).rstrip()
+
+
 def _sign_body(body, mail_format, sign, signature):
-    """Ajoute la signature du modérateur en pied de mail si « Signer cette
-    diffusion » est coché. Sans variable de fusion : posé après le corps."""
+    """Retire toute signature existante puis, si « Signer cette diffusion » est
+    coché, ajoute UNE signature en pied de mail. Idempotent (0 ou 1 signature)."""
+    body = _strip_signature(body) if mail_format == 'html' else body
     if not (sign and signature):
         return body
     if mail_format == 'html':
-        return (body + '<p style="margin-top:24px;color:#8a8a8a;font-size:12px;">'
-                f'— {signature}</p>')
+        return (body + '<p data-mail-sig="1" style="margin-top:24px;color:#8a8a8a;'
+                f'font-size:12px;">— {signature}</p>')
     return body + f'\n\n— {signature}'
 
 
@@ -62,6 +80,7 @@ def compose():
     prefill = {'subject': '', 'body': '', 'format': 'text', 'liste_ids': []}
     campaign_attachments = []   # PJ déjà enregistrées (réutilisation / retour édition)
     from_campaign_id = None
+    sign_checked = bool(current_user.moderation_signature)
     from_campaign = request.args.get('from_campaign')
     if from_campaign:
         from mailer import MailQueue
@@ -76,6 +95,10 @@ def compose():
             import os as _os
             campaign_attachments = [_os.path.basename(p) for p in (tpl.get('attachments') or [])]
             from_campaign_id = from_campaign
+            # La signature est un pied de mail, pas du contenu éditable : on la
+            # retire du corps affiché (et on reflète l'état « signé »).
+            sign_checked = bool(_SIG_RE.search(prefill['body']))
+            prefill['body'] = _strip_signature(prefill['body'])
 
     # Pré-remplissage depuis une demande de diffusion (boîte IMAP)
     # Stocké sur disque (et non en session) car le corps peut contenir des
@@ -104,6 +127,7 @@ def compose():
     return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill,
                            submission_attachments=submission_attachments, submission_id=submission_id,
                            campaign_attachments=campaign_attachments, from_campaign_id=from_campaign_id,
+                           sign_checked=sign_checked,
                            forms=forms, base_url=Config.BASE_URL,
                            signature=current_user.moderation_signature or '')
 
