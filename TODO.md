@@ -117,7 +117,7 @@
 - [~] Historique mailing : affichage du détail d'une campagne (corps du mail, liste, pièces jointes) — clic sur ligne ou bouton dédié
 - [ ] Envoi asynchrone (ne pas bloquer l'interface pendant l'envoi)
 - [ ] Pagination de la liste des contacts
-- [ ] Cache-busting des assets statiques (`?v={{ config.APP_VERSION }}` sur style.css / JS) — évite que le navigateur serve un ancien CSS après déploiement (piège rencontré en test refonte : Ctrl+Shift+R nécessaire)
+- [x] Cache-busting des assets statiques (fait : ?v=mtime via global Jinja asset_version) (`?v={{ config.APP_VERSION }}` sur style.css / JS) — évite que le navigateur serve un ancien CSS après déploiement (piège rencontré en test refonte : Ctrl+Shift+R nécessaire)
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
 - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer

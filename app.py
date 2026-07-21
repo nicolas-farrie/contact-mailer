@@ -87,6 +87,18 @@ def create_app(config_object=Config):
         field_options=fields.field_options,
         field_def=lambda key: fields.field_map().get(key),
     )
+
+    # Cache-busting des assets statiques : ?v=<mtime> → le navigateur recharge
+    # le fichier dès qu'il change (évite un CSS/JS périmé servi depuis le cache).
+    import os as _os
+
+    def _asset_version(filename):
+        try:
+            return int(_os.path.getmtime(_os.path.join(app.static_folder, filename)))
+        except OSError:
+            return 0
+    app.jinja_env.globals['asset_version'] = _asset_version
+
     return app
 
 
