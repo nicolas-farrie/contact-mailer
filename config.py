@@ -51,10 +51,10 @@ class Config:
     BOOKSTACK_TOKEN_ID = os.environ.get('BOOKSTACK_TOKEN_ID', '')
     BOOKSTACK_TOKEN_SECRET = os.environ.get('BOOKSTACK_TOKEN_SECRET', '')
 
-    # Taille max d'une requête (formulaire + pièces jointes). 27 Mo = ~25 Mo de PJ
-    # (limite Gmail) + marge. Le front (MAX_ATTACH_MB) bloque avant avec un message clair ;
-    # ceci est le garde-fou serveur (au-delà → 413).
-    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_UPLOAD_MB', 27)) * 1024 * 1024
+    # Taille max d'une requête. Le front plafonne le CONTENU à 25 Mo (images
+    # embarquées + PJ) ; mais les images en base64 gonflent la requête (~+33 %),
+    # d'où 35 Mo ici comme garde-fou serveur (au-delà → 413). Configurable.
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_UPLOAD_MB', 35)) * 1024 * 1024
 
     # Seafile API
     SEAFILE_URL = os.environ.get('SEAFILE_URL', '')

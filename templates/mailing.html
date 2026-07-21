@@ -85,7 +85,7 @@
                 <input type="file" id="attachments" name="attachments" multiple onchange="renderAttachments()">
                 <ul id="attach-list" class="attach-list"></ul>
                 <p class="hint" id="attach-total"></p>
-                <p class="hint">Max 25 Mo au total — au-delà, l'envoi risque d'être rejeté par les serveurs destinataires. Pour de gros fichiers, préférez un lien de téléchargement.</p>
+                <p class="hint">Max 25 Mo au total (images embarquées + pièces jointes) — au-delà, l'envoi sera rejeté par les serveurs destinataires. Pour de gros fichiers, préférez un lien de téléchargement.</p>
             </div>
 
             <div class="opt-section footer-options">
@@ -187,6 +187,28 @@ function initTinyMCE(initialContent) {
         toolbar: 'bold italic underline | headings blockquote bullist | link fontsizeinput | image formlink insertvar | removeformat',
         toolbar_mode: 'wrap',
         menubar: false,
+        // Images : on les embarque en data-URI dans l'éditeur ; le mailer les
+        // convertit en CID (privé, dans le mail) à l'envoi — aucun hébergement public.
+        automatic_uploads: false,
+        paste_data_images: true,
+        file_picker_types: 'image',
+        file_picker_callback: function(cb, value, meta) {
+            if (meta.filetype !== 'image') return;
+            const input = document.createElement('input');
+            input.type = 'file'; input.accept = 'image/*';
+            input.onchange = function() {
+                const file = input.files[0];
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Image trop lourde : ' + (file.size / 1048576).toFixed(1) + ' Mo (max 5 Mo).');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function() { cb(reader.result, { title: file.name }); };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        },
         height: 440,
         promotion: false,
         branding: false,
@@ -266,14 +288,15 @@ function syncBody() {
 }
 
 document.getElementById('mailing-form').addEventListener('submit', function(e) {
-    if (attachTotalBytes() > MAX_ATTACH_MB * 1024 * 1024) {
+    const total = attachTotalBytes() + embeddedImageBytes();
+    if (total > MAX_ATTACH_MB * 1024 * 1024) {
         e.preventDefault();
-        alert('Pièces jointes trop volumineuses (' + (attachTotalBytes() / 1048576).toFixed(1)
-            + ' Mo, max ' + MAX_ATTACH_MB + ' Mo).\nRetirez des fichiers ou utilisez un lien de téléchargement.');
+        alert('Contenu trop volumineux (' + (total / 1048576).toFixed(1) + ' Mo, max ' + MAX_ATTACH_MB
+            + ' Mo — images embarquées + pièces jointes).\nRetirez des éléments ou utilisez un lien de téléchargement.');
         return;
     }
     syncBody();
-    localStorage.removeItem(DRAFT_KEY);
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e2) {}
 });
 
 // Vider le brouillon local (abandon réel — utile sur poste partagé)
@@ -293,6 +316,15 @@ function toggleSignPreview() {
 function attachTotalBytes() {
     let t = 0; Array.from(document.getElementById('attachments').files).forEach(function(f) { t += f.size; });
     return t;
+}
+// Poids des images embarquées (data-URI base64) dans le corps — elles partiront
+// en CID à l'envoi et comptent donc dans la taille totale du mail.
+function embeddedImageBytes() {
+    const html = tinymce.get('body') ? tinymce.get('body').getContent() : bodyTextarea.value;
+    const re = /data:image\/[a-zA-Z0-9.+-]+;base64,([A-Za-z0-9+/=]+)/g;
+    let bytes = 0, m;
+    while ((m = re.exec(html))) { bytes += Math.floor(m[1].length * 0.75); }
+    return bytes;
 }
 function renderAttachments() {
     const input = document.getElementById('attachments');
@@ -339,7 +371,9 @@ function saveDraft() {
         body: bodyTextarea.value,
         include_unsubscribe: document.querySelector('input[name="include_unsubscribe"]').checked
     };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    // Peut dépasser le quota si le corps contient une grosse image base64 : on
+    // n'échoue pas silencieusement l'édition pour autant.
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch (e) {}
 }
 function restoreDraft() {
     const raw = localStorage.getItem(DRAFT_KEY);
