@@ -81,7 +81,8 @@
         <div class="card composer-options">
             <div class="opt-section">
                 <div class="card-title">Pièces jointes</div>
-                <input type="file" id="attachments" name="attachments" multiple>
+                <input type="file" id="attachments" name="attachments" multiple onchange="renderAttachments()">
+                <ul id="attach-list" class="attach-list"></ul>
                 <p class="hint">Fichiers joints à chaque email (taille totale recommandée &lt; 5 Mo).</p>
             </div>
 
@@ -106,14 +107,16 @@
             </div>
 
             <div class="opt-section signer-card">
-                <label class="checkbox-inline">
-                    <input type="checkbox" name="sign" id="sign" {{ 'checked' if signature }} onchange="toggleSignPreview()">
-                    <span><strong>Signer cette diffusion</strong></span>
-                </label>
-                <p class="hint">Votre signature s'affiche en petit, en pied du mail.</p>
-                <div class="signer-preview" id="signer-preview">
-                    {% if signature %}— {{ signature }}{% else %}<span class="text-muted">Aucune signature : définissez-la dans votre profil (Utilisateurs → votre compte).</span>{% endif %}
+                <div class="signer-row">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" name="sign" id="sign" {{ 'checked' if signature }} onchange="toggleSignPreview()">
+                        <span><strong>Signer cette diffusion</strong></span>
+                    </label>
+                    <span class="signer-preview" id="signer-preview">
+                        {% if signature %}— {{ signature }}{% else %}<span class="text-muted">Aucune signature (à définir dans votre profil)</span>{% endif %}
+                    </span>
                 </div>
+                <p class="hint">Votre signature s'affiche en petit, en pied du mail.</p>
             </div>
         </div>
     </div>
@@ -148,8 +151,7 @@ const MAIL_VARS = [
     {label: 'Téléphone', token: '{telephone}'},
     {label: 'Civilité', token: '{civilite}'},
     {label: 'Accord de genre', token: '{genre}'},
-    {label: 'Titre', token: '{titre}'},
-    {label: 'Identifiant (UID)', token: '{uid}'}
+    {label: 'Titre', token: '{titre}'}
 ];
 const MAIL_FORMS = [
     {% for f in forms %}{name: {{ f.nom|tojson }}, url: {{ (base_url ~ '/p/' ~ f.token ~ '/{uid}')|tojson }}}{% if not loop.last %},{% endif %}
@@ -179,7 +181,7 @@ function initTinyMCE(initialContent) {
         relative_urls: false,
         remove_script_host: false,
         plugins: 'lists link image code',
-        toolbar: 'bold italic underline | h1btn blockquote bullist | link fontsizeinput | image formlink insertvar | removeformat',
+        toolbar: 'bold italic underline | headings blockquote bullist | link fontsizeinput | image formlink insertvar | removeformat',
         toolbar_mode: 'wrap',
         menubar: false,
         height: 440,
@@ -196,10 +198,17 @@ function initTinyMCE(initialContent) {
             editor.on('Change KeyUp SetContent Undo Redo input', function() { bodyTextarea.value = editor.getContent(); });
             editor.on('input change', saveDraft);
 
-            // H1 : bascule titre / paragraphe
-            editor.ui.registry.addButton('h1btn', {
-                text: 'H1', tooltip: 'Titre',
-                onAction: function() { editor.formatter.toggle('h1'); }
+            // Titre : choix du niveau (texte normal / T1 / T2 / T3)
+            editor.ui.registry.addMenuButton('headings', {
+                text: 'Titre', tooltip: 'Style de titre',
+                fetch: function(cb) {
+                    cb([
+                        {type: 'menuitem', text: 'Texte normal', onAction: function() { editor.execCommand('FormatBlock', false, 'p'); }},
+                        {type: 'menuitem', text: 'Titre 1', onAction: function() { editor.execCommand('FormatBlock', false, 'h1'); }},
+                        {type: 'menuitem', text: 'Titre 2', onAction: function() { editor.execCommand('FormatBlock', false, 'h2'); }},
+                        {type: 'menuitem', text: 'Titre 3', onAction: function() { editor.execCommand('FormatBlock', false, 'h3'); }}
+                    ]);
+                }
             });
 
             // { } Variable : insère une variable de fusion au curseur
@@ -255,6 +264,31 @@ document.getElementById('mailing-form').addEventListener('submit', function() {
 function toggleSignPreview() {
     document.getElementById('signer-preview').style.opacity =
         document.getElementById('sign').checked ? '1' : '0.4';
+}
+
+// === Pièces jointes : liste avec retrait individuel ===
+function renderAttachments() {
+    const input = document.getElementById('attachments');
+    const list = document.getElementById('attach-list');
+    list.innerHTML = '';
+    Array.from(input.files).forEach(function(f, i) {
+        const li = document.createElement('li');
+        li.className = 'attach-chip';
+        const label = document.createElement('span');
+        label.textContent = f.name + ' (' + Math.max(1, Math.round(f.size / 1024)) + ' Ko)';
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'attach-remove'; btn.title = 'Retirer'; btn.textContent = '×';
+        btn.onclick = function() { removeAttachment(i); };
+        li.appendChild(label); li.appendChild(btn);
+        list.appendChild(li);
+    });
+}
+function removeAttachment(idx) {
+    const input = document.getElementById('attachments');
+    const dt = new DataTransfer();
+    Array.from(input.files).forEach(function(f, i) { if (i !== idx) dt.items.add(f); });
+    input.files = dt.files;
+    renderAttachments();
 }
 
 // === Brouillon (local) ===
