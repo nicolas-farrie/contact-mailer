@@ -1202,6 +1202,14 @@ select:focus {
 
 .card-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.75rem; }
 
+/* Aide dépliable sur les variables (sous l'éditeur) */
+.var-help { margin-top: 0.35rem; font-size: 0.82rem; color: var(--text-secondary); }
+.var-help summary { cursor: pointer; color: var(--primary); width: fit-content; list-style: none; }
+.var-help summary::-webkit-details-marker { display: none; }
+.var-help[open] summary { margin-bottom: 0.4rem; font-weight: 600; }
+.var-help p { margin: 0.3rem 0; }
+.var-help code { font-size: 0.8rem; background: var(--bg-muted); padding: 0.05rem 0.3rem; border-radius: 4px; }
+
 .composer-editor textarea { width: 100%; padding: 0.65rem; border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem; resize: vertical; }
 .composer-editor .tox-tinymce { border-radius: var(--radius-sm); }

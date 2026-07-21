@@ -55,7 +55,17 @@
                 <input type="hidden" name="format" value="html">
                 <textarea id="body" name="body" rows="14"
                           placeholder="Bonjour {prenom},&#10;&#10;Nous vous invitons à...&#10;&#10;Cordialement,&#10;L'équipe">{{ prefill.body }}</textarea>
-                <p class="hint">Utilisez le bouton <strong>{ } Variable</strong> de la barre d'outils pour insérer <code>{prenom}</code>, <code>{nom}</code>, etc.</p>
+                <p class="hint">Utilisez le bouton <strong>{v}</strong> de la barre d'outils pour insérer <code>{prenom}</code>, <code>{nom}</code>, etc.</p>
+                <details class="var-help">
+                    <summary>❔ Aide : toutes les variables &amp; les conditions</summary>
+                    <p><strong>Variables</strong> (remplacées pour chaque contact) :
+                        <code>{prenom}</code> <code>{nom}</code> <code>{email}</code> <code>{organisation}</code>
+                        <code>{telephone}</code> <code>{civilite}</code> <code>{genre}</code> <code>{titre}</code></p>
+                    <p><strong>Condition</strong> — <code>{champ:texte si rempli:texte si vide}</code><br>
+                        ex. <code>{prenom:Bonjour {prenom},:Bonjour,}</code></p>
+                    <p><strong>Comparaison</strong> — <code>{civilite==Madame:chère:cher}</code>
+                        (le 3ᵉ bloc, après le 2ᵉ <code>:</code>, est optionnel)</p>
+                </details>
             </div>
 
             <!-- Rail destinataires (colonne droite en desktop ; juste après l'éditeur en mobile) -->
