@@ -11,11 +11,22 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify, send_from_directory)
 from flask_login import login_required, current_user
 
-from models import Contact, Liste
+from models import Contact, Liste, PreferenceForm
 from config import Config
 from helpers import admin_required
 
 bp = Blueprint('mailing', __name__)
+
+
+def _sign_body(body, mail_format, sign, signature):
+    """Ajoute la signature du modérateur en pied de mail si « Signer cette
+    diffusion » est coché. Sans variable de fusion : posé après le corps."""
+    if not (sign and signature):
+        return body
+    if mail_format == 'html':
+        return (body + '<p style="margin-top:24px;color:#8a8a8a;font-size:12px;">'
+                f'— {signature}</p>')
+    return body + f'\n\n— {signature}'
 
 
 @bp.route('/mailing')
@@ -59,8 +70,13 @@ def compose():
             submission_attachments = data.get('attachments', [])
             submission_id = from_submission
 
+    forms = (PreferenceForm.query
+             .filter_by(is_active=True, is_archived=False)
+             .order_by(PreferenceForm.nom).all())
     return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill,
-                           submission_attachments=submission_attachments, submission_id=submission_id)
+                           submission_attachments=submission_attachments, submission_id=submission_id,
+                           forms=forms, base_url=Config.BASE_URL,
+                           signature=current_user.moderation_signature or '')
 
 
 @bp.route('/mailing/history')
@@ -228,6 +244,8 @@ def preview():
     mail_format = request.form.get('format', 'text')
     include_unsubscribe = request.form.get('include_unsubscribe') == 'on'
     contact_index = request.form.get('contact_index', 0, type=int)
+    body = _sign_body(body, mail_format, request.form.get('sign') == 'on',
+                      current_user.moderation_signature)
 
     if not liste_id:
         return jsonify({'error': 'Sélectionnez une liste'}), 400
@@ -284,6 +302,9 @@ def send():
     if not all([liste_id, subject, body]):
         flash('Tous les champs sont requis', 'error')
         return redirect(url_for('mailing.compose'))
+
+    body = _sign_body(body, mail_format, request.form.get('sign') == 'on',
+                      current_user.moderation_signature)
 
     if not Config.SMTP_HOST:
         flash('SMTP non configuré', 'error')

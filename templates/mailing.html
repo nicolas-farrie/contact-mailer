@@ -1,16 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Mailing - Contact Mailer{% endblock %}
+{% block title %}Nouveau mailing - Contact Mailer{% endblock %}
 {% block container_class %}container-wide{% endblock %}
 
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.5/tinymce.min.js"></script>
 
-<div class="page-header">
-    <h1>Nouveau mailing</h1>
+<div class="composer-head">
     <div>
-        <a href="{{ url_for('mailing.history') }}" class="btn">Historique</a>
-        <a href="{{ url_for('mailing.queue') }}" class="btn">File d'attente</a>
-        <a href="{{ url_for('mailing.submissions') }}" class="btn">Demandes</a>
+        <h1>Nouveau mailing</h1>
+        <p class="hint">Brouillon local — sujet et message sont restaurés automatiquement.</p>
     </div>
 </div>
 
@@ -20,92 +18,120 @@
 </div>
 {% endif %}
 
-<div class="mailing-container">
-    <form method="POST" action="{{ url_for('mailing.send') }}" class="form-card mailing-form" id="mailing-form" enctype="multipart/form-data">
-        {% if submission_id %}
-        <input type="hidden" name="submission_id" value="{{ submission_id }}">
-        <div class="alert alert-info">
-            <strong>Brouillon issu d'une demande de diffusion.</strong> Relisez et adaptez le sujet, le message et la liste de destinataires avant l'envoi.
-            {% if submission_attachments %}
-            <p>Pièce(s) jointe(s) de la demande — vérifiez le contenu avant de l'ajouter à l'envoi :</p>
-            <ul class="submission-attachments-list">
-                {% for filename in submission_attachments %}
-                <li>
-                    <a href="{{ url_for('mailing.submission_attachment', submission_id=submission_id, filename=filename) }}" target="_blank">{{ filename }}</a>
-                    (voir / télécharger)
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="submission_attachments" value="{{ filename }}">
-                        Ajouter à l'envoi
-                    </label>
-                </li>
-                {% endfor %}
-            </ul>
-            {% endif %}
-        </div>
+<form method="POST" action="{{ url_for('mailing.send') }}" class="mailing-form" id="mailing-form" enctype="multipart/form-data">
+    {% if submission_id %}
+    <input type="hidden" name="submission_id" value="{{ submission_id }}">
+    <div class="alert alert-info">
+        <strong>Brouillon issu d'une demande de diffusion.</strong> Relisez et adaptez le sujet, le message et la liste de destinataires avant l'envoi.
+        {% if submission_attachments %}
+        <p>Pièce(s) jointe(s) de la demande — vérifiez le contenu avant de l'ajouter à l'envoi :</p>
+        <ul class="submission-attachments-list">
+            {% for filename in submission_attachments %}
+            <li>
+                <a href="{{ url_for('mailing.submission_attachment', submission_id=submission_id, filename=filename) }}" target="_blank">{{ filename }}</a>
+                (voir / télécharger)
+                <label class="checkbox-inline">
+                    <input type="checkbox" name="submission_attachments" value="{{ filename }}">
+                    <span>Ajouter à l'envoi</span>
+                </label>
+            </li>
+            {% endfor %}
+        </ul>
         {% endif %}
-        <div class="form-group">
-            <label for="liste_id">Liste de destinataires *</label>
-            <select id="liste_id" name="liste_id" required>
-                <option value="">-- Sélectionner une liste --</option>
-                {% for liste in listes %}
-                <option value="{{ liste.id }}" {% if prefill.liste_id|string == liste.id|string %}selected{% endif %}>{{ liste.nom }} ({{ liste.count }} contacts)</option>
-                {% endfor %}
-            </select>
-        </div>
+    </div>
+    {% endif %}
 
-        <div class="form-group">
-            <label for="subject">Sujet *</label>
-            <input type="text" id="subject" name="subject" required
-                   value="{{ prefill.subject }}"
-                   placeholder="Ex: Invitation à notre réunion du {prenom}">
-            <p class="hint">Variables disponibles : {prenom}, {nom}, {email}, {organisation}, {uid}</p>
-        </div>
+    <div class="composer-grid">
+        <div class="composer-main">
+            <!-- Carte éditeur -->
+            <div class="card composer-editor">
+                <div class="form-group">
+                    <label for="subject">Objet de l'email *</label>
+                    <input type="text" id="subject" name="subject" required
+                           value="{{ prefill.subject }}"
+                           placeholder="Ex : Invitation à notre réunion du {prenom}">
+                </div>
 
-        <div class="form-group">
-            <label>Format</label>
-            <div class="format-toggle">
-                <label class="checkbox-label">
-                    <input type="radio" name="format" value="text" {{ 'checked' if prefill.format == 'text' and prefill.subject }} onchange="toggleFormat()"> Texte brut
+                <div class="format-toggle">
+                    <label class="checkbox-inline">
+                        <input type="radio" name="format" value="text" {{ 'checked' if prefill.format == 'text' and prefill.subject }} onchange="toggleFormat()">
+                        <span>Texte brut</span>
+                    </label>
+                    <label class="checkbox-inline">
+                        <input type="radio" name="format" value="html" {{ 'checked' if prefill.format != 'text' or not prefill.subject }} onchange="toggleFormat()">
+                        <span>HTML enrichi</span>
+                    </label>
+                </div>
+
+                <textarea id="body" name="body" rows="14"
+                          placeholder="Bonjour {prenom},&#10;&#10;Nous vous invitons à...&#10;&#10;Cordialement,&#10;L'équipe">{{ prefill.body }}</textarea>
+                <p class="hint">En mode texte, tapez les variables à la main (ex. <code>{prenom}</code>). En mode HTML, utilisez le bouton <strong>{ } Variable</strong>.</p>
+            </div>
+
+            <!-- Carte pièces jointes -->
+            <div class="card">
+                <div class="card-title">Pièces jointes</div>
+                <input type="file" id="attachments" name="attachments" multiple>
+                <p class="hint">Fichiers joints à chaque email (taille totale recommandée &lt; 5 Mo).</p>
+            </div>
+
+            <!-- Pied de mail -->
+            <div class="card footer-options">
+                <span class="footer-options-label">Pied de mail</span>
+                <label class="pill-toggle">
+                    <input type="checkbox" name="include_unsubscribe" checked>
+                    <span>Désabonnement</span>
                 </label>
-                <label class="checkbox-label">
-                    <input type="radio" name="format" value="html" {{ 'checked' if prefill.format != 'text' or not prefill.subject }} onchange="toggleFormat()"> HTML
+                <label class="pill-toggle is-disabled" title="Bientôt — nécessite le rendu serveur (prochaine tranche)">
+                    <input type="checkbox" disabled>
+                    <span>Nom de liste + inscrits</span>
                 </label>
+                <label class="pill-toggle is-disabled" title="Bientôt — nécessite une version web du mail (prochaine tranche)">
+                    <input type="checkbox" disabled>
+                    <span>Voir dans le navigateur</span>
+                </label>
+                <label class="pill-toggle is-disabled" title="Bientôt — nécessite les coordonnées de l'association (prochaine tranche)">
+                    <input type="checkbox" disabled>
+                    <span>Coordonnées asso</span>
+                </label>
+            </div>
+
+            <!-- Signer -->
+            <div class="card signer-card">
+                <label class="checkbox-inline">
+                    <input type="checkbox" name="sign" id="sign" {{ 'checked' if signature }} onchange="toggleSignPreview()">
+                    <span><strong>Signer cette diffusion</strong></span>
+                </label>
+                <p class="hint">Votre signature s'affiche en petit, en pied du mail.</p>
+                <div class="signer-preview" id="signer-preview">
+                    {% if signature %}— {{ signature }}{% else %}<span class="text-muted">Aucune signature : définissez-la dans votre profil (Utilisateurs → votre compte).</span>{% endif %}
+                </div>
             </div>
         </div>
 
-        <div class="form-group">
-            <label>Message *</label>
-            <!-- Textarea pour le mode texte -->
-            <textarea id="body" name="body" rows="12"
-                      placeholder="Bonjour {prenom},&#10;&#10;Nous vous invitons à...&#10;&#10;Cordialement,&#10;L'équipe"
-                      >{{ prefill.body }}</textarea>
-            <!-- TinyMCE s'attache directement au textarea #body en mode HTML -->
-            <p class="hint">Variables : {prenom}, {nom}, {email}, {organisation}, {telephone}, {uid}</p>
-        </div>
+        <!-- Rail destinataires -->
+        <aside class="composer-rail">
+            <div class="card rail-card">
+                <div class="card-title">Destinataires</div>
+                <div class="form-group">
+                    <select id="liste_id" name="liste_id" required>
+                        <option value="">— Sélectionner une liste —</option>
+                        {% for liste in listes %}
+                        <option value="{{ liste.id }}" {% if prefill.liste_id|string == liste.id|string %}selected{% endif %}>{{ liste.nom }} ({{ liste.count }} contacts)</option>
+                        {% endfor %}
+                    </select>
+                    <p class="hint">La sélection multi-listes avec dédoublonnage arrive dans une prochaine tranche.</p>
+                </div>
+                <div class="rail-actions">
+                    <button type="submit" class="btn btn-primary" {% if not smtp_configured %}disabled{% endif %}>Préparer l'envoi →</button>
+                    <button type="button" class="btn btn-secondary" id="preview-btn" onclick="togglePreview()">Prévisualiser</button>
+                </div>
+            </div>
+        </aside>
+    </div>
 
-        <div class="form-group">
-            <label class="checkbox-label">
-                <input type="checkbox" name="include_unsubscribe" checked>
-                Inclure un lien de désabonnement (recommandé)
-            </label>
-            <p class="hint">Ajoute un lien de désabonnement en bas de chaque email et le header List-Unsubscribe.</p>
-        </div>
-
-        <div class="form-group">
-            <label for="attachments">Pièces jointes</label>
-            <input type="file" id="attachments" name="attachments" multiple>
-            <p class="hint">Fichiers joints à chaque email (taille totale recommandée &lt; 5 Mo).</p>
-        </div>
-
-        <div class="form-actions">
-            <button type="button" class="btn" id="preview-btn" onclick="togglePreview()">Prévisualiser</button>
-            <button type="submit" class="btn btn-primary" {% if not smtp_configured %}disabled{% endif %}>
-                Préparer l'envoi
-            </button>
-        </div>
-    </form>
-
-    <div class="preview-panel" id="preview-panel" style="display:none;">
+    <!-- Panneau de prévisualisation -->
+    <div class="card preview-panel" id="preview-panel" style="display:none;">
         <div class="preview-header">
             <h3>Prévisualisation</h3>
             <div class="preview-nav">
@@ -115,37 +141,33 @@
             </div>
         </div>
         <p class="hint" id="preview-contact"></p>
-        <p class="hint" style="color:var(--gray-500);">🔒 Les liens sont désactivés dans l'aperçu (ils resteront cliquables dans l'email envoyé).</p>
+        <p class="hint">🔒 Les liens sont désactivés dans l'aperçu (ils resteront cliquables dans l'email envoyé).</p>
         <div class="preview-subject" id="preview-subject"></div>
         <div class="preview-body" id="preview-body">
             <iframe id="preview-iframe" srcdoc="" style="display:none;width:100%;border:none;min-height:300px;"></iframe>
             <div id="preview-text"></div>
         </div>
     </div>
-</div>
-
-<div class="info-box">
-    <h3>Variables de personnalisation</h3>
-    <p>Utilisez ces variables dans le sujet et le message, elles seront remplacées pour chaque contact :</p>
-    <ul>
-        <li><code>{prenom}</code> - Prénom du contact</li>
-        <li><code>{nom}</code> - Nom du contact</li>
-        <li><code>{email}</code> - Adresse email</li>
-        <li><code>{organisation}</code> - Organisation</li>
-        <li><code>{telephone}</code> - Téléphone</li>
-        <li><code>{adresse_rue}</code>, <code>{adresse_complement}</code>, <code>{adresse_ville}</code>, <code>{adresse_cp}</code>, <code>{adresse_region}</code>, <code>{adresse_pays}</code> - Adresse</li>
-        <li><code>{genre}</code> - Genre (ex: M, F)</li>
-        <li><code>{titre}</code> - Titre (ex: Dr, Pr, Me)</li>
-        <li><code>{uid}</code> - Identifiant unique du contact</li>
-    </ul>
-    <p style="margin-top:0.75em;">
-        <strong>Conditions :</strong> <code>{champ:valeur si rempli:valeur si vide}</code> —
-        ex. <code>{prenom:Bonjour {prenom},: Bonjour,}</code> ou avec opérateur <code>{civilite==M:Monsieur:Madame}</code>.
-        Le troisième bloc (après le 2e <code>:</code>) est optionnel.
-    </p>
-</div>
+</form>
 
 <script>
+// === Données pour les boutons personnalisés ===
+const MAIL_VARS = [
+    {label: 'Prénom', token: '{prenom}'},
+    {label: 'Nom', token: '{nom}'},
+    {label: 'Email', token: '{email}'},
+    {label: 'Organisation', token: '{organisation}'},
+    {label: 'Téléphone', token: '{telephone}'},
+    {label: 'Civilité', token: '{civilite}'},
+    {label: 'Accord de genre', token: '{genre}'},
+    {label: 'Titre', token: '{titre}'},
+    {label: 'Identifiant (UID)', token: '{uid}'}
+];
+const MAIL_FORMS = [
+    {% for f in forms %}{name: {{ f.nom|tojson }}, url: {{ (base_url ~ '/p/' ~ f.token ~ '/{uid}')|tojson }}}{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
 // === TinyMCE ===
 const bodyTextarea = document.getElementById('body');
 const DRAFT_KEY = 'mailing_draft';
@@ -154,7 +176,6 @@ let tinyReady = false;
 function isHtmlMode() {
     return document.querySelector('input[name="format"][value="html"]').checked;
 }
-
 function getTinyContent() {
     const ed = tinymce.get('body');
     return ed ? ed.getContent() : bodyTextarea.value;
@@ -166,17 +187,18 @@ function initTinyMCE(onReady) {
         selector: '#body',
         base_url: 'https://cdn.jsdelivr.net/npm/tinymce@6.8.5',
         suffix: '.min',
-        // Ne PAS relativiser les URLs : par défaut TinyMCE convertit les URLs du
-        // même domaine en relatif, ce qui casse les liens dans un email (pas de
-        // base) → « https://listes-lfll.asso34.fr/p/... » devient « p/... » puis
-        // « http://p/... » (NXDOMAIN). On garde les URLs telles quelles.
+        language: 'fr_FR',
+        language_url: 'https://cdn.jsdelivr.net/npm/tinymce-i18n@26.7.13/langs6/fr_FR.js',
+        // Ne PAS relativiser les URLs (sinon les liens du même domaine — ex.
+        // formulaire de préférences — sont cassés dans l'email). On les garde absolues.
         convert_urls: false,
         relative_urls: false,
         remove_script_host: false,
-        plugins: 'lists code link',
-        toolbar: 'undo redo | styles | bold italic underline | bullist numlist | outdent indent | link | code | removeformat',
+        plugins: 'lists link image code',
+        toolbar: 'bold italic underline | h1btn blockquote bullist | link fontsizeinput | image formlink insertvar | removeformat',
+        toolbar_mode: 'wrap',
         menubar: false,
-        height: 420,
+        height: 440,
         promotion: false,
         branding: false,
         content_style: [
@@ -186,11 +208,45 @@ function initTinyMCE(onReady) {
         ].join(''),
         setup: function(editor) {
             editor.on('input change', saveDraft);
+
+            // H1 : bascule titre / paragraphe
+            editor.ui.registry.addButton('h1btn', {
+                text: 'H1', tooltip: 'Titre',
+                onAction: function() { editor.formatter.toggle('h1'); }
+            });
+
+            // { } Variable : insère une variable de fusion au curseur
+            editor.ui.registry.addMenuButton('insertvar', {
+                text: '{ } Variable', tooltip: 'Insérer une variable de personnalisation',
+                fetch: function(cb) {
+                    const items = MAIL_VARS.map(function(v) {
+                        return {type: 'menuitem', text: v.label,
+                                onAction: function() { editor.insertContent(v.token); }};
+                    });
+                    items.push({type: 'menuitem', text: 'Condition (si rempli)…',
+                        onAction: function() { editor.insertContent('{prenom:Bonjour {prenom},:Bonjour,}'); }});
+                    cb(items);
+                }
+            });
+
+            // Lien formulaire : insère un lien pré-rempli par contact ({uid} résolu à l'envoi)
+            editor.ui.registry.addMenuButton('formlink', {
+                text: 'Lien formulaire', tooltip: 'Insérer un lien vers un formulaire',
+                fetch: function(cb) {
+                    if (!MAIL_FORMS.length) {
+                        cb([{type: 'menuitem', text: 'Aucun formulaire actif', enabled: false, onAction: function(){}}]);
+                        return;
+                    }
+                    cb(MAIL_FORMS.map(function(f) {
+                        return {type: 'menuitem', text: f.name, onAction: function() {
+                            const label = editor.selection.getContent() || f.name;
+                            editor.insertContent('<a href="' + f.url + '">' + label + '</a>');
+                        }};
+                    }));
+                }
+            });
         },
-        init_instance_callback: function() {
-            tinyReady = true;
-            if (onReady) onReady();
-        }
+        init_instance_callback: function() { tinyReady = true; if (onReady) onReady(); }
     });
 }
 
@@ -204,9 +260,7 @@ function removeTinyMCE() {
 function toggleFormat() {
     if (isHtmlMode()) {
         const current = bodyTextarea.value;
-        initTinyMCE(function() {
-            if (current) tinymce.get('body').setContent(current);
-        });
+        initTinyMCE(function() { if (current) tinymce.get('body').setContent(current); });
     } else {
         removeTinyMCE();
     }
@@ -214,18 +268,21 @@ function toggleFormat() {
 }
 
 function syncBody() {
-    if (isHtmlMode() && tinyReady) {
-        bodyTextarea.value = getTinyContent();
-    }
+    if (isHtmlMode() && tinyReady) { bodyTextarea.value = getTinyContent(); }
 }
 
-// Submit
 document.getElementById('mailing-form').addEventListener('submit', function() {
     syncBody();
     localStorage.removeItem(DRAFT_KEY);
 });
 
-// === Brouillon ===
+// === Signer : aperçu ===
+function toggleSignPreview() {
+    document.getElementById('signer-preview').style.opacity =
+        document.getElementById('sign').checked ? '1' : '0.4';
+}
+
+// === Brouillon (local) ===
 function saveDraft() {
     const draft = {
         liste_id: document.getElementById('liste_id').value,
@@ -237,7 +294,6 @@ function saveDraft() {
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
 }
-
 function restoreDraft() {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return false;
@@ -245,14 +301,9 @@ function restoreDraft() {
         const draft = JSON.parse(raw);
         if (draft.liste_id) document.getElementById('liste_id').value = draft.liste_id;
         if (draft.subject) document.getElementById('subject').value = draft.subject;
-        if (draft.format) {
-            document.querySelector(`input[name="format"][value="${draft.format}"]`).checked = true;
-        }
-        if (draft.format === 'html' && draft.body_html) {
-            bodyTextarea.value = draft.body_html;
-        } else if (draft.body_text) {
-            bodyTextarea.value = draft.body_text;
-        }
+        if (draft.format) document.querySelector(`input[name="format"][value="${draft.format}"]`).checked = true;
+        if (draft.format === 'html' && draft.body_html) { bodyTextarea.value = draft.body_html; }
+        else if (draft.body_text) { bodyTextarea.value = draft.body_text; }
         if (draft.include_unsubscribe !== undefined) {
             document.querySelector('input[name="include_unsubscribe"]').checked = draft.include_unsubscribe;
         }
@@ -268,10 +319,8 @@ document.querySelector('input[name="include_unsubscribe"]').addEventListener('ch
 // === Init ===
 const hasPrefill = {{ 'true' if prefill.subject else 'false' }};
 if (!hasPrefill) { restoreDraft(); }
-
-if (isHtmlMode()) {
-    initTinyMCE();
-}
+if (isHtmlMode()) { initTinyMCE(); }
+toggleSignPreview();
 
 // === Preview ===
 let previewVisible = false;
@@ -279,161 +328,51 @@ let previewIndex = 0;
 let previewTotal = 0;
 
 function togglePreview() {
-    const panel = document.getElementById('preview-panel');
-    const btn = document.getElementById('preview-btn');
-    const container = document.querySelector('.mailing-container');
-
     if (previewVisible) {
-        panel.style.display = 'none';
-        container.classList.remove('with-preview');
-        btn.textContent = 'Prévisualiser';
-        btn.classList.remove('btn-preview-active');
+        document.getElementById('preview-panel').style.display = 'none';
+        document.getElementById('preview-btn').textContent = 'Prévisualiser';
         previewVisible = false;
         return;
     }
-
     previewIndex = 0;
     loadPreview();
 }
-
-function previewNav(delta) {
-    previewIndex += delta;
-    loadPreview();
-}
+function previewNav(delta) { previewIndex += delta; loadPreview(); }
 
 function loadPreview() {
     syncBody();
-    const form = document.getElementById('mailing-form');
-    const formData = new FormData(form);
+    const formData = new FormData(document.getElementById('mailing-form'));
     formData.set('contact_index', previewIndex);
-
-    fetch('{{ url_for("mailing.preview") }}', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
-            return;
-        }
-
-        previewIndex = data.index;
-        previewTotal = data.total;
-
-        document.getElementById('preview-contact').textContent = 'Aperçu pour : ' + data.contact;
-        document.getElementById('preview-subject').textContent = data.subject;
-        document.getElementById('preview-counter').textContent = (previewIndex + 1) + ' / ' + previewTotal;
-        document.getElementById('prev-btn').disabled = (previewIndex <= 0);
-        document.getElementById('next-btn').disabled = (previewIndex >= previewTotal - 1);
-
-        const iframe = document.getElementById('preview-iframe');
-        const previewText = document.getElementById('preview-text');
-        if (isHtmlMode()) {
-            iframe.srcdoc = data.body;
-            iframe.style.display = 'block';
-            previewText.style.display = 'none';
-            iframe.onload = function() {
-                try { iframe.style.height = iframe.contentDocument.body.scrollHeight + 20 + 'px'; } catch(e) {}
-            };
-        } else {
-            iframe.style.display = 'none';
-            previewText.style.display = 'block';
-            previewText.textContent = data.body;
-        }
-
-        const panel = document.getElementById('preview-panel');
-        const btn = document.getElementById('preview-btn');
-        const container = document.querySelector('.mailing-container');
-        panel.style.display = 'block';
-        container.classList.add('with-preview');
-        btn.textContent = 'Masquer';
-        btn.classList.add('btn-preview-active');
-        previewVisible = true;
-    })
-    .catch(err => alert('Erreur : ' + err));
+    fetch('{{ url_for("mailing.preview") }}', {method: 'POST', body: formData})
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert(data.error); return; }
+            previewIndex = data.index;
+            previewTotal = data.total;
+            document.getElementById('preview-contact').textContent = 'Aperçu pour : ' + data.contact;
+            document.getElementById('preview-subject').textContent = data.subject;
+            document.getElementById('preview-counter').textContent = (previewIndex + 1) + ' / ' + previewTotal;
+            document.getElementById('prev-btn').disabled = (previewIndex <= 0);
+            document.getElementById('next-btn').disabled = (previewIndex >= previewTotal - 1);
+            const iframe = document.getElementById('preview-iframe');
+            const previewText = document.getElementById('preview-text');
+            if (isHtmlMode()) {
+                iframe.srcdoc = data.body;
+                iframe.style.display = 'block';
+                previewText.style.display = 'none';
+                iframe.onload = function() {
+                    try { iframe.style.height = iframe.contentDocument.body.scrollHeight + 20 + 'px'; } catch(e) {}
+                };
+            } else {
+                iframe.style.display = 'none';
+                previewText.style.display = 'block';
+                previewText.textContent = data.body;
+            }
+            document.getElementById('preview-panel').style.display = 'block';
+            document.getElementById('preview-btn').textContent = 'Masquer l\'aperçu';
+            previewVisible = true;
+        })
+        .catch(err => alert('Erreur : ' + err));
 }
 </script>
-
-<style>
-.mailing-container {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-    align-items: start;
-}
-.mailing-container.with-preview {
-    grid-template-columns: 1fr 1fr;
-}
-.mailing-form {
-    max-width: none;
-}
-.preview-panel {
-    background: white;
-    padding: 1.5rem;
-    border-radius: var(--radius);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.preview-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
-}
-.preview-header h3 {
-    margin: 0;
-}
-.preview-nav {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-#preview-counter {
-    font-size: 0.85rem;
-    color: var(--gray-500);
-    min-width: 4rem;
-    text-align: center;
-}
-.preview-subject {
-    font-weight: bold;
-    padding: 0.5rem;
-    background: var(--gray-100);
-    border-radius: var(--radius);
-    margin: 0.5rem 0;
-}
-.preview-body {
-    white-space: pre-wrap;
-    padding: 0.75rem;
-    background: var(--gray-50);
-    border: 1px solid var(--gray-200);
-    border-radius: var(--radius);
-    font-family: inherit;
-    min-height: 200px;
-}
-/* Quill editor */
-#editor-container {
-    border-radius: var(--radius);
-}
-#editor {
-    min-height: 250px;
-    background: white;
-}
-#editor .ql-editor {
-    font-family: inherit;
-    font-size: 0.95rem;
-}
-.btn-preview-active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-}
-.btn-preview-active:hover {
-    background: var(--primary-dark);
-}
-@media (max-width: 900px) {
-    .mailing-container {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
 {% endblock %}
