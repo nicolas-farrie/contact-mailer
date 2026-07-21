@@ -101,6 +101,12 @@
 - [?] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
 - [?] Support templates .eml (brouillons Thunderbird) - format standard RFC 5322
 
+### Notification des demandes de diffusion (important)
+- [ ] À la réception d'une **demande de diffusion** (submission IMAP → `mailing.submissions`), envoyer un **email type de notification à TOUS les utilisateurs** reprenant le **sujet** et l'**expéditeur** de la demande — pour que la modération sache qu'une demande est en attente sans surveiller l'interface.
+  - [ ][ ] Déclencheur : à l'enregistrement d'une nouvelle demande (une seule notif par demande, éviter les doublons au re-scan IMAP).
+  - [ ][ ] Destinataires = tous les utilisateurs actifs (adresses email du modèle `User`) ; contenu = sujet + expéditeur + lien vers l'écran « Demandes de diffusion ».
+  - [ ][ ] Gabarit d'email dédié (réutiliser `mailer`) ; envisager un flag admin pour (dés)activer la notification.
+
 ## A faire - Améliorations
 - [x] Export vCard (réutiliser vcard_converter.py en sens inverse)
 - [~] Historique des campagnes envoyées (historique messages, envois // reste à faire : historique par contact)
