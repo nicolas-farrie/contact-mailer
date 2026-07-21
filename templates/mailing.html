@@ -179,8 +179,12 @@ function getTinyContent() {
     return ed ? ed.getContent() : bodyTextarea.value;
 }
 
-function initTinyMCE(onReady) {
-    if (tinymce.get('body')) { if (onReady) onReady(); return; }
+function initTinyMCE(initialContent) {
+    // Ré-init toujours PROPRE : on tue toute instance existante (même résiduelle
+    // après un aller-retour de format) AVANT de recréer l'éditeur. Sans ça, on
+    // pouvait réutiliser un éditeur détaché → « affiché vide + saisie bloquée ».
+    tinymce.remove('#body');
+    tinyReady = false;
     tinymce.init({
         selector: '#body',
         base_url: '{{ url_for('static', filename='vendor/tinymce') }}',
@@ -205,6 +209,9 @@ function initTinyMCE(onReady) {
             'ul ul{list-style-type:circle;} ul ul ul{list-style-type:square;}'
         ].join(''),
         setup: function(editor) {
+            // Le textarea #body (name=body) reste la SOURCE DE VÉRITÉ : tenu synchro
+            // à chaque frappe/modif → survit au refresh, à l'aperçu et au submit.
+            editor.on('Change KeyUp SetContent Undo Redo input', function() { bodyTextarea.value = editor.getContent(); });
             editor.on('input change', saveDraft);
 
             // H1 : bascule titre / paragraphe
@@ -244,29 +251,31 @@ function initTinyMCE(onReady) {
                 }
             });
         },
-        init_instance_callback: function() { tinyReady = true; if (onReady) onReady(); }
+        init_instance_callback: function(editor) {
+            tinyReady = true;
+            if (initialContent) editor.setContent(initialContent);
+            bodyTextarea.value = editor.getContent();
+        }
     });
 }
 
 function removeTinyMCE() {
     const ed = tinymce.get('body');
-    if (ed) { bodyTextarea.value = ed.getContent(); tinymce.remove('#body'); }
+    if (ed) { bodyTextarea.value = ed.getContent(); }
+    tinymce.remove('#body');
     tinyReady = false;
     bodyTextarea.style.display = 'block';
 }
 
 function toggleFormat() {
-    if (isHtmlMode()) {
-        const current = bodyTextarea.value;
-        initTinyMCE(function() { if (current) tinymce.get('body').setContent(current); });
-    } else {
-        removeTinyMCE();
-    }
+    if (isHtmlMode()) { initTinyMCE(bodyTextarea.value); }
+    else { removeTinyMCE(); }
     saveDraft();
 }
 
 function syncBody() {
-    if (isHtmlMode() && tinyReady) { bodyTextarea.value = getTinyContent(); }
+    const ed = tinymce.get('body');
+    if (ed) { bodyTextarea.value = ed.getContent(); }
 }
 
 document.getElementById('mailing-form').addEventListener('submit', function() {
@@ -281,13 +290,14 @@ function toggleSignPreview() {
 }
 
 // === Brouillon (local) ===
+// Le corps est stocké dans un seul champ `body` (le textarea étant tenu synchro).
 function saveDraft() {
+    syncBody();
     const draft = {
         liste_id: document.getElementById('liste_id').value,
         subject: document.getElementById('subject').value,
         format: isHtmlMode() ? 'html' : 'text',
-        body_text: isHtmlMode() ? '' : bodyTextarea.value,
-        body_html: isHtmlMode() ? getTinyContent() : '',
+        body: bodyTextarea.value,
         include_unsubscribe: document.querySelector('input[name="include_unsubscribe"]').checked
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -300,8 +310,8 @@ function restoreDraft() {
         if (draft.liste_id) document.getElementById('liste_id').value = draft.liste_id;
         if (draft.subject) document.getElementById('subject').value = draft.subject;
         if (draft.format) document.querySelector(`input[name="format"][value="${draft.format}"]`).checked = true;
-        if (draft.format === 'html' && draft.body_html) { bodyTextarea.value = draft.body_html; }
-        else if (draft.body_text) { bodyTextarea.value = draft.body_text; }
+        const body = draft.body || draft.body_html || draft.body_text;  // compat anciens brouillons
+        if (body) bodyTextarea.value = body;
         if (draft.include_unsubscribe !== undefined) {
             document.querySelector('input[name="include_unsubscribe"]').checked = draft.include_unsubscribe;
         }
@@ -317,7 +327,7 @@ document.querySelector('input[name="include_unsubscribe"]').addEventListener('ch
 // === Init ===
 const hasPrefill = {{ 'true' if prefill.subject else 'false' }};
 if (!hasPrefill) { restoreDraft(); }
-if (isHtmlMode()) { initTinyMCE(); }
+if (isHtmlMode()) { initTinyMCE(bodyTextarea.value); }
 toggleSignPreview();
 
 // === Preview ===
