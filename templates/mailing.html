@@ -8,7 +8,8 @@
 <div class="composer-head">
     <div>
         <h1>Nouveau mailing</h1>
-        <p class="hint">Brouillon local — sujet et message sont restaurés automatiquement.</p>
+        <p class="hint">Brouillon local — sujet et message sont restaurés automatiquement.
+            <button type="button" class="linklike" onclick="clearDraft()">Vider le brouillon</button></p>
     </div>
 </div>
 
@@ -83,7 +84,8 @@
                 <div class="card-title">Pièces jointes</div>
                 <input type="file" id="attachments" name="attachments" multiple onchange="renderAttachments()">
                 <ul id="attach-list" class="attach-list"></ul>
-                <p class="hint">Fichiers joints à chaque email (taille totale recommandée &lt; 5 Mo).</p>
+                <p class="hint" id="attach-total"></p>
+                <p class="hint">Max 25 Mo au total — au-delà, l'envoi risque d'être rejeté par les serveurs destinataires. Pour de gros fichiers, préférez un lien de téléchargement.</p>
             </div>
 
             <div class="opt-section footer-options">
@@ -161,6 +163,7 @@ const MAIL_FORMS = [
 // === TinyMCE ===
 const bodyTextarea = document.getElementById('body');
 const DRAFT_KEY = 'mailing_draft';
+const MAX_ATTACH_MB = 25;  // limite totale des PJ (≈ limite Gmail) — au-delà : risque de rejet
 let tinyReady = false;
 
 function initTinyMCE(initialContent) {
@@ -198,6 +201,13 @@ function initTinyMCE(initialContent) {
             editor.on('Change KeyUp SetContent Undo Redo input', function() { bodyTextarea.value = editor.getContent(); });
             editor.on('input change', saveDraft);
 
+            // Picto « {v} » pour le bouton Variable
+            editor.ui.registry.addIcon('varbraces',
+                '<svg width="24" height="24" viewBox="0 0 24 24"><text x="12" y="17" font-family="monospace" font-size="12" font-weight="bold" text-anchor="middle" fill="currentColor">{v}</text></svg>');
+            // Picto « formulaire » (document à lignes) pour le bouton Lien formulaire
+            editor.ui.registry.addIcon('formdoc',
+                '<svg width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6 3h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V8h3.5L13 4.5zM8 11h8v1.5H8V11zm0 3h8v1.5H8V14zm0 3h5v1.5H8V17z"/></svg>');
+
             // Titre : choix du niveau (texte normal / T1 / T2 / T3)
             editor.ui.registry.addMenuButton('headings', {
                 text: 'Titre', tooltip: 'Style de titre',
@@ -213,7 +223,7 @@ function initTinyMCE(initialContent) {
 
             // { } Variable : insère une variable de fusion au curseur
             editor.ui.registry.addMenuButton('insertvar', {
-                text: '{ } Variable', tooltip: 'Insérer une variable de personnalisation',
+                icon: 'varbraces', tooltip: 'Insérer une variable de personnalisation',
                 fetch: function(cb) {
                     const items = MAIL_VARS.map(function(v) {
                         return {type: 'menuitem', text: v.label,
@@ -227,7 +237,7 @@ function initTinyMCE(initialContent) {
 
             // Lien formulaire : insère un lien pré-rempli par contact ({uid} résolu à l'envoi)
             editor.ui.registry.addMenuButton('formlink', {
-                text: 'Lien formulaire', tooltip: 'Insérer un lien vers un formulaire',
+                icon: 'formdoc', tooltip: 'Insérer un lien vers un formulaire',
                 fetch: function(cb) {
                     if (!MAIL_FORMS.length) {
                         cb([{type: 'menuitem', text: 'Aucun formulaire actif', enabled: false, onAction: function(){}}]);
@@ -255,10 +265,23 @@ function syncBody() {
     if (ed) { bodyTextarea.value = ed.getContent(); }
 }
 
-document.getElementById('mailing-form').addEventListener('submit', function() {
+document.getElementById('mailing-form').addEventListener('submit', function(e) {
+    if (attachTotalBytes() > MAX_ATTACH_MB * 1024 * 1024) {
+        e.preventDefault();
+        alert('Pièces jointes trop volumineuses (' + (attachTotalBytes() / 1048576).toFixed(1)
+            + ' Mo, max ' + MAX_ATTACH_MB + ' Mo).\nRetirez des fichiers ou utilisez un lien de téléchargement.');
+        return;
+    }
     syncBody();
     localStorage.removeItem(DRAFT_KEY);
 });
+
+// Vider le brouillon local (abandon réel — utile sur poste partagé)
+function clearDraft() {
+    if (!confirm('Vider le brouillon en cours (sujet, message, options) ? Cette action est définitive.')) return;
+    localStorage.removeItem(DRAFT_KEY);
+    location.reload();
+}
 
 // === Signer : aperçu ===
 function toggleSignPreview() {
@@ -266,7 +289,11 @@ function toggleSignPreview() {
         document.getElementById('sign').checked ? '1' : '0.4';
 }
 
-// === Pièces jointes : liste avec retrait individuel ===
+// === Pièces jointes : liste avec retrait individuel + contrôle de taille ===
+function attachTotalBytes() {
+    let t = 0; Array.from(document.getElementById('attachments').files).forEach(function(f) { t += f.size; });
+    return t;
+}
 function renderAttachments() {
     const input = document.getElementById('attachments');
     const list = document.getElementById('attach-list');
@@ -282,6 +309,17 @@ function renderAttachments() {
         li.appendChild(label); li.appendChild(btn);
         list.appendChild(li);
     });
+    // Total + alerte au-delà de la limite
+    const total = attachTotalBytes();
+    const info = document.getElementById('attach-total');
+    if (input.files.length) {
+        const mb = (total / 1048576).toFixed(1);
+        const over = total > MAX_ATTACH_MB * 1024 * 1024;
+        info.textContent = 'Total : ' + mb + ' Mo' + (over ? ' — dépasse la limite de ' + MAX_ATTACH_MB + ' Mo !' : '');
+        info.className = 'hint' + (over ? ' attach-over' : '');
+    } else {
+        info.textContent = '';
+    }
 }
 function removeAttachment(idx) {
     const input = document.getElementById('attachments');
