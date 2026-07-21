@@ -16,6 +16,11 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # Rechargement auto des templates Jinja. DEV uniquement (via env) : évite de
+    # redémarrer le conteneur à chaque édition de template. Laisser OFF en prod
+    # (templates compilés mis en cache = plus rapide).
+    TEMPLATES_AUTO_RELOAD = os.environ.get('TEMPLATES_AUTO_RELOAD', '').lower() in ('1', 'true', 'yes')
+
     # Admin credentials (à changer en production)
     ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'changeme')
