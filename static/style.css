@@ -1202,7 +1202,6 @@ select:focus {
 
 .card-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.75rem; }
 
-.composer-editor .format-toggle { display: flex; gap: 1.25rem; margin: 0.25rem 0 0.75rem; }
 .composer-editor textarea { width: 100%; padding: 0.65rem; border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem; resize: vertical; }
 .composer-editor .tox-tinymce { border-radius: var(--radius-sm); }
