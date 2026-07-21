@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Confirmer l'envoi</h1>
-    <a href="{{ url_for('mailing.compose') }}" class="btn btn-secondary">Annuler</a>
+    <a href="{{ url_for('mailing.compose', from_campaign=campaign_id) }}" class="btn btn-secondary">← Modifier le message</a>
 </div>
 
 <div class="info-box" style="margin-bottom:1.5rem;">
@@ -63,7 +63,7 @@
         <button type="submit" class="btn btn-primary" id="submit-btn">
             Mettre en file d'envoi (<span id="submit-count">{{ contacts|length }}</span> contacts)
         </button>
-        <a href="{{ url_for('mailing.compose') }}" class="btn btn-secondary">Annuler</a>
+        <a href="{{ url_for('mailing.compose', from_campaign=campaign_id) }}" class="btn btn-secondary">← Modifier le message</a>
     </div>
 </form>
 
