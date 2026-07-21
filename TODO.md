@@ -106,6 +106,7 @@
   - [ ][ ] Déclencheur : à l'enregistrement d'une nouvelle demande (une seule notif par demande, éviter les doublons au re-scan IMAP).
   - [ ][ ] Destinataires = tous les utilisateurs actifs (adresses email du modèle `User`) ; contenu = sujet + expéditeur + lien vers l'écran « Demandes de diffusion ».
   - [ ][ ] Gabarit d'email dédié (réutiliser `mailer`) ; envisager un flag admin pour (dés)activer la notification.
+  - [ ][ ] **Dépendance** : aucun déclencheur automatique aujourd'hui (la boîte `diff-<instance>` n'est lue que sur ouverture de `GET /mailing/submissions`). Il faut donc **introduire un scan périodique** (cron / systemd timer / APScheduler) qui lit la boîte en fond — c'est lui qui déclenche la notif. Ce scan **peut coexister (en doublon) avec le rafraîchissement à l'ouverture de la page** : les deux chemins lisent la même boîte, donc l'anti-doublon « déjà notifié » (flag IMAP / sous-dossier / table `Message-ID`) protège les deux. À l'occasion, ce scan pourrait aussi câbler `count_pending()` (défini mais inutilisé) pour un badge sur la sidebar.
 
 ## A faire - Améliorations
 - [x] Export vCard (réutiliser vcard_converter.py en sens inverse)
