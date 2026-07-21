@@ -63,12 +63,20 @@
         <button type="submit" class="btn btn-primary" id="submit-btn">
             Mettre en file d'envoi (<span id="submit-count">{{ contacts|length }}</span> contacts)
         </button>
-        <a href="{{ url_for('mailing.compose', from_campaign=campaign_id) }}" class="btn btn-secondary">← Modifier le message</a>
+        <button type="submit" class="btn btn-danger" formaction="{{ url_for('mailing.discard') }}"
+                formnovalidate onclick="return abandonMailing()">Abandonner le mailing</button>
     </div>
 </form>
 
 <script>
 var total = {{ contacts|length }};
+
+// Abandonner : confirmation + purge du brouillon local (abandon réel)
+function abandonMailing() {
+    if (!confirm('Abandonner ce mailing ? Le brouillon en cours et les pièces jointes enregistrées seront supprimés.')) return false;
+    try { localStorage.removeItem('mailing_draft'); } catch (e) {}
+    return true;
+}
 
 function updateCount() {
     var n = document.querySelectorAll('.contact-cb:checked').length;

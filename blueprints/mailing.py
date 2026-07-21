@@ -11,7 +11,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify, send_from_directory)
 from flask_login import login_required, current_user
 
-from models import Contact, Liste, PreferenceForm
+from models import Contact, Liste, PreferenceForm, MailCampaign, MailQueueItem, db
 from config import Config
 from helpers import admin_required
 
@@ -60,6 +60,8 @@ def compose():
 
     # Pré-remplissage depuis l'historique (réutilisation par campaign_id)
     prefill = {'subject': '', 'body': '', 'format': 'text', 'liste_ids': []}
+    campaign_attachments = []   # PJ déjà enregistrées (réutilisation / retour édition)
+    from_campaign_id = None
     from_campaign = request.args.get('from_campaign')
     if from_campaign:
         from mailer import MailQueue
@@ -71,6 +73,9 @@ def compose():
                 'format': tpl.get('format', 'text'),
                 'liste_ids': tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else []),
             }
+            import os as _os
+            campaign_attachments = [_os.path.basename(p) for p in (tpl.get('attachments') or [])]
+            from_campaign_id = from_campaign
 
     # Pré-remplissage depuis une demande de diffusion (boîte IMAP)
     # Stocké sur disque (et non en session) car le corps peut contenir des
@@ -98,6 +103,7 @@ def compose():
              .order_by(PreferenceForm.nom).all())
     return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill,
                            submission_attachments=submission_attachments, submission_id=submission_id,
+                           campaign_attachments=campaign_attachments, from_campaign_id=from_campaign_id,
                            forms=forms, base_url=Config.BASE_URL,
                            signature=current_user.moderation_signature or '')
 
@@ -376,7 +382,10 @@ def send():
     submission_id = request.form.get('submission_id') or None
     # Pièces jointes de la demande explicitement validées par l'utilisateur
     included_submission_attachments = set(request.form.getlist('submission_attachments'))
-    if (uploaded_files and uploaded_files[0].filename) or included_submission_attachments:
+    # Pièces jointes déjà enregistrées d'une campagne (retour édition / réutilisation)
+    kept_attachments = set(request.form.getlist('kept_attachments'))
+    from_campaign_id = request.form.get('from_campaign_id') or None
+    if (uploaded_files and uploaded_files[0].filename) or included_submission_attachments or kept_attachments:
         attach_dir = Path(f'data/attachments/{campaign_id}')
         attach_dir.mkdir(parents=True, exist_ok=True)
         for f in uploaded_files:
@@ -395,6 +404,17 @@ def send():
                     if f.is_file() and f.name in included_submission_attachments:
                         dest = attach_dir / f.name
                         shutil.copy(str(f), str(dest))
+                        attachment_paths.append(str(dest))
+
+        # Reprendre les PJ déjà enregistrées d'une campagne (retour édition / réutilisation)
+        if from_campaign_id and kept_attachments:
+            src_dir = Path(f'data/attachments/{from_campaign_id}')
+            if src_dir.is_dir():
+                for f in src_dir.iterdir():
+                    if f.is_file() and f.name in kept_attachments:
+                        dest = attach_dir / f.name
+                        if str(dest) != str(f):
+                            shutil.copy(str(f), str(dest))
                         attachment_paths.append(str(dest))
 
     # Sauvegarder le template (sans encore peupler la queue)
@@ -470,6 +490,24 @@ def add_to_queue():
 
     flash(f'Campagne "{campaign_id}" créée avec {len(selected)} contacts.', 'success')
     return redirect(url_for('mailing.queue', campaign=campaign_id))
+
+
+@bp.route('/mailing/discard', methods=['POST'])
+@login_required
+def discard():
+    """Abandonne un mailing en préparation : supprime le template et ses pièces
+    jointes sur disque. Refuse si la campagne a déjà été mise en file d'envoi."""
+    import shutil
+    campaign_id = request.form.get('campaign_id')
+    if campaign_id:
+        camp = db.session.get(MailCampaign, campaign_id)
+        already_queued = MailQueueItem.query.filter_by(campaign_id=campaign_id).first() is not None
+        if camp and not already_queued:
+            db.session.delete(camp)
+            db.session.commit()
+            shutil.rmtree(f'data/attachments/{campaign_id}', ignore_errors=True)
+    flash('Mailing abandonné.', 'info')
+    return redirect(url_for('mailing.history'))
 
 
 @bp.route('/mailing/queue')

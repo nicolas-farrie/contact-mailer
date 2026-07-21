@@ -102,6 +102,20 @@
         <div class="card composer-options">
             <div class="opt-section">
                 <div class="card-title">Pièces jointes</div>
+                {% if campaign_attachments %}
+                <input type="hidden" name="from_campaign_id" value="{{ from_campaign_id }}">
+                <p class="hint" style="margin:0 0 0.3rem;">Pièces jointes déjà enregistrées (décochez pour retirer) :</p>
+                <ul class="attach-list">
+                    {% for fn in campaign_attachments %}
+                    <li class="attach-chip">
+                        <label class="checkbox-inline" style="gap:0.4rem;">
+                            <input type="checkbox" name="kept_attachments" value="{{ fn }}" checked>
+                            <span>{{ fn }}</span>
+                        </label>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
                 <input type="file" id="attachments" name="attachments" multiple onchange="renderAttachments()">
                 <ul id="attach-list" class="attach-list"></ul>
                 <p class="hint" id="attach-total"></p>
