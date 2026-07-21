@@ -42,7 +42,6 @@
     {% endif %}
 
     <div class="composer-grid">
-        <div class="composer-main">
             <!-- Carte éditeur -->
             <div class="card composer-editor">
                 <div class="form-group">
@@ -68,15 +67,35 @@
                 <p class="hint">En mode texte, tapez les variables à la main (ex. <code>{prenom}</code>). En mode HTML, utilisez le bouton <strong>{ } Variable</strong>.</p>
             </div>
 
-            <!-- Carte pièces jointes -->
-            <div class="card">
+            <!-- Rail destinataires (colonne droite en desktop ; juste après l'éditeur en mobile) -->
+        <aside class="composer-rail">
+            <div class="card rail-card">
+                <div class="card-title">Destinataires</div>
+                <div class="form-group">
+                    <select id="liste_id" name="liste_id" required>
+                        <option value="">— Sélectionner une liste —</option>
+                        {% for liste in listes %}
+                        <option value="{{ liste.id }}" {% if prefill.liste_id|string == liste.id|string %}selected{% endif %}>{{ liste.nom }} ({{ liste.count }} contacts)</option>
+                        {% endfor %}
+                    </select>
+                    <p class="hint">La sélection multi-listes avec dédoublonnage arrive dans une prochaine tranche.</p>
+                </div>
+                <div class="rail-actions">
+                    <button type="submit" class="btn btn-primary btn-cta" {% if not smtp_configured %}disabled{% endif %}>Préparer l'envoi →</button>
+                    <button type="button" class="btn btn-secondary" id="preview-btn" onclick="togglePreview()">Prévisualiser</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Bloc options fusionné : pièces jointes + pied de mail + signature -->
+        <div class="card composer-options">
+            <div class="opt-section">
                 <div class="card-title">Pièces jointes</div>
                 <input type="file" id="attachments" name="attachments" multiple>
                 <p class="hint">Fichiers joints à chaque email (taille totale recommandée &lt; 5 Mo).</p>
             </div>
 
-            <!-- Pied de mail -->
-            <div class="card footer-options">
+            <div class="opt-section footer-options">
                 <span class="footer-options-label">Pied de mail</span>
                 <label class="pill-toggle">
                     <input type="checkbox" name="include_unsubscribe" checked>
@@ -96,8 +115,7 @@
                 </label>
             </div>
 
-            <!-- Signer -->
-            <div class="card signer-card">
+            <div class="opt-section signer-card">
                 <label class="checkbox-inline">
                     <input type="checkbox" name="sign" id="sign" {{ 'checked' if signature }} onchange="toggleSignPreview()">
                     <span><strong>Signer cette diffusion</strong></span>
@@ -108,26 +126,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Rail destinataires -->
-        <aside class="composer-rail">
-            <div class="card rail-card">
-                <div class="card-title">Destinataires</div>
-                <div class="form-group">
-                    <select id="liste_id" name="liste_id" required>
-                        <option value="">— Sélectionner une liste —</option>
-                        {% for liste in listes %}
-                        <option value="{{ liste.id }}" {% if prefill.liste_id|string == liste.id|string %}selected{% endif %}>{{ liste.nom }} ({{ liste.count }} contacts)</option>
-                        {% endfor %}
-                    </select>
-                    <p class="hint">La sélection multi-listes avec dédoublonnage arrive dans une prochaine tranche.</p>
-                </div>
-                <div class="rail-actions">
-                    <button type="submit" class="btn btn-primary" {% if not smtp_configured %}disabled{% endif %}>Préparer l'envoi →</button>
-                    <button type="button" class="btn btn-secondary" id="preview-btn" onclick="togglePreview()">Prévisualiser</button>
-                </div>
-            </div>
-        </aside>
     </div>
 
     <!-- Panneau de prévisualisation -->
