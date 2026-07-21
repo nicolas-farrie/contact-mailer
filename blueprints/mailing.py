@@ -29,6 +29,29 @@ def _sign_body(body, mail_format, sign, signature):
     return body + f'\n\n— {signature}'
 
 
+def _recipients_for_lists(liste_ids):
+    """Union DÉDOUBLONNÉE des contacts actifs (non supprimés, non désabonnés) des
+    listes données : un contact présent dans plusieurs listes n'apparaît qu'une fois.
+    Conserve l'ordre de première apparition."""
+    seen = {}
+    for lid in liste_ids:
+        liste = Liste.query.get(lid)
+        if not liste:
+            continue
+        for c in liste.active_contacts:
+            if not c.is_unsubscribed and c.id not in seen:
+                seen[c.id] = c
+    return list(seen.values())
+
+
+@bp.route('/mailing/recipients-count', methods=['POST'])
+@login_required
+def recipients_count():
+    """Compteur live pour le rail Destinataires : total dédoublonné des listes cochées."""
+    liste_ids = request.form.getlist('liste_ids', type=int)
+    return jsonify({'count': len(_recipients_for_lists(liste_ids)), 'lists': len(liste_ids)})
+
+
 @bp.route('/mailing')
 @login_required
 def compose():
@@ -36,7 +59,7 @@ def compose():
     smtp_configured = bool(Config.SMTP_HOST and Config.SMTP_USER)
 
     # Pré-remplissage depuis l'historique (réutilisation par campaign_id)
-    prefill = {'subject': '', 'body': '', 'format': 'text', 'liste_id': ''}
+    prefill = {'subject': '', 'body': '', 'format': 'text', 'liste_ids': []}
     from_campaign = request.args.get('from_campaign')
     if from_campaign:
         from mailer import MailQueue
@@ -46,7 +69,7 @@ def compose():
                 'subject': tpl.get('subject', ''),
                 'body': tpl.get('body', ''),
                 'format': tpl.get('format', 'text'),
-                'liste_id': tpl.get('liste_id', ''),
+                'liste_ids': tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else []),
             }
 
     # Pré-remplissage depuis une demande de diffusion (boîte IMAP)
@@ -65,7 +88,7 @@ def compose():
                 'subject': data.get('subject', ''),
                 'body': data.get('body', ''),
                 'format': data.get('format', 'text'),
-                'liste_id': '',
+                'liste_ids': [],
             }
             submission_attachments = data.get('attachments', [])
             submission_id = from_submission
@@ -238,7 +261,7 @@ def submission_attachment(submission_id, filename):
 @login_required
 def preview():
     """Prévisualisation du mail avec un contact de la liste"""
-    liste_id = request.form.get('liste_id', type=int)
+    liste_ids = request.form.getlist('liste_ids', type=int)
     subject = request.form.get('subject', '').strip()
     body = request.form.get('body', '').strip()
     mail_format = request.form.get('format', 'text')
@@ -247,17 +270,18 @@ def preview():
     body = _sign_body(body, mail_format, request.form.get('sign') == 'on',
                       current_user.moderation_signature)
 
-    if not liste_id:
-        return jsonify({'error': 'Sélectionnez une liste'}), 400
+    if not liste_ids:
+        return jsonify({'error': 'Sélectionnez au moins une liste'}), 400
 
-    liste = Liste.query.get_or_404(liste_id)
-    if not liste.active_contacts:
-        return jsonify({'error': 'Liste vide'}), 400
+    # Aperçu sur l'union dédoublonnée des listes cochées
+    recipients = _recipients_for_lists(liste_ids)
+    if not recipients:
+        return jsonify({'error': 'Aucun contact actif dans la sélection'}), 400
 
     # Sélectionner le contact par index (borné)
-    total = len(liste.active_contacts)
+    total = len(recipients)
     contact_index = max(0, min(contact_index, total - 1))
-    contact = liste.active_contacts[contact_index]
+    contact = recipients[contact_index]
     contact_dict = contact.to_dict()
 
     from mailer import EmailTemplate
@@ -294,13 +318,13 @@ def send():
     from mailer import Mailer, EmailTemplate, MailQueue
     from datetime import datetime
 
-    liste_id = request.form.get('liste_id', type=int)
+    liste_ids = request.form.getlist('liste_ids', type=int)
     subject = request.form.get('subject', '').strip()
     body = request.form.get('body', '').strip()
     mail_format = request.form.get('format', 'text')
 
-    if not all([liste_id, subject, body]):
-        flash('Tous les champs sont requis', 'error')
+    if not (liste_ids and subject and body):
+        flash('Sélectionnez au moins une liste, un sujet et un message.', 'error')
         return redirect(url_for('mailing.compose'))
 
     body = _sign_body(body, mail_format, request.form.get('sign') == 'on',
@@ -310,38 +334,38 @@ def send():
         flash('SMTP non configuré', 'error')
         return redirect(url_for('mailing.compose'))
 
-    liste = Liste.query.get_or_404(liste_id)
-    if not liste.active_contacts:
-        flash('Liste vide', 'error')
+    listes = Liste.query.filter(Liste.id.in_(liste_ids)).all()
+    if not listes:
+        flash('Liste(s) introuvable(s)', 'error')
         return redirect(url_for('mailing.compose'))
 
     include_unsubscribe = request.form.get('include_unsubscribe') == 'on'
 
-    # Filtrer les contacts désabonnés
-    active_contacts = [c for c in liste.active_contacts if not c.is_unsubscribed]
-    excluded = len(liste.active_contacts) - len(active_contacts)
+    # Union DÉDOUBLONNÉE des contacts actifs (désabonnés exclus)
+    recipients = _recipients_for_lists(liste_ids)
+    all_active_ids = {c.id for lst in listes for c in lst.active_contacts}
+    excluded = len(all_active_ids) - len(recipients)
     if excluded:
         flash(f'{excluded} contact{"s" if excluded > 1 else ""} désabonné{"s" if excluded > 1 else ""} exclu{"s" if excluded > 1 else ""} de l\'envoi', 'info')
 
-    if not active_contacts:
-        flash('Aucun contact actif dans cette liste (tous désabonnés)', 'error')
+    if not recipients:
+        flash('Aucun contact actif (listes vides ou tous désabonnés).', 'error')
         return redirect(url_for('mailing.compose'))
 
     # Détecter les emails partagés par plusieurs contacts
     email_counts = {}
-    for c in active_contacts:
+    for c in recipients:
         email_counts[c.email] = email_counts.get(c.email, 0) + 1
-    shared_emails = {e: n for e, n in email_counts.items() if n > 1}
-    if shared_emails:
-        nb = len(shared_emails)
-        flash(f'Attention : {nb} adresse{"s" if nb > 1 else ""} partagée{"s" if nb > 1 else ""} '
+    shared = sum(1 for n in email_counts.values() if n > 1)
+    if shared:
+        flash(f'Attention : {shared} adresse{"s" if shared > 1 else ""} partagée{"s" if shared > 1 else ""} '
               f'par plusieurs contacts. Chaque contact recevra son email personnalisé.', 'warning')
 
-    # Préparer les contacts
-    contacts = [c.to_dict() for c in active_contacts]
-
-    # Générer un ID de campagne
-    campaign_id = f"{liste.nom}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    # ID de campagne : nom de la 1re liste (+ « +N » si plusieurs)
+    id2nom = {lst.id: lst.nom for lst in listes}
+    primary = id2nom.get(liste_ids[0], 'Diffusion')
+    label = primary if len(liste_ids) == 1 else f"{primary}+{len(liste_ids) - 1}"
+    campaign_id = f"{label}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Sauvegarder les pièces jointes sur disque
     from werkzeug.utils import secure_filename
@@ -379,7 +403,7 @@ def send():
                                 sent_by=current_user.username,
                                 include_unsubscribe=include_unsubscribe,
                                 attachments=attachment_paths or None,
-                                liste_id=liste_id,
+                                liste_id=liste_ids[0], liste_ids=liste_ids,
                                 submission_id=submission_id)
 
     return redirect(url_for('mailing.confirm', campaign=campaign_id))
@@ -400,15 +424,15 @@ def confirm():
         flash('Campagne introuvable', 'error')
         return redirect(url_for('mailing.compose'))
 
-    liste_id = tpl.get('liste_id')
-    liste = Liste.query.get_or_404(liste_id)
-    active_contacts = [c for c in liste.active_contacts if not c.is_unsubscribed]
+    liste_ids = tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else [])
+    listes = Liste.query.filter(Liste.id.in_(liste_ids)).all()
+    recipients = _recipients_for_lists(liste_ids)
 
     return render_template('mailing_confirm.html',
                            campaign_id=campaign_id,
                            template=tpl,
-                           liste=liste,
-                           contacts=active_contacts)
+                           listes=listes,
+                           contacts=recipients)
 
 
 @bp.route('/mailing/add-to-queue', methods=['POST'])
@@ -425,10 +449,10 @@ def add_to_queue():
 
     queue = MailQueue()
     tpl = queue.get_campaign_template(campaign_id)
-    liste_id = tpl.get('liste_id')
-    liste = Liste.query.get_or_404(liste_id)
+    liste_ids = tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else [])
+    recipients = _recipients_for_lists(liste_ids)
 
-    selected = [c for c in liste.active_contacts if c.id in contact_ids and not c.is_unsubscribed]
+    selected = [c for c in recipients if c.id in contact_ids]
     for contact in selected:
         queue.add(contact.to_dict(), campaign_id)
 

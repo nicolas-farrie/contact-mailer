@@ -71,16 +71,26 @@
             <!-- Rail destinataires (colonne droite en desktop ; juste après l'éditeur en mobile) -->
         <aside class="composer-rail">
             <div class="card rail-card">
-                <div class="card-title">Destinataires</div>
-                <div class="form-group">
-                    <select id="liste_id" name="liste_id" required>
-                        <option value="">— Sélectionner une liste —</option>
-                        {% for liste in listes %}
-                        <option value="{{ liste.id }}" {% if prefill.liste_id|string == liste.id|string %}selected{% endif %}>{{ liste.nom }} ({{ liste.count }} contacts)</option>
-                        {% endfor %}
-                    </select>
-                    <p class="hint">La sélection multi-listes avec dédoublonnage arrive dans une prochaine tranche.</p>
+                <div class="rail-head">
+                    <span class="card-title">Destinataires</span>
+                    <span class="rail-listcount" id="rail-listcount"></span>
                 </div>
+                <input type="text" class="rail-search" id="rail-search" placeholder="Rechercher une liste…" onkeyup="filterLists()" autocomplete="off">
+                <div class="rail-lists" id="rail-lists">
+                    {% for liste in listes %}
+                    <label class="rail-list-item" data-nom="{{ liste.nom|lower }}">
+                        <input type="checkbox" name="liste_ids" value="{{ liste.id }}"
+                               {% if liste.id in prefill.liste_ids %}checked{% endif %} onchange="updateRecipients()">
+                        <span class="rail-list-nom">{{ liste.nom }}</span>
+                        <span class="rail-list-count">{{ liste.count }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="rail-total">
+                    <span>Total dédoublonné</span>
+                    <strong id="rail-total-count">0 contact</strong>
+                </div>
+                <p class="hint">Cochez plusieurs listes : les contacts en commun ne sont comptés qu'une fois.</p>
                 <div class="rail-actions">
                     <button type="submit" class="btn btn-primary btn-cta" {% if not smtp_configured %}disabled{% endif %}>Préparer l'envoi →</button>
                     <button type="button" class="btn btn-secondary" id="preview-btn" onclick="togglePreview()">Prévisualiser</button>
@@ -373,10 +383,13 @@ function removeAttachment(idx) {
 
 // === Brouillon (local) ===
 // Le corps est stocké dans un seul champ `body` (le textarea étant tenu synchro).
+function checkedListIds() {
+    return Array.from(document.querySelectorAll('input[name="liste_ids"]:checked')).map(function(cb) { return cb.value; });
+}
 function saveDraft() {
     syncBody();
     const draft = {
-        liste_id: document.getElementById('liste_id').value,
+        liste_ids: checkedListIds(),
         subject: document.getElementById('subject').value,
         body: bodyTextarea.value,
         include_unsubscribe: document.querySelector('input[name="include_unsubscribe"]').checked
@@ -390,7 +403,10 @@ function restoreDraft() {
     if (!raw) return false;
     try {
         const draft = JSON.parse(raw);
-        if (draft.liste_id) document.getElementById('liste_id').value = draft.liste_id;
+        (draft.liste_ids || []).forEach(function(id) {
+            const cb = document.querySelector('input[name="liste_ids"][value="' + id + '"]');
+            if (cb) cb.checked = true;
+        });
         if (draft.subject) document.getElementById('subject').value = draft.subject;
         const body = draft.body || draft.body_html || draft.body_text;  // compat anciens brouillons
         if (body) bodyTextarea.value = body;
@@ -401,9 +417,30 @@ function restoreDraft() {
     } catch(e) { return false; }
 }
 
+// === Rail Destinataires : compteur dédoublonné (live) + recherche ===
+function updateRecipients() {
+    const ids = checkedListIds();
+    const lc = document.getElementById('rail-listcount');
+    lc.textContent = ids.length ? ids.length + (ids.length > 1 ? ' listes' : ' liste') : '';
+    const totalEl = document.getElementById('rail-total-count');
+    if (!ids.length) { totalEl.textContent = '0 contact'; saveDraft(); return; }
+    const fd = new FormData();
+    ids.forEach(function(id) { fd.append('liste_ids', id); });
+    fetch('{{ url_for("mailing.recipients_count") }}', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(d) { totalEl.textContent = d.count + (d.count > 1 ? ' contacts' : ' contact'); })
+        .catch(function() {});
+    saveDraft();
+}
+function filterLists() {
+    const q = document.getElementById('rail-search').value.toLowerCase();
+    document.querySelectorAll('#rail-lists .rail-list-item').forEach(function(el) {
+        el.style.display = el.getAttribute('data-nom').indexOf(q) >= 0 ? '' : 'none';
+    });
+}
+
 document.getElementById('subject').addEventListener('input', saveDraft);
 bodyTextarea.addEventListener('input', saveDraft);
-document.getElementById('liste_id').addEventListener('change', saveDraft);
 document.querySelector('input[name="include_unsubscribe"]').addEventListener('change', saveDraft);
 
 // === Init ===
@@ -411,6 +448,7 @@ const hasPrefill = {{ 'true' if prefill.subject else 'false' }};
 if (!hasPrefill) { restoreDraft(); }
 initTinyMCE(bodyTextarea.value);
 toggleSignPreview();
+updateRecipients();
 
 // === Preview ===
 let previewVisible = false;

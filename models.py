@@ -218,7 +218,8 @@ class MailCampaign(db.Model):
     sent_by = db.Column(db.String(200), nullable=True)
     include_unsubscribe = db.Column(db.Boolean, default=False)
     attachments = db.Column(db.JSON, nullable=True)   # liste de chemins
-    liste_id = db.Column(db.Integer, nullable=True)
+    liste_id = db.Column(db.Integer, nullable=True)          # compat : 1re liste sélectionnée
+    liste_ids = db.Column(db.JSON, nullable=True)            # multi-listes (dédoublonnées à l'envoi)
     submission_id = db.Column(db.String(255), nullable=True)
     archived = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
@@ -236,6 +237,8 @@ class MailCampaign(db.Model):
             data['attachments'] = self.attachments
         if self.liste_id:
             data['liste_id'] = self.liste_id
+        if self.liste_ids:
+            data['liste_ids'] = self.liste_ids
         if self.submission_id:
             data['submission_id'] = self.submission_id
         if self.archived:

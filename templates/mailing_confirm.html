@@ -10,7 +10,9 @@
 <div class="info-box" style="margin-bottom:1.5rem;">
     <strong>Campagne :</strong> {{ campaign_id }}<br>
     <strong>Sujet :</strong> {{ template.subject }}<br>
-    <strong>Liste :</strong> {{ liste.nom }} — {{ contacts|length }} contact{{ 's' if contacts|length > 1 }} actif{{ 's' if contacts|length > 1 }}
+    <strong>Liste{{ 's' if listes|length > 1 }} :</strong>
+    {% for l in listes %}<span class="tag">{{ l.nom }}</span>{% endfor %}
+    — {{ contacts|length }} contact{{ 's' if contacts|length > 1 }} (dédoublonné{{ 's' if contacts|length > 1 }})
     {% if template.attachments %}<br>
     <strong>Pièces jointes :</strong>
     {% for path in template.attachments %}{{ path.split('/') | last }}{% if not loop.last %}, {% endif %}{% endfor %}
