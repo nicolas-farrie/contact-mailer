@@ -51,13 +51,13 @@
             <td><span class="badge badge-green">{{ liste.joignables }} joignables</span></td>
             <td>
                 <div class="table-actions">
-                    <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-small" title="Voir les contacts de la liste">Voir</a>
+                    <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-small" title="Voir les contacts de la liste">Voir contacts</a>
                     <button type="button" class="icon-btn" title="Modifier la liste"
-                            onclick="openEditListe({{ liste.id }}, {{ liste.nom|tojson }}, {{ (liste.description or '')|tojson }})">✎</button>
+                            onclick='openEditListe({{ liste.id }}, {{ liste.nom|tojson }}, {{ (liste.description or "")|tojson }})'>✎</button>
                     {% if current_user.is_admin %}
                     <a href="{{ url_for('imports.export_contacts', liste=liste.id) }}" class="icon-btn" title="Exporter en CSV">↓</a>
                     <button type="button" class="icon-btn icon-danger" title="Supprimer la liste"
-                            onclick="openDeleteListe({{ liste.id }}, {{ liste.nom|tojson }})">🗑</button>
+                            onclick='openDeleteListe({{ liste.id }}, {{ liste.nom|tojson }})'>🗑</button>
                     {% endif %}
                 </div>
             </td>
