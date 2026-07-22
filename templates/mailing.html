@@ -112,7 +112,8 @@
                 <button type="submit" class="btn btn-primary btn-cta" {% if not smtp_configured %}disabled{% endif %}>Continuer vers l'aperçu →</button>
                 <button type="submit" class="btn btn-secondary" formaction="{{ url_for('mailing.save_draft') }}" formnovalidate>Enregistrer le brouillon</button>
             </div>
-            <p class="hint" style="text-align:center;">Vous verrez le mail tel qu'il sera reçu, puis vous choisirez les destinataires.</p>
+            <p class="hint" style="text-align:center;">Vous verrez le mail tel qu'il sera reçu, puis vous choisirez les destinataires.<br>
+                Un brouillon enregistré se retrouve dans <a href="{{ url_for('mailing.history') }}">Historique → Brouillons</a>.</p>
         </aside>
 
         <!-- Bloc options fusionné : pièces jointes + pied de mail + signature -->

@@ -1210,7 +1210,10 @@ select:focus {
     grid-template-areas: "editor rail" "options rail";
 }
 .composer-editor { grid-area: editor; min-width: 0; }
-.composer-rail { grid-area: rail; position: sticky; top: 1rem; }
+/* Le rail empile plusieurs blocs (cartes, boutons, aide) : espacement homogène
+   conforme à la charte — sans ça, Récapitulatif / Envoyer un test / CTA se touchent. */
+.composer-rail { grid-area: rail; position: sticky; top: 1rem;
+    display: flex; flex-direction: column; gap: 0.85rem; }
 .composer-options { grid-area: options; display: flex; flex-direction: column; }
 .composer-options .opt-section { padding: 0.9rem 0; }
 .composer-options .opt-section:first-child { padding-top: 0; }
@@ -1264,7 +1267,7 @@ select:focus {
 .rail-card .rail-actions { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
 .rail-card .rail-actions .btn { width: 100%; }
 /* Actions SOUS la carte Destinataires (mockup CLD) */
-.rail-actions-outer { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.85rem; }
+.rail-actions-outer { display: flex; flex-direction: column; gap: 0.5rem; }
 .rail-actions-outer .btn { width: 100%; }
 
 /* Rail Destinataires : multi-listes + dédoublonnage */
@@ -1338,6 +1341,10 @@ select:focus {
 .swatch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
 .swatch:has(input:checked) { box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--text); }
 .swatch-auto { background: repeating-linear-gradient(45deg, var(--bg-muted), var(--bg-muted) 4px, var(--border) 4px, var(--border) 8px); }
+
+/* Carte « Brouillons » en tête de l'historique */
+.drafts-card { margin-bottom: 1.25rem; }
+.drafts-card .card-title { margin-bottom: 0.25rem; }
 
 /* ===== Barre d'étapes du parcours d'envoi ===== */
 .stepper { display: flex; align-items: center; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }

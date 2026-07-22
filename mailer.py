@@ -374,6 +374,21 @@ class MailQueue:
         campaigns.sort(key=lambda c: c['id'], reverse=True)
         return campaigns
 
+    def get_drafts_list(self):
+        """BROUILLONS : campagnes enregistrées mais jamais mises en file d'envoi.
+
+        Les listes de campagnes sont dérivées des items de la file ; un mailing
+        « enregistré comme brouillon » n'en a aucun et serait donc invisible.
+        On les retrouve ici en partant des campagnes elles-mêmes.
+        """
+        queued = {r[0] for r in db.session.query(MailQueueItem.campaign_id).distinct().all()}
+        drafts = [c for c in MailCampaign.query.all()
+                  if c.id not in queued and not c.archived]
+        drafts.sort(key=lambda c: c.created_at or datetime.min, reverse=True)
+        return [{'id': c.id, 'template': c.to_template(),
+                 'date': c.created_at.strftime('%d/%m/%Y %H:%M') if c.created_at else ''}
+                for c in drafts]
+
     def archive_campaign(self, campaign_id: str):
         """Masque une campagne de l'historique et annule les envois en attente."""
         (MailQueueItem.query

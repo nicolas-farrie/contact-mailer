@@ -140,12 +140,14 @@ def history():
     queue = MailQueue()
     campaigns = queue.get_campaigns_list()
     archived = queue.get_archived_campaigns_list()
+    drafts = queue.get_drafts_list()
 
     bounced_emails = {c.email for c in Contact.query.filter_by(has_bounced=True).all()}
     for c in campaigns + archived:
         c['stats']['bounced'] = len(c['sent_emails'] & bounced_emails)
 
-    return render_template('mailing_history.html', campaigns=campaigns, archived=archived)
+    return render_template('mailing_history.html', campaigns=campaigns,
+                           archived=archived, drafts=drafts)
 
 
 @bp.route('/mailing/queue/retry/<campaign_id>', methods=['POST'])

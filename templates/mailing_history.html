@@ -14,13 +14,43 @@
     </div>
 </div>
 
+{% if drafts %}
+<div class="card drafts-card">
+    <div class="card-title">Brouillons <span class="badge badge-gray">{{ drafts|length }}</span></div>
+    <p class="hint">Mailings enregistrés mais <strong>pas encore mis en file d'envoi</strong> — reprenez-les où vous les avez laissés.</p>
+    <table class="data-table">
+        <tbody>
+        {% for d in drafts %}
+        <tr>
+            <td>
+                <strong>{{ d.template.name or d.template.subject or d.id }}</strong>
+                {% if d.template.name and d.template.subject %}
+                <div class="liste-desc">Objet : {{ d.template.subject }}</div>
+                {% endif %}
+            </td>
+            <td style="white-space:nowrap" class="text-muted">{{ d.date }}</td>
+            <td class="actions-cell">
+                <a href="{{ url_for('mailing.compose', from_campaign=d.id) }}" class="btn btn-sm btn-primary">Reprendre</a>
+                <form method="POST" action="{{ url_for('mailing.discard') }}" style="display:inline"
+                      onsubmit="return confirm('Supprimer ce brouillon et ses pièces jointes ?');">
+                    <input type="hidden" name="campaign_id" value="{{ d.id }}">
+                    <button type="submit" class="btn btn-sm btn-danger">Supprimer</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
 {% if campaigns %}
 <div class="table-responsive">
 <table class="data-table">
     <thead>
         <tr>
             <th data-sort>Date</th>
-            <th data-sort>Sujet</th>
+            <th data-sort>Mailing</th>
             <th data-sort>Format</th>
             <th data-sort>Envoyé par</th>
             <th>Stats</th>
@@ -33,8 +63,11 @@
             <td style="white-space:nowrap">{{ c.date or '-' }}</td>
             <td class="campaign-subject" title="Cliquer pour afficher le contenu">
                 <span class="subject-toggle" onclick="toggleContent('content-{{ loop.index }}')">
-                    {{ c.template.subject if c.template else c.id }}
+                    {{ (c.template.name or c.template.subject) if c.template else c.id }}
                 </span>
+                {% if c.template and c.template.name and c.template.subject %}
+                <div class="liste-desc">Objet : {{ c.template.subject }}</div>
+                {% endif %}
             </td>
             <td>
                 {{ c.template.format|default('text', true) if c.template else '-' }}
