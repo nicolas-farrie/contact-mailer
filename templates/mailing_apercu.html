@@ -6,18 +6,15 @@
    et style le surlignage des variables substituées. #}
 {% set preview_css = '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#222;margin:0;padding:8px}img{max-width:100%}mark.var-hl{background:#dbe4ff;color:#1d3faf;border-radius:3px;padding:0 2px}</style>' %}
 
-{% block content %}
+{% block page_band %}
 {% import "_stepper.html" as steps %}
-<div class="page-header">
-    <div>
-        <h1>Aperçu</h1>
-        <p class="hint">Aperçu tel que l'email sera reçu — faites défiler vos contacts pour vérifier les variables.</p>
-    </div>
-    {{ steps.stepper(2, campaign_id) }}
-</div>
+{{ steps.band(2, campaign_id, template.subject or 'Mailing', 'Aperçu avant envoi') }}
+{% endblock %}
 
-<div class="step-back">
+{% block content %}
+<div class="step-back-row">
     <a href="{{ url_for('mailing.compose', from_campaign=campaign_id) }}" class="btn btn-secondary">← Retour à l'éditeur</a>
+    <span class="hint">Aperçu tel que l'email sera reçu — faites défiler vos contacts pour vérifier les variables.</span>
 </div>
 
 <div class="composer-grid apercu-grid">

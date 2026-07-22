@@ -1,18 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Destinataires - Contact Mailer{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{% block page_band %}
+{% import "_stepper.html" as steps %}
+{{ steps.band(3, campaign_id, template.subject or 'Mailing', 'Choix des destinataires') }}
+{% endblock %}
 
 {% block content %}
-{% import "_stepper.html" as steps %}
-<div class="page-header">
-    <div>
-        <h1>Destinataires</h1>
-        <p class="hint">Vérifiez et ajustez qui recevra l'envoi. Tout est sélectionné par défaut.</p>
-    </div>
-    {{ steps.stepper(3, campaign_id) }}
-</div>
-
-<div class="step-back">
+<div class="step-back-row">
     <a href="{{ url_for('mailing.apercu', campaign=campaign_id) }}" class="btn btn-secondary">← Retour à l'aperçu</a>
+    <span class="hint">Vérifiez et ajustez qui recevra l'envoi. Tout est sélectionné par défaut.</span>
 </div>
 
 <div class="card recap-card">

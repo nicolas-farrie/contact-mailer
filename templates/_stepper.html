@@ -11,6 +11,27 @@
   - `campaign_id` : si fourni, les étapes DÉJÀ FRANCHIES deviennent cliquables
     (on peut revenir en arrière) ; l'étape courante et les suivantes ne le sont pas.
 #}
+{#
+  bar() : LE point d'ancrage du rail. À placer en TOUT PREMIER dans le bloc
+  content des 4 écrans du parcours, pour que le rail soit toujours au même
+  endroit (indépendant de la longueur du titre ou du sous-titre de la page).
+#}
+{#
+  band() : le bandeau d'en-tête du parcours, PLEINE LARGEUR à droite de la sidebar.
+  À placer dans `{% block page_band %}` — il est donc au même endroit exact sur les
+  4 écrans, quel que soit le contenu en dessous.
+      titre du mailing (+ état) à gauche  |  rail des étapes à droite
+#}
+{% macro band(current, campaign_id=None, title='Nouveau mailing', subtitle=None) %}
+<div class="page-band">
+    <div class="page-band-title">
+        <h1>{{ title }}</h1>
+        {% if subtitle %}<p class="page-band-sub">{{ subtitle }}</p>{% endif %}
+    </div>
+    {{ stepper(current, campaign_id) }}
+</div>
+{% endmacro %}
+
 {% macro stepper(current, campaign_id=None) %}
 {% set hrefs = {
      1: url_for('mailing.compose', from_campaign=campaign_id),

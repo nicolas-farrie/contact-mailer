@@ -64,6 +64,9 @@
         {% if current_user.is_authenticated %}
             <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Menu">&#9776; Menu</button>
         {% endif %}
+            {# Bandeau d'en-tête pleine largeur (hors conteneur) : occupe tout
+               l'espace à droite de la sidebar. Utilisé par le parcours d'envoi. #}
+            {% block page_band %}{% endblock %}
             <main class="container {% block container_class %}{% endblock %}">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}

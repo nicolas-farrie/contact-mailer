@@ -2,17 +2,21 @@
 {% block title %}Nouveau mailing - Contact Mailer{% endblock %}
 {% block container_class %}container-wide{% endblock %}
 
+{% block page_band %}
+{% import "_stepper.html" as steps %}
+{{ steps.band(1, from_campaign_id,
+              prefill.subject if prefill.subject else 'Nouveau mailing',
+              'Brouillon — sujet et message restaurés automatiquement') }}
+{% endblock %}
+
 {% block content %}
 <script src="{{ url_for('static', filename='vendor/tinymce/tinymce.min.js') }}"></script>
 
-{% import "_stepper.html" as steps %}
 <div class="composer-head">
     <div>
-        <h1>Nouveau mailing</h1>
-        <p class="hint">Brouillon local — sujet et message sont restaurés automatiquement.
+        <p class="hint">Le titre affiché en haut reprend l'objet de l'email.
             <button type="button" class="linklike" onclick="clearDraft()">Vider le brouillon</button></p>
     </div>
-    {{ steps.stepper(1, from_campaign_id) }}
 </div>
 
 {% if not smtp_configured %}

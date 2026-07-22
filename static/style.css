@@ -1335,8 +1335,21 @@ select:focus {
 .step.is-current .step-num { background: var(--primary); color: #fff; }
 .step.is-current .step-label { color: var(--text); font-weight: 700; }
 a.step-body:hover .step-label { color: var(--text); }
-/* Bouton « retour à l'étape précédente », posé en haut du contenu */
-.step-back { margin-bottom: 0.9rem; }
+/* Bandeau d'en-tête du parcours : PLEINE LARGEUR à droite de la sidebar, donc
+   toujours au même endroit d'un écran à l'autre (un rail de process ne bouge pas). */
+.page-band { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+    padding: 0.9rem 1.75rem; background: var(--bg-surface);
+    border-bottom: 1px solid var(--border); }
+.page-band-title h1 { margin: 0; font-size: 1.35rem; line-height: 1.2; }
+.page-band-sub { margin: 0.15rem 0 0; font-size: 0.82rem; color: var(--text-muted); }
+
+@media (max-width: 860px) {
+    .page-band { padding: 0.75rem 1rem; gap: 0.75rem; }
+    .page-band-title h1 { font-size: 1.1rem; }
+}
+
+/* Ligne « retour à l'étape précédente » + consigne, en haut du contenu */
+.step-back-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 
 @media (max-width: 860px) {
     .step-label { display: none; }
