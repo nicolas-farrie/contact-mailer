@@ -1305,6 +1305,7 @@ select:focus {
     border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-surface);
     color: var(--text-secondary); cursor: pointer; font-size: 0.95rem; text-decoration: none; }
 .icon-btn:hover { background: var(--bg-muted); color: var(--text); }
+.icon-btn .ico { width: 18px; height: 18px; display: block; }
 .icon-btn.icon-danger:hover { color: var(--danger); border-color: var(--danger-border); }
 
 .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-secondary); }
