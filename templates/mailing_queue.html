@@ -2,11 +2,16 @@
 {% block title %}File d'attente - Contact Mailer{% endblock %}
 
 {% block content %}
+{% import "_stepper.html" as steps %}
 <div class="page-header">
-    <h1>File d'attente {% if campaign %}- {{ campaign }}{% endif %}</h1>
+    <h1>File d'attente {% if campaign %}<span class="text-muted" style="font-weight:400;">· {{ campaign }}</span>{% endif %}</h1>
+    {% if campaign %}
+    {{ steps.stepper(4, campaign) }}
+    {% else %}
     <div>
         <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
     </div>
+    {% endif %}
 </div>
 
 <div class="stats-grid">

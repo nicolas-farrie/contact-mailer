@@ -2,12 +2,17 @@
 {% block title %}Destinataires - Contact Mailer{% endblock %}
 
 {% block content %}
+{% import "_stepper.html" as steps %}
 <div class="page-header">
     <div>
         <h1>Destinataires</h1>
         <p class="hint">Vérifiez et ajustez qui recevra l'envoi. Tout est sélectionné par défaut.</p>
     </div>
-    <a href="{{ url_for('mailing.compose', from_campaign=campaign_id) }}" class="btn btn-secondary">← Modifier le message</a>
+    {{ steps.stepper(3, campaign_id) }}
+</div>
+
+<div class="step-back">
+    <a href="{{ url_for('mailing.apercu', campaign=campaign_id) }}" class="btn btn-secondary">← Retour à l'aperçu</a>
 </div>
 
 <div class="card recap-card">

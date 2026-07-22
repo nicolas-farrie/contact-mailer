@@ -1,0 +1,35 @@
+{#
+  Barre d'étapes du parcours d'envoi — SOURCE UNIQUE.
+
+      Composer → Aperçu → Destinataires → Envoi
+
+  Usage :
+      {% import "_stepper.html" as steps %}
+      {{ steps.stepper(2, campaign_id) }}
+
+  - `current` : numéro de l'étape affichée (1 à 4).
+  - `campaign_id` : si fourni, les étapes DÉJÀ FRANCHIES deviennent cliquables
+    (on peut revenir en arrière) ; l'étape courante et les suivantes ne le sont pas.
+#}
+{% macro stepper(current, campaign_id=None) %}
+{% set hrefs = {
+     1: url_for('mailing.compose', from_campaign=campaign_id),
+     2: url_for('mailing.apercu', campaign=campaign_id),
+     3: url_for('mailing.confirm', campaign=campaign_id)
+   } if campaign_id else {} %}
+<ol class="stepper" aria-label="Étapes de l'envoi">
+    {% for n, label in [(1, 'Composer'), (2, 'Aperçu'), (3, 'Destinataires'), (4, 'Envoi')] %}
+    <li class="step {% if n < current %}is-done{% elif n == current %}is-current{% endif %}">
+        {% if n < current and hrefs.get(n) %}
+        <a class="step-body" href="{{ hrefs[n] }}" title="Revenir à l'étape « {{ label }} »">
+            <span class="step-num">✓</span><span class="step-label">{{ label }}</span>
+        </a>
+        {% else %}
+        <span class="step-body"{% if n == current %} aria-current="step"{% endif %}>
+            <span class="step-num">{% if n < current %}✓{% else %}{{ n }}{% endif %}</span><span class="step-label">{{ label }}</span>
+        </span>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ol>
+{% endmacro %}

@@ -1184,7 +1184,8 @@ select:focus {
 .text-muted { color: var(--text-muted); }
 
 /* ===== Composer mailing (refonte v2) ===== */
-.composer-head { margin-bottom: 1.25rem; }
+.composer-head { display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
 .composer-head h1 { margin: 0; }
 .composer-head .hint { margin-top: 0.2rem; }
 
@@ -1318,6 +1319,29 @@ select:focus {
 .swatch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
 .swatch:has(input:checked) { box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--text); }
 .swatch-auto { background: repeating-linear-gradient(45deg, var(--bg-muted), var(--bg-muted) 4px, var(--border) 4px, var(--border) 8px); }
+
+/* ===== Barre d'étapes du parcours d'envoi ===== */
+.stepper { display: flex; align-items: center; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.step { display: flex; align-items: center; }
+.step + .step::before { content: ''; width: 26px; height: 1px; background: var(--border-strong);
+    margin: 0 0.5rem; flex-shrink: 0; }
+.step-body { display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; }
+.step-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+    border-radius: 50%; background: var(--bg-muted); color: var(--text-muted);
+    font-size: 0.74rem; font-weight: 700; flex-shrink: 0; }
+.step-label { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
+.step.is-done .step-num { background: var(--primary-tint); color: var(--primary-text); }
+.step.is-done .step-label { color: var(--text-secondary); }
+.step.is-current .step-num { background: var(--primary); color: #fff; }
+.step.is-current .step-label { color: var(--text); font-weight: 700; }
+a.step-body:hover .step-label { color: var(--text); }
+/* Bouton « retour à l'étape précédente », posé en haut du contenu */
+.step-back { margin-bottom: 0.9rem; }
+
+@media (max-width: 860px) {
+    .step-label { display: none; }
+    .step + .step::before { width: 14px; margin: 0 0.3rem; }
+}
 
 /* ===== Étape Aperçu (mailing_apercu) ===== */
 .apercu-grid { grid-template-areas: "editor rail"; }

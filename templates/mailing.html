@@ -5,12 +5,14 @@
 {% block content %}
 <script src="{{ url_for('static', filename='vendor/tinymce/tinymce.min.js') }}"></script>
 
+{% import "_stepper.html" as steps %}
 <div class="composer-head">
     <div>
         <h1>Nouveau mailing</h1>
         <p class="hint">Brouillon local — sujet et message sont restaurés automatiquement.
             <button type="button" class="linklike" onclick="clearDraft()">Vider le brouillon</button></p>
     </div>
+    {{ steps.stepper(1, from_campaign_id) }}
 </div>
 
 {% if not smtp_configured %}
