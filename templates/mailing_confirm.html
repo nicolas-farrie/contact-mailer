@@ -1,21 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Confirmer l'envoi - Contact Mailer{% endblock %}
+{% block title %}Destinataires - Contact Mailer{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1>Confirmer l'envoi</h1>
+    <div>
+        <h1>Destinataires</h1>
+        <p class="hint">Vérifiez et ajustez qui recevra l'envoi. Tout est sélectionné par défaut.</p>
+    </div>
     <a href="{{ url_for('mailing.compose', from_campaign=campaign_id) }}" class="btn btn-secondary">← Modifier le message</a>
 </div>
 
-<div class="info-box" style="margin-bottom:1.5rem;">
-    <strong>Campagne :</strong> {{ campaign_id }}<br>
-    <strong>Sujet :</strong> {{ template.subject }}<br>
-    <strong>Liste{{ 's' if listes|length > 1 }} :</strong>
-    {% for l in listes %}<span class="tag">{{ l.nom }}</span>{% endfor %}
-    — {{ contacts|length }} contact{{ 's' if contacts|length > 1 }} (dédoublonné{{ 's' if contacts|length > 1 }})
-    {% if template.attachments %}<br>
-    <strong>Pièces jointes :</strong>
-    {% for path in template.attachments %}{{ path.split('/') | last }}{% if not loop.last %}, {% endif %}{% endfor %}
+<div class="card recap-card">
+    <div><span class="recap-k">Sujet</span> {{ template.subject }}</div>
+    <div>
+        <span class="recap-k">Liste{{ 's' if listes|length > 1 }}</span>
+        {% for l in listes %}<span class="tag">{{ l.nom }}</span>{% endfor %}
+        <span class="text-muted">— {{ contacts|length }} contact{{ 's' if contacts|length > 1 }} dédoublonné{{ 's' if contacts|length > 1 }}</span>
+    </div>
+    {% if template.attachments %}
+    <div><span class="recap-k">Pièces jointes</span>
+        {% for path in template.attachments %}<span class="tag">{{ path.split('/') | last }}</span>{% endfor %}
+    </div>
     {% endif %}
 </div>
 
@@ -25,42 +30,43 @@
     <input type="hidden" name="submission_id" value="{{ template.submission_id }}">
     {% endif %}
 
-    <div class="bulk-actions" style="margin-bottom:1rem;">
-        <label class="select-all-label">
-            <input type="checkbox" id="select-all-confirm" checked> Tout sélectionner / désélectionner
-        </label>
-        <span style="margin-left:auto;font-size:0.875rem;color:var(--gray-500);">
-            <span id="selected-count">{{ contacts|length }}</span> / {{ contacts|length }} sélectionné{{ 's' if contacts|length > 1 }}
-        </span>
+    <div class="card">
+        <div class="recip-head">
+            <label class="checkbox-inline">
+                <input type="checkbox" id="select-all-confirm" checked>
+                <span>Tout sélectionner</span>
+            </label>
+            <span class="recip-count"><span id="selected-count">{{ contacts|length }}</span> contact{{ 's' if contacts|length > 1 }} sélectionné{{ 's' if contacts|length > 1 }}</span>
+        </div>
+
+        <table class="data-table recip-table">
+            <tbody>
+                {% for c in contacts %}
+                <tr class="recip-row">
+                    <td class="col-checkbox"><input type="checkbox" name="contact_ids" value="{{ c.id }}" class="contact-cb" checked></td>
+                    <td>
+                        <div class="recip-ident">
+                            <span class="avatar-sm">{{ ((c.prenom or ' ')[0] ~ (c.nom or ' ')[0])|upper }}</span>
+                            <div class="recip-ident-text">
+                                <strong>{{ c.prenom }} {{ c.nom }}</strong>
+                                <div class="recip-mail">{{ c.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="recip-tags">{% for l in c.listes %}<span class="tag">{{ l.nom }}</span>{% endfor %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="recip-foot">
+            <span class="text-muted" id="page-info"></span>
+            <div class="pager" id="pager"></div>
+        </div>
     </div>
 
-    <div class="table-responsive">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th class="col-checkbox"></th>
-                <th>Nom</th>
-                <th>Email</th>
-                <th>Organisation</th>
-                <th>Listes</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for c in contacts %}
-            <tr>
-                <td><input type="checkbox" name="contact_ids" value="{{ c.id }}" class="contact-cb" checked></td>
-                <td><strong>{{ c.nom }}</strong> {{ c.prenom }}</td>
-                <td>{{ c.email }}</td>
-                <td>{{ c.organisation or '-' }}</td>
-                <td>{% for l in c.listes %}<span class="tag">{{ l.nom }}</span>{% endfor %}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    </div>
-
-    <div class="form-actions" style="margin-top:1.5rem;">
-        <button type="submit" class="btn btn-primary" id="submit-btn">
+    <div class="form-actions" style="margin-top:1.25rem;">
+        <button type="submit" class="btn btn-primary btn-cta" id="submit-btn">
             Mettre en file d'envoi (<span id="submit-count">{{ contacts|length }}</span> contacts)
         </button>
         <button type="submit" class="btn btn-danger" formaction="{{ url_for('mailing.discard') }}"
@@ -69,8 +75,6 @@
 </form>
 
 <script>
-var total = {{ contacts|length }};
-
 // Abandonner : confirmation + purge du brouillon local (abandon réel)
 function abandonMailing() {
     if (!confirm('Abandonner ce mailing ? Le brouillon en cours et les pièces jointes enregistrées seront supprimés.')) return false;
@@ -78,20 +82,63 @@ function abandonMailing() {
     return true;
 }
 
+// --- Sélection (globale : porte sur TOUTES les pages, pas seulement la page affichée) ---
 function updateCount() {
     var n = document.querySelectorAll('.contact-cb:checked').length;
     document.getElementById('selected-count').textContent = n;
     document.getElementById('submit-count').textContent = n;
     document.getElementById('submit-btn').disabled = (n === 0);
 }
-
 document.getElementById('select-all-confirm').addEventListener('change', function() {
-    document.querySelectorAll('.contact-cb').forEach(cb => cb.checked = this.checked);
+    document.querySelectorAll('.contact-cb').forEach(function(cb) { cb.checked = this.checked; }, this);
     updateCount();
 });
-
-document.querySelectorAll('.contact-cb').forEach(cb => {
+document.querySelectorAll('.contact-cb').forEach(function(cb) {
     cb.addEventListener('change', updateCount);
 });
+
+// --- Pagination côté client : toutes les lignes restent dans le DOM,
+//     donc les cases cochées sont conservées d'une page à l'autre. ---
+var PAGE_SIZE = 25;
+var rows = Array.from(document.querySelectorAll('.recip-row'));
+var page = 1;
+
+function pageCount() { return Math.max(1, Math.ceil(rows.length / PAGE_SIZE)); }
+
+function renderPage() {
+    var start = (page - 1) * PAGE_SIZE, end = start + PAGE_SIZE;
+    rows.forEach(function(r, i) { r.style.display = (i >= start && i < end) ? '' : 'none'; });
+    document.getElementById('page-info').textContent = rows.length
+        ? 'Contacts ' + (start + 1) + '–' + Math.min(end, rows.length) + ' sur ' + rows.length : '';
+    renderPager();
+}
+
+function renderPager() {
+    var pager = document.getElementById('pager');
+    pager.innerHTML = '';
+    var total = pageCount();
+    if (total <= 1) return;
+    function btn(label, target, disabled, current) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'pager-btn' + (current ? ' is-current' : '');
+        b.textContent = label;
+        b.disabled = !!disabled;
+        if (!disabled && !current) b.onclick = function() { page = target; renderPage(); };
+        pager.appendChild(b);
+    }
+    btn('‹', page - 1, page === 1);
+    // fenêtre de 5 pages autour de la page courante
+    var from = Math.max(1, page - 2), to = Math.min(total, from + 4);
+    from = Math.max(1, to - 4);
+    if (from > 1) btn('1', 1, false, page === 1);
+    if (from > 2) { var e = document.createElement('span'); e.className = 'pager-gap'; e.textContent = '…'; pager.appendChild(e); }
+    for (var p = from; p <= to; p++) btn(String(p), p, false, p === page);
+    if (to < total - 1) { var e2 = document.createElement('span'); e2.className = 'pager-gap'; e2.textContent = '…'; pager.appendChild(e2); }
+    if (to < total) btn(String(total), total, false, page === total);
+    btn('›', page + 1, page === total);
+}
+
+renderPage();
 </script>
 {% endblock %}

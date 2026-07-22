@@ -1319,6 +1319,31 @@ select:focus {
 .swatch:has(input:checked) { box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--text); }
 .swatch-auto { background: repeating-linear-gradient(45deg, var(--bg-muted), var(--bg-muted) 4px, var(--border) 4px, var(--border) 8px); }
 
+/* ===== Étape Destinataires (mailing_confirm) ===== */
+.recap-card { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; font-size: 0.9rem; }
+.recap-k { display: inline-block; min-width: 6.5rem; font-weight: 600; color: var(--text-secondary); }
+
+.recip-head { display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 0.6rem; border-bottom: 1px solid var(--divider); }
+.recip-count { font-size: 0.85rem; font-weight: 600; color: var(--primary); }
+
+.recip-table td { vertical-align: middle; }
+.recip-ident { display: flex; align-items: center; gap: 0.6rem; }
+.recip-ident-text strong { font-size: 0.92rem; }
+.recip-mail { font-size: 0.82rem; color: var(--text-muted); }
+.recip-tags { text-align: right; }
+
+.recip-foot { display: flex; align-items: center; justify-content: space-between;
+    padding-top: 0.7rem; border-top: 1px solid var(--divider); font-size: 0.85rem; }
+.pager { display: flex; align-items: center; gap: 0.25rem; }
+.pager-btn { min-width: 30px; height: 30px; padding: 0 0.45rem; cursor: pointer;
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--bg-surface); color: var(--text-secondary); font-size: 0.85rem; }
+.pager-btn:hover:not(:disabled):not(.is-current) { background: var(--bg-muted); color: var(--text); }
+.pager-btn.is-current { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.pager-btn:disabled { opacity: 0.4; cursor: default; }
+.pager-gap { padding: 0 0.15rem; color: var(--text-muted); }
+
 /* Section « Listes archivées » (repli) */
 .archived-section { margin-top: 1.25rem; }
 .archived-section > summary { cursor: pointer; color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; width: fit-content; }
