@@ -1286,8 +1286,18 @@ select:focus {
 .rail-total { display: flex; align-items: baseline; justify-content: space-between; margin-top: 0.6rem;
     padding-top: 0.5rem; border-top: 1px solid var(--divider); font-size: 0.85rem; color: var(--text-secondary); }
 .rail-total strong { color: var(--primary); font-size: 0.95rem; }
-/* Bouton d'action principal : plus haut (~1,5×) pour le mettre en avant */
-.btn-cta { padding-top: 0.85rem; padding-bottom: 0.85rem; font-size: 1.02rem; font-weight: 700; }
+/* Bouton d'action principal du parcours : emphase IDENTIQUE partout.
+   inline-flex + min-height neutralisent les écarts <button>/<a> et les retours
+   à la ligne (on mesurait 48 / 54 / 67 px sur les 3 écrans avant ce correctif). */
+.btn-cta {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    min-height: 48px; padding: 0.6rem 1.4rem;
+    font-size: 1.02rem; font-weight: 700; line-height: 1.2; text-align: center;
+    white-space: nowrap;   /* un libellé long élargit le bouton, il ne le rallonge pas */
+}
+@media (max-width: 520px) {
+    .btn-cta { white-space: normal; }   /* sur mobile étroit, on autorise le retour à la ligne */
+}
 
 /* Prévisualisation */
 .preview-panel { margin-top: 1.25rem; }
