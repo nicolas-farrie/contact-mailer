@@ -107,6 +107,11 @@ class Liste(db.Model):
     def count(self):
         return sum(1 for c in self.contacts if not c.is_deleted)
 
+    @property
+    def joignables(self):
+        """Contacts actifs (non supprimés) ET non désabonnés = destinataires réels."""
+        return sum(1 for c in self.contacts if not c.is_deleted and not c.is_unsubscribed)
+
 
 class User(UserMixin, db.Model):
     """Utilisateur avec rôles (admin/user)"""

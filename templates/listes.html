@@ -1,36 +1,145 @@
 {% extends "base.html" %}
 {% block title %}Listes - Contact Mailer{% endblock %}
 
+{% set DOT_COLORS = ['#3f56cc','#2e9e6b','#c08a2d','#7c5cd6','#d15b5b','#4b5563','#0e9aa7','#b3568a'] %}
+
+{% macro liste_fields(liste, idp) %}
+    <div class="form-group">
+        <label for="{{ idp }}nom">Nom de la liste *</label>
+        <input type="text" id="{{ idp }}nom" name="nom" value="{{ liste.nom if liste else '' }}" required placeholder="Ex. Bénévoles">
+    </div>
+    <div class="form-group">
+        <label for="{{ idp }}desc">Description <span class="hint" style="font-weight:normal;">(optionnel)</span></label>
+        <textarea id="{{ idp }}desc" name="description" rows="3" placeholder="À quoi sert cette liste ? Elle s'affiche sous ce nom dans les formulaires de préférences.">{{ liste.description if liste and liste.description else '' }}</textarea>
+    </div>
+{% endmacro %}
+
 {% block content %}
 <div class="page-header">
-    <h1>Listes <span class="count">({{ listes|length }})</span></h1>
-    <a href="{{ url_for('listes.new') }}" class="btn btn-primary">+ Nouvelle liste</a>
+    <div>
+        <h1>Listes <span class="text-muted" style="font-weight:400;">· {{ listes|length }}</span></h1>
+        <p class="hint">Regroupez vos contacts par centre d'intérêt. Une liste sert à cibler un mailing ou à être proposée dans un formulaire.</p>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="openModal('modal-liste-new')">+ Nouvelle liste</button>
 </div>
 
-<div class="cards-grid">
-    {% for liste in listes %}
-    <div class="card">
-        <div class="card-header">
-            <h3>{{ liste.nom }}</h3>
-            <span class="badge">{{ liste.count }} contacts</span>
-        </div>
-        {% if liste.description %}
-        <p class="card-description">{{ liste.description }}</p>
-        {% endif %}
-        <div class="card-actions">
-            <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-small">Voir contacts</a>
-            {% if current_user.is_admin %}
-            <a href="{{ url_for('imports.export_contacts', liste=liste.id) }}" class="btn btn-small">Exporter</a>
-            {% endif %}
-            <a href="{{ url_for('listes.edit', id=liste.id) }}" class="btn btn-warning btn-small">Modifier</a>
-            <form method="POST" action="{{ url_for('listes.delete', id=liste.id) }}" style="display:inline">
-                <button type="submit" class="btn btn-danger btn-small"
-                        onclick="return confirm('Supprimer cette liste ? Les contacts ne seront pas supprimés.')">Suppr.</button>
+<div class="stat-tiles">
+    <div class="stat-tile"><div class="stat-num">{{ totals.listes }}</div><div class="stat-label">Listes actives</div></div>
+    <div class="stat-tile"><div class="stat-num">{{ totals.contacts }}</div><div class="stat-label">Contacts au total</div></div>
+    <div class="stat-tile"><div class="stat-num">{{ totals.joignables }}</div><div class="stat-label">Abonnés joignables</div></div>
+</div>
+
+{% if listes %}
+<div class="card">
+    <table class="data-table listes-table">
+        <thead>
+            <tr><th>Liste</th><th>Contacts</th><th>Abonnés</th><th class="col-actions"></th></tr>
+        </thead>
+        <tbody>
+        {% for liste in listes %}
+        <tr>
+            <td>
+                <div class="liste-ident">
+                    <span class="liste-dot" style="background:{{ DOT_COLORS[liste.id % (DOT_COLORS|length)] }}"></span>
+                    <div class="liste-ident-text">
+                        <strong>{{ liste.nom }}</strong>
+                        {% if liste.description %}<div class="liste-desc">{{ liste.description }}</div>{% endif %}
+                    </div>
+                </div>
+            </td>
+            <td><strong>{{ liste.count }}</strong></td>
+            <td><span class="badge badge-green">{{ liste.joignables }} joignables</span></td>
+            <td>
+                <div class="table-actions">
+                    <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-small" title="Voir les contacts de la liste">Voir</a>
+                    <button type="button" class="icon-btn" title="Modifier la liste"
+                            onclick="openEditListe({{ liste.id }}, {{ liste.nom|tojson }}, {{ (liste.description or '')|tojson }})">✎</button>
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('imports.export_contacts', liste=liste.id) }}" class="icon-btn" title="Exporter en CSV">↓</a>
+                    <button type="button" class="icon-btn icon-danger" title="Supprimer la liste"
+                            onclick="openDeleteListe({{ liste.id }}, {{ liste.nom|tojson }})">🗑</button>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="hint listes-note">Supprimer une liste ne supprime pas les contacts qu'elle contient — ils restent dans votre base et dans leurs autres listes.</p>
+{% else %}
+<div class="card empty-state">
+    <p>Aucune liste pour l'instant.</p>
+    <button type="button" class="btn btn-primary" onclick="openModal('modal-liste-new')">+ Créer votre première liste</button>
+</div>
+{% endif %}
+
+<!-- Modale : nouvelle liste -->
+<div class="modal-overlay" id="modal-liste-new" onclick="if(event.target===this)closeModal('modal-liste-new')">
+    <div class="modal">
+        <div class="modal-header"><h2>Nouvelle liste</h2><button type="button" class="modal-close" onclick="closeModal('modal-liste-new')" aria-label="Fermer">&times;</button></div>
+        <div class="modal-body">
+            <form method="POST" action="{{ url_for('listes.new') }}">
+                {{ liste_fields(None, 'nu_') }}
+                <p class="field-info-box">Les contacts s'ajoutent ensuite depuis une fiche contact, un import, ou un formulaire de préférences.</p>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Créer la liste</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-liste-new')">Annuler</button>
+                </div>
             </form>
         </div>
     </div>
-    {% else %}
-    <p class="empty">Aucune liste créée</p>
-    {% endfor %}
 </div>
+
+<!-- Modale : édition (partagée) -->
+<div class="modal-overlay" id="modal-liste-edit" onclick="if(event.target===this)closeModal('modal-liste-edit')">
+    <div class="modal">
+        <div class="modal-header"><h2>Modifier la liste</h2><button type="button" class="modal-close" onclick="closeModal('modal-liste-edit')" aria-label="Fermer">&times;</button></div>
+        <div class="modal-body">
+            <form method="POST" id="edit-liste-form">
+                {{ liste_fields(None, 'ed_') }}
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-liste-edit')">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modale : suppression (partagée, admin) -->
+<div class="modal-overlay" id="modal-liste-delete" onclick="if(event.target===this)closeModal('modal-liste-delete')">
+    <div class="modal">
+        <div class="modal-header"><h2>Supprimer « <span id="del-liste-nom"></span> » ?</h2><button type="button" class="modal-close" onclick="closeModal('modal-liste-delete')" aria-label="Fermer">&times;</button></div>
+        <div class="modal-body">
+            <p>La liste sera définitivement supprimée.</p>
+            <p class="field-info-box">Les contacts qu'elle contient <strong>ne sont pas supprimés</strong> — ils restent dans votre base et dans leurs autres listes.</p>
+            <form method="POST" id="delete-liste-form">
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-danger">Supprimer la liste</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-liste-delete')">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openModal(id){ document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ document.querySelectorAll('.modal-overlay.open').forEach(function(m){ m.classList.remove('open'); }); document.body.style.overflow=''; } });
+
+function openEditListe(id, nom, desc){
+    const f = document.getElementById('edit-liste-form');
+    f.action = '/listes/' + id + '/edit';
+    document.getElementById('ed_nom').value = nom;
+    document.getElementById('ed_desc').value = desc || '';
+    openModal('modal-liste-edit');
+}
+function openDeleteListe(id, nom){
+    document.getElementById('delete-liste-form').action = '/listes/' + id + '/delete';
+    document.getElementById('del-liste-nom').textContent = nom;
+    openModal('modal-liste-delete');
+}
+</script>
 {% endblock %}
