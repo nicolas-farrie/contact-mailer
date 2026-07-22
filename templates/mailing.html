@@ -5,7 +5,7 @@
 {% block page_band %}
 {% import "_stepper.html" as steps %}
 {{ steps.band(1, from_campaign_id,
-              prefill.subject if prefill.subject else 'Nouveau mailing',
+              prefill.name or prefill.subject or 'Nouveau mailing',
               'Brouillon — sujet et message restaurés automatiquement') }}
 {% endblock %}
 
@@ -14,7 +14,7 @@
 
 <div class="composer-head">
     <div>
-        <p class="hint">Le titre affiché en haut reprend l'objet de l'email.
+        <p class="hint">Votre saisie est conservée automatiquement dans ce navigateur.
             <button type="button" class="linklike" onclick="clearDraft()">Vider le brouillon</button></p>
     </div>
 </div>
@@ -26,6 +26,9 @@
 {% endif %}
 
 <form method="POST" action="{{ url_for('mailing.send') }}" class="mailing-form" id="mailing-form" enctype="multipart/form-data">
+    {# Campagne en cours d'édition : on la MET À JOUR au lieu d'en créer une nouvelle
+       à chaque aller-retour (sinon, campagnes orphelines). #}
+    {% if from_campaign_id %}<input type="hidden" name="from_campaign_id" value="{{ from_campaign_id }}">{% endif %}
     {% if submission_id %}
     <input type="hidden" name="submission_id" value="{{ submission_id }}">
     <div class="alert alert-info">
@@ -51,6 +54,11 @@
     <div class="composer-grid">
             <!-- Carte éditeur -->
             <div class="card composer-editor">
+                <div class="form-group">
+                    <label for="name">Nom du mailing <span class="hint" style="font-weight:normal;">(interne — sert à le retrouver ; par défaut l'objet)</span></label>
+                    <input type="text" id="name" name="name" value="{{ prefill.name }}" maxlength="200"
+                           placeholder="Ex. Infolettre de mars">
+                </div>
                 <div class="form-group">
                     <label for="subject">Objet de l'email *</label>
                     <input type="text" id="subject" name="subject" required
@@ -97,11 +105,14 @@
                     <strong id="rail-total-count">0 contact</strong>
                 </div>
                 <p class="hint">Cochez plusieurs listes : les contacts en commun ne sont comptés qu'une fois.</p>
-                <div class="rail-actions">
-                    <button type="submit" class="btn btn-primary btn-cta" {% if not smtp_configured %}disabled{% endif %}>Continuer vers l'aperçu →</button>
-                </div>
-                <p class="hint">Vous verrez le mail tel qu'il sera reçu, puis vous choisirez les destinataires.</p>
             </div>
+
+            {# Actions SOUS la carte Destinataires (et non dedans), comme le mockup CLD #}
+            <div class="rail-actions-outer">
+                <button type="submit" class="btn btn-primary btn-cta" {% if not smtp_configured %}disabled{% endif %}>Continuer vers l'aperçu →</button>
+                <button type="submit" class="btn btn-secondary" formaction="{{ url_for('mailing.save_draft') }}" formnovalidate>Enregistrer le brouillon</button>
+            </div>
+            <p class="hint" style="text-align:center;">Vous verrez le mail tel qu'il sera reçu, puis vous choisirez les destinataires.</p>
         </aside>
 
         <!-- Bloc options fusionné : pièces jointes + pied de mail + signature -->
@@ -109,7 +120,6 @@
             <div class="opt-section">
                 <div class="card-title">Pièces jointes</div>
                 {% if campaign_attachments %}
-                <input type="hidden" name="from_campaign_id" value="{{ from_campaign_id }}">
                 <p class="hint" style="margin:0 0 0.3rem;">Pièces jointes déjà enregistrées (décochez pour retirer) :</p>
                 <ul class="attach-list">
                     {% for fn in campaign_attachments %}

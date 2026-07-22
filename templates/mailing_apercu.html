@@ -8,7 +8,8 @@
 
 {% block page_band %}
 {% import "_stepper.html" as steps %}
-{{ steps.band(2, campaign_id, template.subject or 'Mailing', 'Aperçu avant envoi') }}
+{{ steps.band(2, campaign_id, template.name or template.subject or 'Mailing',
+              'Aperçu avant envoi', renamable=True) }}
 {% endblock %}
 
 {% block content %}

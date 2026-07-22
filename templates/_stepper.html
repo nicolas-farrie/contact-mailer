@@ -22,10 +22,27 @@
   4 écrans, quel que soit le contenu en dessous.
       titre du mailing (+ état) à gauche  |  rail des étapes à droite
 #}
-{% macro band(current, campaign_id=None, title='Nouveau mailing', subtitle=None) %}
+{% macro band(current, campaign_id=None, title='Nouveau mailing', subtitle=None, renamable=False) %}
 <div class="page-band">
     <div class="page-band-title">
+        {% if renamable and campaign_id %}
+        <div class="band-name" id="band-name">
+            <h1>{{ title }}</h1>
+            <button type="button" class="band-edit" title="Renommer le mailing"
+                    onclick="document.getElementById('band-name').style.display='none';
+                             var f=document.getElementById('band-rename'); f.style.display='flex';
+                             var i=document.getElementById('band-rename-input'); i.focus(); i.select();">✎</button>
+        </div>
+        <form class="band-rename" id="band-rename" method="POST" action="{{ url_for('mailing.rename') }}" style="display:none;">
+            <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
+            <input type="hidden" name="back" value="{{ request.full_path }}">
+            <input type="text" id="band-rename-input" name="name" value="{{ title }}"
+                   maxlength="200" placeholder="Nom du mailing" autocomplete="off">
+            <button type="submit" class="btn btn-small btn-primary">Renommer</button>
+        </form>
+        {% else %}
         <h1>{{ title }}</h1>
+        {% endif %}
         {% if subtitle %}<p class="page-band-sub">{{ subtitle }}</p>{% endif %}
     </div>
     {{ stepper(current, campaign_id) }}

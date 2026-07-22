@@ -4,7 +4,8 @@
 
 {% block page_band %}
 {% import "_stepper.html" as steps %}
-{{ steps.band(3, campaign_id, template.subject or 'Mailing', 'Choix des destinataires') }}
+{{ steps.band(3, campaign_id, template.name or template.subject or 'Mailing',
+              'Choix des destinataires', renamable=True) }}
 {% endblock %}
 
 {% block content %}

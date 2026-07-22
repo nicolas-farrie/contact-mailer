@@ -221,6 +221,7 @@ class MailCampaign(db.Model):
     conservée telle quelle pour compat avec le reste du code."""
     __tablename__ = 'mail_campaign'
     id = db.Column(db.String(255), primary_key=True, autoincrement=False)
+    name = db.Column(db.String(200), nullable=True)   # nom lisible du mailing (≠ objet)
     subject = db.Column(db.Text, default='')
     body = db.Column(db.Text, default='')
     format = db.Column(db.String(10), default='text')
@@ -239,7 +240,8 @@ class MailCampaign(db.Model):
         si vides)."""
         data = {'subject': self.subject or '', 'body': self.body or '',
                 'format': self.format or 'text',
-                'include_unsubscribe': bool(self.include_unsubscribe)}
+                'include_unsubscribe': bool(self.include_unsubscribe),
+                'name': self.name or ''}
         if self.sent_by:
             data['sent_by'] = self.sent_by
         if self.attachments:

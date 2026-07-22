@@ -4,7 +4,9 @@
 {% block page_band %}
 {% if campaign %}
 {% import "_stepper.html" as steps %}
-{{ steps.band(4, campaign, template.subject if template and template.subject else 'Mailing', 'Envoi en cours / file d\'attente') }}
+{{ steps.band(4, campaign,
+              (template.name or template.subject) if template else 'Mailing',
+              'Envoi en cours / file d\'attente') }}
 {% endif %}
 {% endblock %}
 

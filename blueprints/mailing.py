@@ -77,7 +77,7 @@ def compose():
     smtp_configured = bool(Config.SMTP_HOST and Config.SMTP_USER)
 
     # Pré-remplissage depuis l'historique (réutilisation par campaign_id)
-    prefill = {'subject': '', 'body': '', 'format': 'text', 'liste_ids': []}
+    prefill = {'name': '', 'subject': '', 'body': '', 'format': 'text', 'liste_ids': []}
     campaign_attachments = []   # PJ déjà enregistrées (réutilisation / retour édition)
     from_campaign_id = None
     sign_checked = bool(current_user.moderation_signature)
@@ -87,6 +87,7 @@ def compose():
         tpl = MailQueue().get_campaign_template(from_campaign)
         if tpl:
             prefill = {
+                'name': tpl.get('name', ''),
                 'subject': tpl.get('subject', ''),
                 'body': tpl.get('body', ''),
                 'format': tpl.get('format', 'text'),
@@ -454,33 +455,37 @@ def send_test():
     return redirect(back)
 
 
-@bp.route('/mailing/send', methods=['POST'])
-@login_required
-def send():
-    """Prépare la campagne puis mène à l'étape 2 (Aperçu)"""
-    from mailer import Mailer, EmailTemplate, MailQueue
+def _persist_campaign_from_form(reuse_id=None):
+    """Valide le formulaire du Composer et enregistre la campagne (template + PJ).
+
+    Partagé par « Continuer vers l'aperçu » et « Enregistrer le brouillon ».
+    Si `reuse_id` est fourni (on revient éditer une campagne existante), on MET À
+    JOUR cette campagne au lieu d'en créer une nouvelle — sinon chaque aller-retour
+    laissait derrière lui une campagne orpheline.
+
+    Retourne (campaign_id, None) en cas de succès, (None, message) sinon.
+    """
+    from mailer import MailQueue
     from datetime import datetime
 
     liste_ids = request.form.getlist('liste_ids', type=int)
+    name = (request.form.get('name') or '').strip() or None
     subject = request.form.get('subject', '').strip()
     body = request.form.get('body', '').strip()
     mail_format = request.form.get('format', 'text')
 
     if not (liste_ids and subject and body):
-        flash('Sélectionnez au moins une liste, un sujet et un message.', 'error')
-        return redirect(url_for('mailing.compose'))
+        return None, 'Sélectionnez au moins une liste, un sujet et un message.'
 
     body = _sign_body(body, mail_format, request.form.get('sign') == 'on',
                       current_user.moderation_signature)
 
     if not Config.SMTP_HOST:
-        flash('SMTP non configuré', 'error')
-        return redirect(url_for('mailing.compose'))
+        return None, 'SMTP non configuré'
 
     listes = Liste.query.filter(Liste.id.in_(liste_ids)).all()
     if not listes:
-        flash('Liste(s) introuvable(s)', 'error')
-        return redirect(url_for('mailing.compose'))
+        return None, 'Liste(s) introuvable(s)'
 
     include_unsubscribe = request.form.get('include_unsubscribe') == 'on'
 
@@ -492,8 +497,7 @@ def send():
         flash(f'{excluded} contact{"s" if excluded > 1 else ""} désabonné{"s" if excluded > 1 else ""} exclu{"s" if excluded > 1 else ""} de l\'envoi', 'info')
 
     if not recipients:
-        flash('Aucun contact actif (listes vides ou tous désabonnés).', 'error')
-        return redirect(url_for('mailing.compose'))
+        return None, 'Aucun contact actif (listes vides ou tous désabonnés).'
 
     # Détecter les emails partagés par plusieurs contacts
     email_counts = {}
@@ -504,11 +508,14 @@ def send():
         flash(f'Attention : {shared} adresse{"s" if shared > 1 else ""} partagée{"s" if shared > 1 else ""} '
               f'par plusieurs contacts. Chaque contact recevra son email personnalisé.', 'warning')
 
-    # ID de campagne : nom de la 1re liste (+ « +N » si plusieurs)
-    id2nom = {lst.id: lst.nom for lst in listes}
-    primary = id2nom.get(liste_ids[0], 'Diffusion')
-    label = primary if len(liste_ids) == 1 else f"{primary}+{len(liste_ids) - 1}"
-    campaign_id = f"{label}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    if reuse_id:
+        campaign_id = reuse_id          # on met à jour la campagne en cours d'édition
+    else:
+        # ID de campagne : nom de la 1re liste (+ « +N » si plusieurs)
+        id2nom = {lst.id: lst.nom for lst in listes}
+        primary = id2nom.get(liste_ids[0], 'Diffusion')
+        label = primary if len(liste_ids) == 1 else f"{primary}+{len(liste_ids) - 1}"
+        campaign_id = f"{label}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Sauvegarder les pièces jointes sur disque
     from werkzeug.utils import secure_filename
@@ -555,16 +562,51 @@ def send():
                         attachment_paths.append(str(dest))
 
     # Sauvegarder le template (sans encore peupler la queue)
-    queue = MailQueue()
-    queue.set_campaign_template(campaign_id, subject, body, mail_format,
-                                sent_by=current_user.username,
-                                include_unsubscribe=include_unsubscribe,
-                                attachments=attachment_paths or None,
-                                liste_id=liste_ids[0], liste_ids=liste_ids,
-                                submission_id=submission_id)
+    MailQueue().set_campaign_template(campaign_id, subject, body, mail_format,
+                                      sent_by=current_user.username,
+                                      include_unsubscribe=include_unsubscribe,
+                                      attachments=attachment_paths or None,
+                                      liste_id=liste_ids[0], liste_ids=liste_ids,
+                                      submission_id=submission_id, name=name)
+    return campaign_id, None
 
-    # Étape 1 (Composer) -> étape 2 (Aperçu), conformément au process validé
+
+@bp.route('/mailing/send', methods=['POST'])
+@login_required
+def send():
+    """Étape 1 (Composer) -> étape 2 (Aperçu), conformément au process validé."""
+    campaign_id, err = _persist_campaign_from_form(request.form.get('from_campaign_id') or None)
+    if err:
+        flash(err, 'error')
+        return redirect(url_for('mailing.compose'))
     return redirect(url_for('mailing.apercu', campaign=campaign_id))
+
+
+@bp.route('/mailing/save-draft', methods=['POST'])
+@login_required
+def save_draft():
+    """Enregistre le mailing sans quitter le Composer (bouton du mockup)."""
+    campaign_id, err = _persist_campaign_from_form(request.form.get('from_campaign_id') or None)
+    if err:
+        flash(err, 'error')
+        return redirect(url_for('mailing.compose'))
+    flash('Brouillon enregistré.', 'success')
+    return redirect(url_for('mailing.compose', from_campaign=campaign_id))
+
+
+@bp.route('/mailing/rename', methods=['POST'])
+@login_required
+def rename():
+    """Renomme le mailing depuis le bandeau (nom lisible, distinct de l'objet)."""
+    from mailer import MailQueue
+    campaign_id = request.form.get('campaign_id')
+    new_name = (request.form.get('name') or '').strip()
+    camp = db.session.get(MailCampaign, campaign_id) if campaign_id else None
+    if camp:
+        camp.name = new_name or None
+        db.session.commit()
+        flash('Mailing renommé.' if new_name else 'Nom du mailing effacé.', 'success')
+    return redirect(request.form.get('back') or url_for('mailing.apercu', campaign=campaign_id))
 
 
 @bp.route('/mailing/confirm')
