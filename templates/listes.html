@@ -3,6 +3,8 @@
 
 {% set DOT_COLORS = ['#3f56cc','#2e9e6b','#c08a2d','#7c5cd6','#d15b5b','#4b5563','#0e9aa7','#b3568a'] %}
 
+{% macro liste_dot(liste) %}<span class="liste-dot" style="background:{{ liste.color or DOT_COLORS[liste.id % (DOT_COLORS|length)] }}"></span>{% endmacro %}
+
 {% macro liste_fields(liste, idp) %}
     <div class="form-group">
         <label for="{{ idp }}nom">Nom de la liste *</label>
@@ -11,6 +13,19 @@
     <div class="form-group">
         <label for="{{ idp }}desc">Description <span class="hint" style="font-weight:normal;">(optionnel)</span></label>
         <textarea id="{{ idp }}desc" name="description" rows="3" placeholder="À quoi sert cette liste ? Elle s'affiche sous ce nom dans les formulaires de préférences.">{{ liste.description if liste and liste.description else '' }}</textarea>
+    </div>
+    <div class="form-group">
+        <label>Couleur du repère</label>
+        <div class="color-swatches">
+            {% for c in DOT_COLORS %}
+            <label class="swatch" style="--sw:{{ c }}" title="{{ c }}">
+                <input type="radio" name="color" value="{{ c }}"{% if liste and liste.color == c %} checked{% endif %}>
+            </label>
+            {% endfor %}
+            <label class="swatch swatch-auto" title="Automatique">
+                <input type="radio" name="color" value=""{% if not liste or not liste.color %} checked{% endif %}>
+            </label>
+        </div>
     </div>
 {% endmacro %}
 
@@ -40,7 +55,7 @@
         <tr>
             <td>
                 <div class="liste-ident">
-                    <span class="liste-dot" style="background:{{ DOT_COLORS[liste.id % (DOT_COLORS|length)] }}"></span>
+                    {{ liste_dot(liste) }}
                     <div class="liste-ident-text">
                         <strong>{{ liste.nom }}</strong>
                         {% if liste.description %}<div class="liste-desc">{{ liste.description }}</div>{% endif %}
@@ -48,17 +63,24 @@
                 </div>
             </td>
             <td><strong>{{ liste.count }}</strong></td>
-            <td><span class="badge badge-green">{{ liste.joignables }} joignables</span></td>
+            <td>
+                {% if liste.joignables < liste.count %}
+                <span class="badge badge-green">{{ liste.joignables }} joignables</span>
+                {% else %}
+                <span class="text-muted">tous</span>
+                {% endif %}
+            </td>
             <td>
                 <div class="table-actions">
                     <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-small" title="Voir les contacts de la liste">Voir contacts</a>
                     <button type="button" class="icon-btn" title="Modifier la liste"
-                            onclick='openEditListe({{ liste.id }}, {{ liste.nom|tojson }}, {{ (liste.description or "")|tojson }})'>✎</button>
+                            onclick='openEditListe({{ liste.id }}, {{ liste.nom|tojson }}, {{ (liste.description or "")|tojson }}, {{ (liste.color or "")|tojson }})'>✎</button>
                     {% if current_user.is_admin %}
                     <a href="{{ url_for('imports.export_contacts', liste=liste.id) }}" class="icon-btn" title="Exporter en CSV">↓</a>
-                    <button type="button" class="icon-btn icon-danger" title="Supprimer la liste"
-                            onclick='openDeleteListe({{ liste.id }}, {{ liste.nom|tojson }})'>🗑</button>
                     {% endif %}
+                    <form method="POST" action="{{ url_for('listes.archive', id=liste.id) }}" style="display:inline">
+                        <button type="submit" class="icon-btn" title="Archiver la liste">🗄</button>
+                    </form>
                 </div>
             </td>
         </tr>
@@ -66,12 +88,48 @@
         </tbody>
     </table>
 </div>
-<p class="hint listes-note">Supprimer une liste ne supprime pas les contacts qu'elle contient — ils restent dans votre base et dans leurs autres listes.</p>
+<p class="hint listes-note">Archiver une liste la retire d'ici sans rien supprimer — les contacts restent dans votre base et dans leurs autres listes. La suppression définitive (admin) se fait depuis les archives.</p>
 {% else %}
 <div class="card empty-state">
-    <p>Aucune liste pour l'instant.</p>
+    <p>Aucune liste active pour l'instant.</p>
     <button type="button" class="btn btn-primary" onclick="openModal('modal-liste-new')">+ Créer votre première liste</button>
 </div>
+{% endif %}
+
+{% if archivees %}
+<details class="archived-section">
+    <summary>Listes archivées ({{ archivees|length }})</summary>
+    <div class="card" style="margin-top:0.6rem;">
+        <table class="data-table listes-table">
+            <tbody>
+            {% for liste in archivees %}
+            <tr>
+                <td>
+                    <div class="liste-ident">
+                        {{ liste_dot(liste) }}
+                        <div class="liste-ident-text"><strong>{{ liste.nom }}</strong>
+                            {% if liste.description %}<div class="liste-desc">{{ liste.description }}</div>{% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td>{{ liste.count }} contacts</td>
+                <td>
+                    <div class="table-actions">
+                        <form method="POST" action="{{ url_for('listes.unarchive', id=liste.id) }}" style="display:inline">
+                            <button type="submit" class="btn btn-small">Restaurer</button>
+                        </form>
+                        {% if current_user.is_admin %}
+                        <button type="button" class="icon-btn icon-danger" title="Supprimer définitivement"
+                                onclick='openDeleteListe({{ liste.id }}, {{ liste.nom|tojson }})'>🗑</button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
 {% endif %}
 
 <!-- Modale : nouvelle liste -->
@@ -107,16 +165,16 @@
     </div>
 </div>
 
-<!-- Modale : suppression (partagée, admin) -->
+<!-- Modale : suppression définitive (partagée, admin) -->
 <div class="modal-overlay" id="modal-liste-delete" onclick="if(event.target===this)closeModal('modal-liste-delete')">
     <div class="modal">
         <div class="modal-header"><h2>Supprimer « <span id="del-liste-nom"></span> » ?</h2><button type="button" class="modal-close" onclick="closeModal('modal-liste-delete')" aria-label="Fermer">&times;</button></div>
         <div class="modal-body">
-            <p>La liste sera définitivement supprimée.</p>
+            <p>La liste archivée sera <strong>définitivement</strong> supprimée.</p>
             <p class="field-info-box">Les contacts qu'elle contient <strong>ne sont pas supprimés</strong> — ils restent dans votre base et dans leurs autres listes.</p>
             <form method="POST" id="delete-liste-form">
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-danger">Supprimer la liste</button>
+                    <button type="submit" class="btn btn-danger">Supprimer définitivement</button>
                     <button type="button" class="btn btn-secondary" onclick="closeModal('modal-liste-delete')">Annuler</button>
                 </div>
             </form>
@@ -129,11 +187,12 @@ function openModal(id){ document.getElementById(id).classList.add('open'); docum
 function closeModal(id){ document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
 document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ document.querySelectorAll('.modal-overlay.open').forEach(function(m){ m.classList.remove('open'); }); document.body.style.overflow=''; } });
 
-function openEditListe(id, nom, desc){
+function openEditListe(id, nom, desc, color){
     const f = document.getElementById('edit-liste-form');
     f.action = '/listes/' + id + '/edit';
     document.getElementById('ed_nom').value = nom;
     document.getElementById('ed_desc').value = desc || '';
+    f.querySelectorAll('input[name="color"]').forEach(function(r){ r.checked = (r.value === (color || '')); });
     openModal('modal-liste-edit');
 }
 function openDeleteListe(id, nom){

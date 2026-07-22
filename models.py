@@ -92,6 +92,10 @@ class Liste(db.Model):
     nom = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)   # archivage réversible
+    color = db.Column(db.String(9), nullable=True)                       # pastille choisie (#rrggbb)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
 
     # Relation many-to-many avec les contacts
     contacts = db.relationship('Contact', secondary=contact_liste, back_populates='listes')
