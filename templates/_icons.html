@@ -1,0 +1,32 @@
+{#
+  Jeu d'icônes d'action partagé — SOURCE UNIQUE.
+
+  Règle (posée avec Nicolas) : dans une même zone/barre d'actions, on ne mélange
+  pas libellés et pictos. Là où la zone est en icônes, on utilise CE jeu, pour que
+  le même verbe ait toujours le même picto dans toute l'application.
+
+  Style commun : viewBox 24, trait 2px, bouts/jointures ronds, `currentColor`
+  (l'icône prend la couleur du bouton, y compris au survol et en variante danger).
+
+  Usage :
+      {% import "_icons.html" as ico %}
+      <button class="icon-btn" title="Archiver">{{ ico.archive() }}</button>
+#}
+
+{# Voir / afficher #}
+{% macro eye() %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>{% endmacro %}
+
+{# Modifier #}
+{% macro edit() %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>{% endmacro %}
+
+{# Exporter / télécharger #}
+{% macro download() %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>{% endmacro %}
+
+{# Archiver (carton + flèche bas) — picto de référence du verbe « archiver » #}
+{% macro archive() %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8 L6 3.5 H18 L20 8"/><rect x="4" y="8" width="16" height="12.5" rx="1.5"/><path d="M12 11v5.5"/><path d="M9.5 14l2.5 2.5 2.5-2.5"/></svg>{% endmacro %}
+
+{# Restaurer / désarchiver (même carton, flèche inversée) #}
+{% macro unarchive() %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8 L6 3.5 H18 L20 8"/><rect x="4" y="8" width="16" height="12.5" rx="1.5"/><path d="M12 17v-5.5"/><path d="M9.5 14l2.5-2.5 2.5 2.5"/></svg>{% endmacro %}
+
+{# Supprimer #}
+{% macro trash() %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></svg>{% endmacro %}
