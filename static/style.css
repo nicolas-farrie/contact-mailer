@@ -1284,11 +1284,14 @@ select:focus {
 }
 
 /* ===== Écran Listes (v2) ===== */
-.stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
+.stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
 .stat-tile { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-    padding: 1.1rem 1.25rem; box-shadow: var(--shadow-card); }
-.stat-num { font-size: 1.9rem; font-weight: 800; line-height: 1; color: var(--text); }
-.stat-label { margin-top: 0.35rem; font-size: 0.85rem; color: var(--text-secondary); }
+    padding: 0.7rem 0.9rem; box-shadow: var(--shadow-card); }
+.stat-num { font-size: 1.45rem; font-weight: 800; line-height: 1; color: var(--text); }
+.stat-label { margin-top: 0.2rem; font-size: 0.78rem; color: var(--text-secondary); }
+
+/* Clé de tri invisible (le tri global lit textContent) — ex. dates */
+.sortkey { display: none; }
 
 .listes-table td { vertical-align: middle; }
 .liste-ident { display: flex; align-items: flex-start; gap: 0.6rem; }

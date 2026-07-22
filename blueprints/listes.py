@@ -8,7 +8,7 @@ import re
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
-from models import db, Liste
+from models import db, Liste, Contact, MailCampaign
 from helpers import admin_required
 
 bp = Blueprint('listes', __name__)
@@ -30,17 +30,37 @@ def _duplicate_nom(nom, exclude_id=None):
     return q.first() is not None
 
 
+def _last_use_by_liste():
+    """Date du dernier mailing ayant utilisé chaque liste ({liste_id: datetime}).
+
+    Sert au « ménage » : repérer les listes qui ne servent plus. Les campagnes sont
+    peu nombreuses → calcul en Python (liste_ids est du JSON, pas requêtable en SQL)."""
+    last = {}
+    for camp in MailCampaign.query.all():
+        if not camp.created_at:
+            continue
+        ids = camp.liste_ids or ([camp.liste_id] if camp.liste_id else [])
+        for lid in ids:
+            if lid not in last or camp.created_at > last[lid]:
+                last[lid] = camp.created_at
+    return last
+
+
 @bp.route('/listes')
 @login_required
 def index():
     actives = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
     archivees = Liste.query.filter_by(is_archived=True).order_by(Liste.nom).all()
+    # Totaux GLOBAUX et DÉDOUBLONNÉS : le désabonnement est une notion globale,
+    # pas par liste (cf. décision produit) → on compte des contacts distincts.
+    base = Contact.query.filter(Contact.is_deleted == False)
     totals = {
         'listes': len(actives),
-        'contacts': sum(l.count for l in actives),
-        'joignables': sum(l.joignables for l in actives),
+        'contacts': base.count(),
+        'joignables': base.filter(Contact.is_unsubscribed == False).count(),
     }
-    return render_template('listes.html', listes=actives, archivees=archivees, totals=totals)
+    return render_template('listes.html', listes=actives, archivees=archivees,
+                           totals=totals, last_use=_last_use_by_liste())
 
 
 @bp.route('/listes/new', methods=['POST'])

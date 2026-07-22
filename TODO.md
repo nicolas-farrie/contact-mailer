@@ -118,6 +118,11 @@
 - [ ] Envoi asynchrone (ne pas bloquer l'interface pendant l'envoi)
 - [ ] Pagination de la liste des contacts
 - [x] Cache-busting des assets statiques (fait : ?v=mtime via global Jinja asset_version) (`?v={{ config.APP_VERSION }}` sur style.css / JS) — évite que le navigateur serve un ancien CSS après déploiement (piège rencontré en test refonte : Ctrl+Shift+R nécessaire)
+- [ ] **Segments dynamiques accessibles à l'utilisateur** (décision 22/07) : donner accès depuis la page Contacts
+  aux sélections calculées — **désabonnés**, **bounces** (`has_bounced`), **jamais mailés**, corbeille — sous forme de
+  filtres/vues. Aujourd'hui la page Contacts ne filtre que par liste / source / recherche → impossible de voir les
+  désabonnés. Les listes restent l'outil end-user "curé" ; les segments sont l'outil dynamique, mais ils doivent être
+  **manipulables par l'utilisateur**, pas seulement internes. (Version ultérieure, validé.)
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
 - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
