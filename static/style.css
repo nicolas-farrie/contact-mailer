@@ -1319,6 +1319,30 @@ select:focus {
 .swatch:has(input:checked) { box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--text); }
 .swatch-auto { background: repeating-linear-gradient(45deg, var(--bg-muted), var(--bg-muted) 4px, var(--border) 4px, var(--border) 8px); }
 
+/* ===== Étape Aperçu (mailing_apercu) ===== */
+.apercu-grid { grid-template-areas: "editor rail"; }
+.apercu-main { grid-area: editor; min-width: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+
+.apercu-nav { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.apercu-contact { display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 0; }
+.icon-btn.is-disabled { opacity: 0.35; pointer-events: none; }
+.apercu-hl { font-size: 0.88rem; }
+
+.mail-preview { padding: 0; overflow: hidden; }
+.mail-head { padding: 0.9rem 1rem; border-bottom: 1px solid var(--divider); background: var(--bg-app); }
+.mail-objet-k { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.mail-objet { font-size: 1.02rem; font-weight: 700; margin-top: 0.1rem; }
+.mail-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem; }
+#mail-frame { width: 100%; border: 0; min-height: 320px; display: block; }
+.mail-text { white-space: pre-wrap; padding: 1rem; margin: 0; font-family: inherit; font-size: 0.9rem; }
+.mail-preview .hint { padding: 0 1rem 0.8rem; }
+
+.recap-line { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+    padding: 0.35rem 0; font-size: 0.85rem; color: var(--text-secondary); }
+.recap-line + .recap-line { border-top: 1px solid var(--divider); }
+.recap-line strong { color: var(--text); text-align: right; }
+.apercu-cta { display: block; text-align: center; }
+
 /* ===== Étape Destinataires (mailing_confirm) ===== */
 .recap-card { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; font-size: 0.9rem; }
 .recap-k { display: inline-block; min-width: 6.5rem; font-weight: 600; color: var(--text-secondary); }

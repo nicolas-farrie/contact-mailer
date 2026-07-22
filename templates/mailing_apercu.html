@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Aperçu - Contact Mailer{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{# CSS injecté DANS l'iframe : isole le rendu du mail de la CSS de l'app,
+   et style le surlignage des variables substituées. #}
+{% set preview_css = '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#222;margin:0;padding:8px}img{max-width:100%}mark.var-hl{background:#dbe4ff;color:#1d3faf;border-radius:3px;padding:0 2px}</style>' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Aperçu</h1>
+        <p class="hint">Aperçu tel que l'email sera reçu — faites défiler vos contacts pour vérifier les variables.</p>
+    </div>
+    <a href="{{ url_for('mailing.compose', from_campaign=campaign_id) }}" class="btn btn-secondary">← Retour à l'éditeur</a>
+</div>
+
+<div class="composer-grid apercu-grid">
+    <div class="apercu-main">
+        <!-- Navigation entre destinataires -->
+        <div class="card apercu-nav">
+            <a class="icon-btn {% if index == 0 %}is-disabled{% endif %}"
+               {% if index > 0 %}href="{{ url_for('mailing.apercu', campaign=campaign_id, i=index-1, hl='1' if highlight else '0') }}"{% endif %}
+               title="Destinataire précédent">‹</a>
+            <div class="apercu-contact">
+                <span class="avatar-sm">{{ ((contact.prenom or ' ')[0] ~ (contact.nom or ' ')[0])|upper }}</span>
+                <div>
+                    <strong>{{ contact.prenom }} {{ contact.nom }}</strong>
+                    <span class="text-muted"> · {{ index + 1 }} sur {{ total }}</span>
+                    <div class="recip-mail">{{ contact.email }}</div>
+                </div>
+            </div>
+            <a class="icon-btn {% if index + 1 >= total %}is-disabled{% endif %}"
+               {% if index + 1 < total %}href="{{ url_for('mailing.apercu', campaign=campaign_id, i=index+1, hl='1' if highlight else '0') }}"{% endif %}
+               title="Destinataire suivant">›</a>
+        </div>
+
+        <label class="checkbox-inline apercu-hl">
+            <input type="checkbox" {% if highlight %}checked{% endif %}
+                   onchange="location.href='{{ url_for('mailing.apercu', campaign=campaign_id, i=index) }}&hl=' + (this.checked ? '1' : '0')">
+            <span>Surligner les variables personnalisées</span>
+        </label>
+
+        <!-- Le mail rendu -->
+        <div class="card mail-preview">
+            <div class="mail-head">
+                <div class="mail-objet-k">Objet</div>
+                <div class="mail-objet">{{ subject }}</div>
+                <div class="mail-meta">De : {{ sender_name }} &lt;{{ sender_email }}&gt; · À : {{ contact.email }}</div>
+            </div>
+            {% if is_html %}
+            <iframe id="mail-frame" srcdoc="{{ preview_css ~ body }}" title="Aperçu du message"></iframe>
+            {% else %}
+            <pre class="mail-text">{{ body }}</pre>
+            {% endif %}
+            <p class="hint">🔒 Les liens sont neutralisés dans l'aperçu — ils resteront cliquables dans l'email envoyé.</p>
+        </div>
+    </div>
+
+    <aside class="composer-rail">
+        <div class="card">
+            <div class="card-title">Récapitulatif</div>
+            <div class="recap-line"><span>Expéditeur</span><strong>{{ sender_name or '—' }}</strong></div>
+            <div class="recap-line"><span>Destinataires</span><strong>{{ total }} contact{{ 's' if total > 1 }}</strong></div>
+            <div class="recap-line"><span>Liste{{ 's' if listes|length > 1 }}</span>
+                <strong>{% for l in listes %}<span class="tag">{{ l.nom }}</span>{% endfor %}</strong></div>
+            <div class="recap-line"><span>Pièces jointes</span>
+                <strong>{{ template.attachments|length if template.attachments else 0 }} fichier{{ 's' if template.attachments and template.attachments|length > 1 }}</strong></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Envoyer un test</div>
+            <p class="hint">Recevez l'email sur votre adresse avant l'envoi réel.</p>
+            <form method="POST" action="{{ url_for('mailing.send_test') }}">
+                <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
+                <input type="hidden" name="i" value="{{ index }}">
+                <div class="form-group">
+                    <input type="email" name="test_email" value="{{ test_email }}" required placeholder="vous@exemple.fr">
+                </div>
+                <button type="submit" class="btn btn-secondary" style="width:100%;">Envoyer un test</button>
+            </form>
+        </div>
+
+        <a href="{{ url_for('mailing.confirm', campaign=campaign_id) }}" class="btn btn-primary btn-cta apercu-cta">Préparer l'envoi →</a>
+        <p class="hint" style="text-align:center;">Vous choisirez précisément les destinataires à l'étape suivante, avant l'envoi définitif.</p>
+    </aside>
+</div>
+
+<script>
+// Ajuste la hauteur de l'iframe au contenu du mail
+var f = document.getElementById('mail-frame');
+if (f) {
+    f.addEventListener('load', function() {
+        try { f.style.height = (f.contentDocument.body.scrollHeight + 24) + 'px'; } catch (e) {}
+    });
+}
+</script>
+{% endblock %}

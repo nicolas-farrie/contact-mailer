@@ -92,9 +92,9 @@
                 </div>
                 <p class="hint">Cochez plusieurs listes : les contacts en commun ne sont comptés qu'une fois.</p>
                 <div class="rail-actions">
-                    <button type="submit" class="btn btn-primary btn-cta" {% if not smtp_configured %}disabled{% endif %}>Préparer l'envoi →</button>
-                    <button type="button" class="btn btn-secondary" id="preview-btn" onclick="togglePreview()">Prévisualiser</button>
+                    <button type="submit" class="btn btn-primary btn-cta" {% if not smtp_configured %}disabled{% endif %}>Continuer vers l'aperçu →</button>
                 </div>
+                <p class="hint">Vous verrez le mail tel qu'il sera reçu, puis vous choisirez les destinataires.</p>
             </div>
         </aside>
 
@@ -157,24 +157,7 @@
         </div>
     </div>
 
-    <!-- Panneau de prévisualisation -->
-    <div class="card preview-panel" id="preview-panel" style="display:none;">
-        <div class="preview-header">
-            <h3>Prévisualisation</h3>
-            <div class="preview-nav">
-                <button type="button" class="btn btn-small" id="prev-btn" onclick="previewNav(-1)" disabled>&larr;</button>
-                <span id="preview-counter">1 / ?</span>
-                <button type="button" class="btn btn-small" id="next-btn" onclick="previewNav(1)">&rarr;</button>
-            </div>
-        </div>
-        <p class="hint" id="preview-contact"></p>
-        <p class="hint">🔒 Les liens sont désactivés dans l'aperçu (ils resteront cliquables dans l'email envoyé).</p>
-        <div class="preview-subject" id="preview-subject"></div>
-        <div class="preview-body" id="preview-body">
-            <iframe id="preview-iframe" srcdoc="" style="display:none;width:100%;border:none;min-height:300px;"></iframe>
-            <div id="preview-text"></div>
-        </div>
-    </div>
+    {# L'aperçu n'est plus un panneau inline : c'est l'étape 2 du parcours d'envoi. #}
 </form>
 
 <script>
@@ -464,51 +447,6 @@ initTinyMCE(bodyTextarea.value);
 toggleSignPreview();
 updateRecipients();
 
-// === Preview ===
-let previewVisible = false;
-let previewIndex = 0;
-let previewTotal = 0;
-
-function togglePreview() {
-    if (previewVisible) {
-        document.getElementById('preview-panel').style.display = 'none';
-        document.getElementById('preview-btn').textContent = 'Prévisualiser';
-        previewVisible = false;
-        return;
-    }
-    previewIndex = 0;
-    loadPreview();
-}
-function previewNav(delta) { previewIndex += delta; loadPreview(); }
-
-function loadPreview() {
-    syncBody();
-    const formData = new FormData(document.getElementById('mailing-form'));
-    formData.set('contact_index', previewIndex);
-    fetch('{{ url_for("mailing.preview") }}', {method: 'POST', body: formData})
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) { alert(data.error); return; }
-            previewIndex = data.index;
-            previewTotal = data.total;
-            document.getElementById('preview-contact').textContent = 'Aperçu pour : ' + data.contact;
-            document.getElementById('preview-subject').textContent = data.subject;
-            document.getElementById('preview-counter').textContent = (previewIndex + 1) + ' / ' + previewTotal;
-            document.getElementById('prev-btn').disabled = (previewIndex <= 0);
-            document.getElementById('next-btn').disabled = (previewIndex >= previewTotal - 1);
-            const iframe = document.getElementById('preview-iframe');
-            const previewText = document.getElementById('preview-text');
-            iframe.srcdoc = data.body;
-            iframe.style.display = 'block';
-            previewText.style.display = 'none';
-            iframe.onload = function() {
-                try { iframe.style.height = iframe.contentDocument.body.scrollHeight + 20 + 'px'; } catch(e) {}
-            };
-            document.getElementById('preview-panel').style.display = 'block';
-            document.getElementById('preview-btn').textContent = 'Masquer l\'aperçu';
-            previewVisible = true;
-        })
-        .catch(err => alert('Erreur : ' + err));
-}
+// (L'aperçu est désormais l'étape 2 du parcours : écran /mailing/apercu.)
 </script>
 {% endblock %}

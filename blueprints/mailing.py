@@ -341,10 +341,123 @@ def preview():
     })
 
 
+# Variables simples {prenom} — PAS les conditionnelles {champ:si:sinon} (qui
+# contiennent un « : »), qu'on ne doit pas altérer.
+_SIMPLE_VAR_RE = re.compile(r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}')
+
+
+def _highlight_vars(body):
+    """Entoure chaque variable simple d'un <mark> AVANT la substitution : la
+    valeur substituée ressort donc surlignée dans l'aperçu."""
+    return _SIMPLE_VAR_RE.sub(lambda m: f'<mark class="var-hl">{m.group(0)}</mark>', body or '')
+
+
+def _render_campaign_for(tpl, contact, highlight=False):
+    """Rend (sujet, corps) d'une campagne pour un contact donné, comme il sera reçu."""
+    from mailer import EmailTemplate
+    mail_format = tpl.get('format', 'html')
+    body = tpl.get('body', '')
+    if highlight and mail_format == 'html':
+        body = _highlight_vars(body)
+    unsub_url = (f"{Config.BASE_URL}/unsubscribe/{contact.uid}"
+                 if tpl.get('include_unsubscribe') else None)
+    et = EmailTemplate(subject=tpl.get('subject', ''),
+                       body_text=body if mail_format == 'text' else '',
+                       body_html=body if mail_format == 'html' else None)
+    subject, body_text, body_html = et.render(contact.to_dict(), unsubscribe_url=unsub_url)
+    return subject, (body_html if mail_format == 'html' else body_text), (mail_format == 'html')
+
+
+def _campaign_liste_ids(tpl):
+    return tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else [])
+
+
+@bp.route('/mailing/apercu')
+@login_required
+def apercu():
+    """Étape 2 « Aperçu » : le mail tel qu'il sera reçu, contact par contact."""
+    from mailer import MailQueue
+    campaign_id = request.args.get('campaign')
+    if not campaign_id:
+        return redirect(url_for('mailing.compose'))
+    tpl = MailQueue().get_campaign_template(campaign_id)
+    if not tpl:
+        flash('Campagne introuvable', 'error')
+        return redirect(url_for('mailing.compose'))
+
+    liste_ids = _campaign_liste_ids(tpl)
+    listes = Liste.query.filter(Liste.id.in_(liste_ids)).all()
+    recipients = _recipients_for_lists(liste_ids)
+    if not recipients:
+        flash('Aucun destinataire actif dans la sélection.', 'error')
+        return redirect(url_for('mailing.compose', from_campaign=campaign_id))
+
+    total = len(recipients)
+    index = max(0, min(request.args.get('i', 0, type=int), total - 1))
+    contact = recipients[index]
+    highlight = request.args.get('hl', '1') != '0'
+
+    subject, body, is_html = _render_campaign_for(tpl, contact, highlight=highlight)
+    # Liens neutralisés dans l'aperçu (ne pas déclencher un vrai formulaire).
+    if is_html and body:
+        body = re.sub(r'<a\b', '<a onclick="return false;" style="cursor:default;"',
+                      body, flags=re.IGNORECASE)
+
+    return render_template('mailing_apercu.html',
+                           campaign_id=campaign_id, template=tpl, listes=listes,
+                           contact=contact, index=index, total=total,
+                           subject=subject, body=body, is_html=is_html,
+                           highlight=highlight,
+                           sender_name=Config.SMTP_SENDER_NAME or Config.SMTP_SENDER_EMAIL,
+                           sender_email=Config.SMTP_SENDER_EMAIL,
+                           test_email=getattr(current_user, 'email', '') or '')
+
+
+@bp.route('/mailing/send-test', methods=['POST'])
+@login_required
+def send_test():
+    """Envoie UN exemplaire du mail à une adresse de test (aperçu réel en boîte)."""
+    from mailer import Mailer, MailQueue
+    campaign_id = request.form.get('campaign_id')
+    to_email = (request.form.get('test_email') or '').strip()
+    index = request.form.get('i', 0, type=int)
+    back = url_for('mailing.apercu', campaign=campaign_id, i=index)
+
+    if not to_email:
+        flash('Indiquez une adresse pour le test.', 'error')
+        return redirect(back)
+    if not Config.SMTP_HOST:
+        flash('SMTP non configuré : impossible d\'envoyer un test.', 'error')
+        return redirect(back)
+
+    tpl = MailQueue().get_campaign_template(campaign_id)
+    recipients = _recipients_for_lists(_campaign_liste_ids(tpl)) if tpl else []
+    if not tpl or not recipients:
+        flash('Campagne ou destinataires introuvables.', 'error')
+        return redirect(back)
+
+    contact = recipients[max(0, min(index, len(recipients) - 1))]
+    subject, body, is_html = _render_campaign_for(tpl, contact)
+    mailer = Mailer(Config.SMTP_HOST, Config.SMTP_PORT, Config.SMTP_USER,
+                    Config.SMTP_PASSWORD, Config.SMTP_SENDER_EMAIL,
+                    Config.SMTP_SENDER_NAME, Config.SMTP_USE_TLS)
+    try:
+        ok = mailer.send_single(to_email, f'[TEST] {subject}',
+                                body if not is_html else '',
+                                body if is_html else None,
+                                attachments=tpl.get('attachments'))
+        flash(f'Email de test envoyé à {to_email}.' if ok
+              else f'Échec de l\'envoi du test à {to_email}.',
+              'success' if ok else 'error')
+    except Exception as e:
+        flash(f'Erreur lors de l\'envoi du test : {e}', 'error')
+    return redirect(back)
+
+
 @bp.route('/mailing/send', methods=['POST'])
 @login_required
 def send():
-    """Lance l'envoi d'une campagne"""
+    """Prépare la campagne puis mène à l'étape 2 (Aperçu)"""
     from mailer import Mailer, EmailTemplate, MailQueue
     from datetime import datetime
 
@@ -450,7 +563,8 @@ def send():
                                 liste_id=liste_ids[0], liste_ids=liste_ids,
                                 submission_id=submission_id)
 
-    return redirect(url_for('mailing.confirm', campaign=campaign_id))
+    # Étape 1 (Composer) -> étape 2 (Aperçu), conformément au process validé
+    return redirect(url_for('mailing.apercu', campaign=campaign_id))
 
 
 @bp.route('/mailing/confirm')
