@@ -1071,6 +1071,8 @@ select:focus {
 .badge { display: inline-block; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 600; }
 .badge-green { background: #dcfce7; color: #166534; }
 .badge-gray  { background: var(--gray-100); color: var(--gray-500); }
+.badge-pending { background: var(--warning-bg); color: var(--warning-text); }
+.badge-danger  { background: var(--danger-bg); color: var(--danger-dark); }
 .tag-bounce  { background: #fef3c7; color: #92400e; border-color: #fde68a; }
 .table-actions { display: flex; gap: 0.4rem; white-space: nowrap; }
 
@@ -1351,6 +1353,53 @@ select:focus {
 .swatch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
 .swatch:has(input:checked) { box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--text); }
 .swatch-auto { background: repeating-linear-gradient(45deg, var(--bg-muted), var(--bg-muted) 4px, var(--border) 4px, var(--border) 8px); }
+
+/* ===== Étape Envoi (mailing_queue) ===== */
+.send-banner { display: flex; align-items: center; gap: 0.8rem; padding: 0.9rem 1.1rem;
+    border-radius: var(--radius-lg); border: 1px solid; margin-bottom: 1.1rem; }
+.send-banner strong { font-size: 0.98rem; }
+.send-banner-sub { font-size: 0.85rem; opacity: 0.85; }
+.send-banner-ico { display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%; font-weight: 700; flex-shrink: 0; color: #fff; }
+.send-banner.is-ok { background: var(--success-bg); border-color: var(--success-border); color: var(--success-text); }
+.send-banner.is-ok .send-banner-ico { background: var(--success); }
+.send-banner.is-warn { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); }
+.send-banner.is-warn .send-banner-ico { background: var(--warning); }
+.send-banner.is-info { background: var(--primary-tint); border-color: var(--primary-border); color: var(--primary-text); }
+.send-banner.is-info .send-banner-ico { background: var(--primary); }
+
+.progress-card { margin-bottom: 1.1rem; }
+.progress-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.6rem; }
+.progress-pct { font-size: 1.1rem; color: var(--text-secondary); }
+.progress-pct.is-done { color: var(--success); }
+.progress-bar { height: 10px; border-radius: 99px; background: var(--bg-muted);
+    border: 1px solid var(--border); overflow: hidden; }
+.progress-fill { height: 100%; background: var(--success); border-radius: 99px; transition: width 0.4s ease; }
+.progress-fill.is-err { background: var(--warning); }
+.progress-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.1rem; }
+.progress-tiles .stat-num { font-size: 1.7rem; font-weight: 800; line-height: 1; }
+.progress-tiles .stat-num.text-danger { color: var(--danger); }
+.progress-tiles .stat-label { margin-top: 0.25rem; font-size: 0.82rem; color: var(--text-secondary); }
+
+.send-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.send-actions .hint { margin: 0; }
+
+.send-detail > summary { cursor: pointer; font-weight: 600; color: var(--text-secondary); font-size: 0.9rem; }
+.send-detail[open] > summary { margin-bottom: 0.8rem; }
+.detail-recap { margin-bottom: 1rem; font-size: 0.9rem; }
+.detail-body { background: var(--bg-muted); padding: 0.75rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); white-space: pre-wrap; font-family: inherit; }
+
+/* Overlay « Envoi en cours » */
+#sending-overlay { display: none; position: fixed; inset: 0; background: rgba(28,26,23,0.55);
+    z-index: 9999; align-items: center; justify-content: center; }
+.sending-content { background: var(--bg-surface); padding: 2.5rem 3rem; border-radius: var(--radius-lg);
+    text-align: center; box-shadow: var(--shadow-modal); }
+.sending-content p { margin: 0.25rem 0; }
+.spinner { width: 44px; height: 44px; border: 4px solid var(--bg-muted); border-top-color: var(--primary);
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1.25rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.text-danger { color: var(--danger); }
 
 /* Carte « Brouillons » en tête de l'historique */
 .drafts-card { margin-bottom: 1.25rem; }

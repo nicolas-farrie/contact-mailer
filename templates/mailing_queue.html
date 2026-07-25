@@ -1,295 +1,180 @@
 {% extends "base.html" %}
-{% block title %}File d'attente - Contact Mailer{% endblock %}
+{% block title %}Envoi - Contact Mailer{% endblock %}
 
 {% block page_band %}
 {% if campaign %}
 {% import "_stepper.html" as steps %}
 {{ steps.band(4, campaign,
               (template.name or template.subject) if template else 'Mailing',
-              'Envoi en cours / file d\'attente') }}
+              'Envoi') }}
 {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>File d'attente{% if not campaign %} <span class="text-muted" style="font-weight:400;">· toutes campagnes</span>{% endif %}</h1>
-    <div>
-        <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
-    </div>
-</div>
+{% if campaign %}
+{% set processed = stats.sent + stats.error %}
+{% set percent = (processed * 100 // stats.total) if stats.total else 0 %}
+{% set done = stats.pending == 0 %}
 
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-value">{{ stats.total }}</div>
-        <div class="stat-label">Total</div>
-    </div>
-    <div class="stat-card stat-pending">
-        <div class="stat-value">{{ stats.pending }}</div>
-        <div class="stat-label">En attente</div>
-    </div>
-    <div class="stat-card stat-sent">
-        <div class="stat-value">{{ stats.sent }}</div>
-        <div class="stat-label">Envoyés</div>
-    </div>
-    <div class="stat-card stat-error">
-        <div class="stat-value">{{ stats.error }}</div>
-        <div class="stat-label">Erreurs</div>
-    </div>
+<!-- Bandeau d'état de la campagne -->
+{% if done and stats.error == 0 and stats.sent > 0 %}
+<div class="send-banner is-ok">
+    <span class="send-banner-ico">✓</span>
+    <div><strong>Campagne envoyée</strong><div class="send-banner-sub">{{ stats.sent }} email{{ 's' if stats.sent > 1 }} remis à la file d'envoi</div></div>
 </div>
-
-{% if template %}
-<div class="template-recap">
-    <div class="template-recap-header">
-        <div>
-            <strong>Sujet :</strong> {{ template.subject }}
-            {% if template.format == 'html' %}<span class="badge-html">HTML</span>{% endif %}
-            {% if template.attachments %}
-            &nbsp;— <strong>Pièces jointes :</strong>
-            {% for path in template.attachments %}{{ path.split('/') | last }}{% if not loop.last %}, {% endif %}{% endfor %}
-            {% endif %}
-        </div>
-        <button type="button" class="btn btn-small" id="toggle-msg-btn" onclick="toggleMessage()">Afficher le message</button>
-    </div>
-    <div id="template-body" style="display:none; margin-top: 0.75rem;">
-        {% if template.format == 'html' %}
-        <iframe srcdoc="{{ template.body | e }}" style="width:100%; min-height:300px; border:1px solid var(--gray-200); border-radius:var(--radius);" onload="resizeFrame(this)"></iframe>
-        {% else %}
-        <pre class="template-body">{{ template.body }}</pre>
-        {% endif %}
-    </div>
+{% elif done and stats.error > 0 %}
+<div class="send-banner is-warn">
+    <span class="send-banner-ico">!</span>
+    <div><strong>Envoi terminé avec des erreurs</strong><div class="send-banner-sub">{{ stats.sent }} envoyé{{ 's' if stats.sent > 1 }}, {{ stats.error }} en erreur</div></div>
+</div>
+{% elif processed > 0 %}
+<div class="send-banner is-info">
+    <span class="send-banner-ico">⟳</span>
+    <div><strong>Envoi en cours</strong><div class="send-banner-sub">{{ processed }} sur {{ stats.total }} traité{{ 's' if processed > 1 }}</div></div>
 </div>
 {% endif %}
 
-<div class="process-section">
-{% if stats.pending > 0 and campaign %}
+<!-- Progression -->
+<div class="card progress-card">
+    <div class="progress-head">
+        <span class="card-title">Progression de l'envoi</span>
+        <strong class="progress-pct {{ 'is-done' if done and stats.error == 0 }}">{{ percent }} %</strong>
+    </div>
+    <div class="progress-bar"><div class="progress-fill {{ 'is-err' if stats.error and done }}" style="width:{{ percent }}%"></div></div>
+    <div class="progress-tiles">
+        <div><div class="stat-num">{{ stats.sent }}</div><div class="stat-label">Envoyés</div></div>
+        <div><div class="stat-num">{{ stats.pending }}</div><div class="stat-label">En attente</div></div>
+        <div><div class="stat-num {{ 'text-danger' if stats.error }}">{{ stats.error }}</div><div class="stat-label">Erreurs</div></div>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="send-actions">
+    {% if stats.pending > 0 %}
     <form method="POST" action="{{ url_for('mailing.process') }}" id="process-form" style="display:inline">
         <input type="hidden" name="campaign" value="{{ campaign }}">
-        <button type="button" class="btn btn-primary btn-large" id="send-btn" onclick="confirmAndSend()">
-            Envoyer {{ stats.pending }} emails maintenant
+        <button type="button" class="btn btn-primary btn-cta" id="send-btn" onclick="confirmAndSend()">
+            Envoyer {{ stats.pending }} email{{ 's' if stats.pending > 1 }} maintenant
         </button>
     </form>
-    <span class="hint" style="margin-left:1rem;">Rate-limit : {{ config.MAIL_RATE_PER_MINUTE if config else 20 }} emails/minute</span>
-{% elif stats.pending > 0 %}
-    <div class="alert-info">
-        {{ stats.pending }} email(s) en attente dans plusieurs campagnes —
-        sélectionnez une campagne dans l'historique pour lancer l'envoi.
-    </div>
-{% endif %}
+    <span class="hint">Débit limité à {{ config.MAIL_RATE_PER_MINUTE if config else 20 }} emails/minute.</span>
+    {% endif %}
 
-{% if stats.error > 0 and campaign %}
-    <form method="POST" action="{{ url_for('mailing.queue_retry', campaign_id=campaign) }}" style="display:inline;margin-left:0.5rem;">
+    {% if stats.error > 0 %}
+    <form method="POST" action="{{ url_for('mailing.queue_retry', campaign_id=campaign) }}" style="display:inline">
         <button type="submit" class="btn btn-warning"
                 onclick="return confirm('Remettre {{ stats.error }} email(s) en erreur en attente pour réessayer ?')">
             ↺ Réessayer {{ stats.error }} erreur{{ 's' if stats.error > 1 }}
         </button>
     </form>
-{% endif %}
+    {% endif %}
 
-{% if campaign and stats.pending == 0 and stats.error == 0 %}
-    <div class="alert alert-success" style="margin-bottom:1rem;">✓ Campagne envoyée — tous les emails ont été traités.</div>
-    <a href="{{ url_for('mailing.history') }}" class="btn btn-primary">← Retour aux mailings</a>
-{% endif %}
+    <a href="{{ url_for('mailing.history') }}" class="btn btn-secondary">← Retour aux mailings</a>
 </div>
+
+<!-- Détail des envois (repliable) -->
+<details class="card send-detail">
+    <summary>Détail des envois ({{ items|length }})</summary>
+
+    {% if template %}
+    <div class="detail-recap">
+        <strong>Sujet :</strong> {{ template.subject }}
+        {% if template.format == 'html' %}<span class="badge badge-gray">HTML</span>{% endif %}
+        {% if template.attachments %}<br><strong>Pièces jointes :</strong>
+        {% for path in template.attachments %}<span class="tag">{{ path.split('/') | last }}</span>{% endfor %}{% endif %}
+        <button type="button" class="linklike" style="margin-left:0.5rem;" onclick="toggleMessage()">
+            <span id="toggle-msg-txt">Afficher le message</span></button>
+        <div id="template-body" style="display:none; margin-top: 0.75rem;">
+            {% if template.format == 'html' %}
+            <iframe srcdoc="{{ template.body | e }}" style="width:100%; min-height:280px; border:1px solid var(--border); border-radius:var(--radius-sm);" onload="resizeFrame(this)"></iframe>
+            {% else %}<pre class="detail-body">{{ template.body }}</pre>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <table class="data-table">
+        <thead><tr><th>Contact</th><th>Email</th><th>Statut</th><th>Envoyé le</th><th>Erreur</th></tr></thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.contact.prenom }} {{ item.contact.nom }}</td>
+                <td>{{ item.contact.email }}</td>
+                <td>
+                    {% if item.status == 'pending' %}<span class="badge badge-pending">En attente</span>
+                    {% elif item.status == 'sent' %}<span class="badge badge-green">Envoyé</span>
+                    {% elif item.status == 'cancelled' %}<span class="badge badge-gray">Annulé</span>
+                    {% else %}<span class="badge badge-danger">Erreur</span>{% endif %}
+                </td>
+                <td class="text-muted">{{ item.sent_at or '—' }}</td>
+                <td class="text-muted">{{ item.error or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-muted">File d'attente vide</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</details>
+
+{% else %}
+{# --- Vue globale : toutes campagnes confondues --- #}
+<div class="page-header">
+    <h1>File d'attente <span class="text-muted" style="font-weight:400;">· toutes campagnes</span></h1>
+    <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
+</div>
+{% if stats.pending > 0 %}
+<div class="alert alert-info">{{ stats.pending }} email(s) en attente — ouvrez une campagne depuis l'historique pour lancer l'envoi.</div>
+{% endif %}
+<div class="table-responsive">
+<table class="data-table">
+    <thead><tr><th>Campagne</th><th>Contact</th><th>Email</th><th>Statut</th></tr></thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td style="font-size:0.78rem;"><a href="{{ url_for('mailing.queue', campaign=item.campaign_id) }}" title="{{ item.campaign_id }}">{{ item.campaign_id[-22:] }}</a></td>
+            <td>{{ item.contact.prenom }} {{ item.contact.nom }}</td>
+            <td>{{ item.contact.email }}</td>
+            <td>
+                {% if item.status == 'pending' %}<span class="badge badge-pending">En attente</span>
+                {% elif item.status == 'sent' %}<span class="badge badge-green">Envoyé</span>
+                {% elif item.status == 'cancelled' %}<span class="badge badge-gray">Annulé</span>
+                {% else %}<span class="badge badge-danger">Erreur</span>{% endif %}
+            </td>
+        </tr>
+        {% else %}<tr><td colspan="4" class="text-muted">File d'attente vide</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
 
 <!-- Overlay spinner envoi -->
 <div id="sending-overlay">
     <div class="sending-content">
         <div class="spinner"></div>
-        <p><strong>Envoi en cours...</strong></p>
+        <p><strong>Envoi en cours…</strong></p>
         <p class="hint">Ne fermez pas cette page.</p>
     </div>
 </div>
 
-<div class="table-responsive">
-<table class="data-table">
-    <thead>
-        <tr>
-            <th>ID</th>
-            {% if not campaign %}<th>Campagne</th>{% endif %}
-            <th>Contact</th>
-            <th>Email</th>
-            <th>Statut</th>
-            <th>Envoyé le</th>
-            <th>Erreur</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in items %}
-        <tr>
-            <td>{{ item.id }}</td>
-            {% if not campaign %}
-            <td style="font-size:0.75rem;color:var(--gray-500);">
-                <a href="{{ url_for('mailing.queue', campaign=item.campaign_id) }}" title="{{ item.campaign_id }}">
-                    {{ item.campaign_id[-20:] }}
-                </a>
-            </td>
-            {% endif %}
-            <td>{{ item.contact.prenom }} {{ item.contact.nom }}</td>
-            <td>{{ item.contact.email }}</td>
-            <td>
-                {% if item.status == 'pending' %}
-                <span class="status status-pending">En attente</span>
-                {% elif item.status == 'sent' %}
-                <span class="status status-sent">Envoyé</span>
-                {% else %}
-                <span class="status status-error">Erreur</span>
-                {% endif %}
-            </td>
-            <td>{{ item.sent_at or '-' }}</td>
-            <td>{{ item.error or '-' }}</td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="6" class="empty">File d'attente vide</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-</div>
-
 <script>
 function toggleMessage() {
-    const body = document.getElementById('template-body');
-    const btn = document.getElementById('toggle-msg-btn');
-    const visible = body.style.display !== 'none';
+    var body = document.getElementById('template-body');
+    var txt = document.getElementById('toggle-msg-txt');
+    var visible = body.style.display !== 'none';
     body.style.display = visible ? 'none' : 'block';
-    btn.textContent = visible ? 'Afficher le message' : 'Masquer le message';
+    txt.textContent = visible ? 'Afficher le message' : 'Masquer le message';
 }
-
 function resizeFrame(iframe) {
-    try {
-        iframe.style.height = iframe.contentDocument.body.scrollHeight + 40 + 'px';
-    } catch(e) {}
+    try { iframe.style.height = iframe.contentDocument.body.scrollHeight + 40 + 'px'; } catch(e) {}
 }
-
 function confirmAndSend() {
-    const pending = {{ stats.pending }};
-    if (!confirm('Lancer l\'envoi de ' + pending + ' emails ?')) return;
-    const btn = document.getElementById('send-btn');
-    btn.disabled = true;
-    btn.textContent = 'Envoi en cours...';
+    {% if campaign %}
+    var pending = {{ stats.pending }};
+    if (!confirm('Lancer l\'envoi de ' + pending + ' email(s) ?')) return;
+    var btn = document.getElementById('send-btn');
+    btn.disabled = true; btn.textContent = 'Envoi en cours…';
     document.getElementById('sending-overlay').style.display = 'flex';
     document.getElementById('process-form').submit();
+    {% endif %}
 }
 </script>
-
-<style>
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-.stat-card {
-    background: white;
-    padding: 1rem;
-    border-radius: var(--radius);
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.stat-value {
-    font-size: 2rem;
-    font-weight: bold;
-}
-.stat-label {
-    color: var(--gray-500);
-    font-size: 0.875rem;
-}
-.stat-pending .stat-value { color: #f59e0b; }
-.stat-sent .stat-value { color: #10b981; }
-.stat-error .stat-value { color: #ef4444; }
-
-.template-recap {
-    background: white;
-    padding: 1rem 1.5rem;
-    border-radius: var(--radius);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin-bottom: 1.5rem;
-}
-.template-recap-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-.badge-html {
-    display: inline-block;
-    background: #e0e7ff;
-    color: #3730a3;
-    font-size: 0.7rem;
-    font-weight: bold;
-    padding: 0.1rem 0.4rem;
-    border-radius: 4px;
-    vertical-align: middle;
-}
-.template-body {
-    background: var(--gray-50);
-    padding: 0.75rem;
-    border-radius: var(--radius);
-    border: 1px solid var(--gray-200);
-    white-space: pre-wrap;
-    font-family: inherit;
-}
-
-.process-section {
-    margin-bottom: 1.5rem;
-}
-.alert-info {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1e40af;
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius);
-    font-size: 0.9rem;
-}
-.btn-large {
-    padding: 0.75rem 2rem;
-    font-size: 1rem;
-}
-
-/* Overlay spinner */
-#sending-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 9999;
-    align-items: center;
-    justify-content: center;
-}
-.sending-content {
-    background: white;
-    padding: 2.5rem 3rem;
-    border-radius: var(--radius);
-    text-align: center;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-}
-.sending-content p {
-    margin: 0.25rem 0;
-}
-.spinner {
-    width: 44px;
-    height: 44px;
-    border: 4px solid var(--gray-200);
-    border-top-color: var(--primary, #2563eb);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 1.25rem;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.status {
-    display: inline-block;
-    padding: 0.125rem 0.5rem;
-    border-radius: 99px;
-    font-size: 0.75rem;
-}
-.status-pending { background: #fef3c7; color: #92400e; }
-.status-sent { background: #d1fae5; color: #065f46; }
-.status-error { background: #fee2e2; color: #991b1b; }
-
-@media (max-width: 640px) {
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-}
-</style>
 {% endblock %}
