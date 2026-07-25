@@ -1356,6 +1356,17 @@ select:focus {
 .drafts-card { margin-bottom: 1.25rem; }
 .drafts-card .card-title { margin-bottom: 0.25rem; }
 
+/* Modale de confirmation d'envoi (centrée, icône + avertissement) */
+.modal-confirm { max-width: 460px; text-align: center; }
+.modal-confirm h2 { margin: 0.6rem 0 0.5rem; }
+.modal-confirm p { color: var(--text-secondary); }
+.confirm-icon { width: 52px; height: 52px; margin: 0 auto; display: flex; align-items: center;
+    justify-content: center; border-radius: 50%; background: var(--success-bg); color: var(--success); }
+.confirm-icon .ico { width: 26px; height: 26px; }
+.confirm-warn { font-size: 0.85rem; color: var(--warning-text); background: var(--warning-bg);
+    border: 1px solid var(--warning-border); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; margin-top: 0.75rem !important; }
+.confirm-actions { justify-content: center; margin-top: 1.1rem; }
+
 /* ===== Barre d'étapes du parcours d'envoi ===== */
 .stepper { display: flex; align-items: center; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
 .step { display: flex; align-items: center; }
