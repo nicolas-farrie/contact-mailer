@@ -45,14 +45,21 @@
                 {% if current_user.is_admin %}
                 <div class="sidebar-section">
                     <div class="sidebar-section-label">Configuration</div>
-                    <a class="sidebar-link{% if request.blueprint in ['settings', 'api_integrations'] %} active{% endif %}" href="{{ url_for('settings.index') }}">Paramètres</a>
+                    <a class="sidebar-link{% if request.blueprint == 'settings' %} active{% endif %}" href="{{ url_for('settings.index') }}">Paramètres</a>
+                    {% if request.blueprint == 'settings' %}
                     <div class="sidebar-subnav">
                         <a class="sidebar-sublink{% if request.endpoint in ['settings.index', 'settings.clear_login_bg'] %} active{% endif %}" href="{{ url_for('settings.index') }}">Généraux</a>
                         <a class="sidebar-sublink{% if request.endpoint == 'settings.custom_fields' %} active{% endif %}" href="{{ url_for('settings.custom_fields') }}">Champs personnalisés</a>
                         <a class="sidebar-sublink{% if request.endpoint in ['settings.trash', 'settings.trash_restore', 'settings.trash_purge'] %} active{% endif %}" href="{{ url_for('settings.trash') }}">Corbeilles</a>
-                        <a class="sidebar-sublink{% if request.blueprint == 'api_integrations' and 'seafile' in (request.endpoint or '') %} active{% endif %}" href="{{ url_for('api_integrations.seafile') }}">Seafile</a>
-                        <a class="sidebar-sublink{% if request.blueprint == 'api_integrations' and 'bookstack' in (request.endpoint or '') %} active{% endif %}" href="{{ url_for('api_integrations.bookstack') }}">BookStack</a>
                     </div>
+                    {% endif %}
+                    <a class="sidebar-link{% if request.blueprint == 'api_integrations' %} active{% endif %}" href="{{ url_for('api_integrations.seafile') }}">Intégrations</a>
+                    {% if request.blueprint == 'api_integrations' %}
+                    <div class="sidebar-subnav">
+                        <a class="sidebar-sublink{% if 'seafile' in (request.endpoint or '') %} active{% endif %}" href="{{ url_for('api_integrations.seafile') }}">Seafile</a>
+                        <a class="sidebar-sublink{% if 'bookstack' in (request.endpoint or '') %} active{% endif %}" href="{{ url_for('api_integrations.bookstack') }}">BookStack</a>
+                    </div>
+                    {% endif %}
                     <a class="sidebar-link{% if request.endpoint in ['users.index', 'users.new', 'users.edit'] %} active{% endif %}" href="{{ url_for('users.index') }}">Utilisateurs</a>
                     <a class="sidebar-link{% if request.endpoint == 'imports.index' %} active{% endif %}" href="{{ url_for('imports.index') }}">Import / Export</a>
                 </div>
