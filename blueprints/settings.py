@@ -90,7 +90,7 @@ def clear_login_bg():
 @admin_required
 def trash():
     deleted_contacts = Contact.query.filter(Contact.is_deleted == True).order_by(Contact.deleted_at.desc()).all()
-    return render_template('settings.html', active_tab='settings', deleted_contacts=deleted_contacts)
+    return render_template('settings_trash.html', active_tab='trash', deleted_contacts=deleted_contacts)
 
 
 @bp.route('/settings/trash/restore', methods=['POST'])
@@ -99,7 +99,7 @@ def trash_restore():
     ids = request.form.getlist('contact_ids', type=int)
     if not ids:
         flash('Aucun contact sélectionné', 'error')
-        return redirect(url_for('settings.index'))
+        return redirect(url_for('settings.trash'))
     contacts = Contact.query.filter(Contact.id.in_(ids), Contact.is_deleted == True).all()
     for c in contacts:
         c.is_deleted = False
@@ -107,7 +107,7 @@ def trash_restore():
         c.deleted_by_id = None
     db.session.commit()
     flash(f'{len(contacts)} contact(s) restauré(s)', 'success')
-    return redirect(url_for('settings.index'))
+    return redirect(url_for('settings.trash'))
 
 
 @bp.route('/settings/trash/purge', methods=['POST'])
@@ -116,14 +116,14 @@ def trash_purge():
     ids = request.form.getlist('contact_ids', type=int)
     if not ids:
         flash('Aucun contact sélectionné', 'error')
-        return redirect(url_for('settings.index'))
+        return redirect(url_for('settings.trash'))
     contacts = Contact.query.filter(Contact.id.in_(ids), Contact.is_deleted == True).all()
     count = len(contacts)
     for c in contacts:
         db.session.delete(c)
     db.session.commit()
     flash(f'{count} contact(s) supprimé(s) définitivement', 'success')
-    return redirect(url_for('settings.index'))
+    return redirect(url_for('settings.trash'))
 
 
 # --- Champs personnalisés (définitions) ---
