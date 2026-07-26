@@ -223,6 +223,12 @@
 
 **Mailing :**
 - [ ] **Templates génériques** (email de bienvenue, de désabonnement, etc.) : aujourd'hui « enregistrer le brouillon » puis l'utiliser **détruit** le brouillon → concevoir une vraie notion de modèle réutilisable
+- [ ][ ] **Sous-menu « Modèles »** (dans la sous-nav Mailing) listant les campagnes-modèles enregistrées. Actions : **Voir / Utiliser / Archiver / Supprimer (admin)**. « Utiliser » **duplique** le modèle vers une **nouvelle campagne** (sujet, corps, PJ, listes) — le modèle n'est **jamais** modifié ni consommé.
+  - [ ][ ] **Archi** : flag **`is_template`** sur `MailCampaign` (+ migration) ; un modèle n'est jamais envoyé ; « Utiliser » = clone via la logique de persistance existante. Réutilise le pattern **archivage réversible + suppression admin depuis les archives** (comme Listes / Formulaires).
+  - [ ][ ] **Listes copiées = valeurs par défaut pré-cochées, PAS un verrou** → modifiables à l'étape Destinataires (la cible varie souvent, ex. email de bienvenue).
+  - [ ][ ] **Pièces jointes dupliquées physiquement** (copie dans le dossier de la nouvelle campagne) → la PJ de l'instance est indépendante de celle du modèle.
+  - [ ][ ] Bouton **« Enregistrer comme modèle »** (promotion d'un brouillon). Distinction claire : **brouillon** = à envoyer une fois ↔ **modèle** = réutilisable N fois. 
+      
 
 
 
