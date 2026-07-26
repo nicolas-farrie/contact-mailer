@@ -3,148 +3,202 @@
 {% block container_class %}container-wide{% endblock %}
 
 {% block content %}
+{# URI tel: sans séparateurs (certains navigateurs mobiles n'ouvrent le composeur que sur un numéro « nu ») #}
+{% macro tel_uri(t) %}tel:{{ t | replace(' ', '') | replace('.', '') | replace('-', '') | replace('(', '') | replace(')', '') }}{% endmacro %}
+{# Grille de résumé (réutilisée par l'affichage étendu desktop ET mobile) #}
+{% macro summary_grid(c, is_admin=False) %}
+<div class="summary-grid">
+    {% if c.email %}<div><span class="sk">E-mail</span><a href="mailto:{{ c.email }}">{{ c.email }}</a></div>{% endif %}
+    {% if c.telephone %}<div><span class="sk">Téléphone</span><a href="{{ tel_uri(c.telephone) }}">{{ c.telephone }}</a></div>{% endif %}
+    {% if c.organisation %}<div><span class="sk">Organisation</span>{{ c.organisation }}</div>{% endif %}
+    {% set ville = [c.adresse_cp, c.adresse_ville]|select|join(' ') %}
+    {% if c.adresse_rue %}<div><span class="sk">Adresse</span>{{ c.adresse_rue }}{% if c.adresse_complement %}, {{ c.adresse_complement }}{% endif %}</div>{% endif %}
+    {% if ville %}<div><span class="sk">Ville</span>{{ ville }}</div>{% endif %}
+    <div><span class="sk">Listes</span>{% for l in c.listes %}<span class="tag">{{ l.nom }}</span>{% else %}—{% endfor %}</div>
+    <div><span class="sk">Statut</span>{% if c.is_unsubscribed %}Désabonné{% elif c.has_bounced %}Bounce{% else %}Abonné{% endif %}</div>
+    {% if is_admin %}<div><span class="sk">Source</span>{{ c.source or '—' }}</div>{% endif %}
+    {% if c.notes %}<div class="summary-notes"><span class="sk">Notes</span>{{ c.notes }}</div>{% endif %}
+</div>
+{% endmacro %}
+{% set has_filter = search or liste_filter or source_filter or statut_filter %}
+
 <div class="page-header">
-    <h1>Contacts <span class="count">({{ contacts|length }})</span></h1>
-    <a href="{{ url_for('contacts.new') }}" class="btn btn-primary">+ Nouveau contact</a>
-</div>
-
-<div class="filters">
-    <form method="GET" class="filter-form">
-        <select name="liste" onchange="this.form.submit()">
-            <option value="">Toutes les listes</option>
-            {% for liste in listes %}
-            <option value="{{ liste.id }}" {% if liste.id == liste_filter %}selected{% endif %}>
-                {{ liste.nom }} ({{ liste.count }})
-            </option>
-            {% endfor %}
-        </select>
-        {% if current_user.is_admin %}
-        <select name="source" onchange="this.form.submit()">
-            <option value="">Toutes les sources</option>
-            {% for src in sources %}
-            <option value="{{ src }}" {% if src == source_filter %}selected{% endif %}>{{ src }}</option>
-            {% endfor %}
-        </select>
-        {% endif %}
-        <input type="text" name="q" value="{{ search }}" placeholder="Rechercher..." class="search-input">
-        <button type="submit" class="btn btn-action">Filtrer</button>
-        {% if search or liste_filter or source_filter %}
-        <a href="{{ url_for('contacts.index') }}" class="btn btn-secondary">Effacer</a>
-        {% endif %}
-    </form>
-    {% if config.BOUNCE_IMAP_HOST %}
-    <form method="POST" action="{{ url_for('contacts.scan_bounces') }}" style="margin-top:0.5rem;">
-        <button type="submit" class="btn btn-small btn-secondary"
-                onclick="return confirm('Scanner la boîte bounce et mettre à jour les contacts ?')">
-            ⟳ Scanner les bounces
-        </button>
-    </form>
-    {% endif %}
-</div>
-
-<form method="POST" action="{{ url_for('contacts.bulk_action') }}" id="bulk-form">
-    <button type="button" class="bulk-toggle" onclick="toggleBulk(this)">Actions ▾</button>
-    <div class="bulk-actions" id="bulk-actions-bar">
-        <label class="select-all-label">
-            <input type="checkbox" id="select-all"> Tout sélectionner
-        </label>
-        <select name="liste_id" class="bulk-liste-select" onchange="updateListeButtons(this.value)">
-            <option value="">-- Choisir une liste --</option>
-            {% for liste in listes %}
-            <option value="{{ liste.id }}">{{ liste.nom }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" name="action" value="add_to_liste" class="btn btn-small" id="btn-add-liste" disabled
-                onclick="return confirm('Ajouter les contacts sélectionnés à cette liste ?')">Ajouter à la liste</button>
-        <button type="submit" name="action" value="remove_from_liste" class="btn btn-small" id="btn-remove-liste" disabled
-                onclick="return confirm('Retirer les contacts sélectionnés de cette liste ?')">Retirer de la liste</button>
-        <button type="submit" name="action" value="delete" class="btn btn-danger btn-small"
-                onclick="return confirm('Supprimer les contacts sélectionnés ?')">Supprimer</button>
+    <div class="page-header-title">
+        <h1>Contacts <span class="count">{{ contacts|length }}</span></h1>
+        <p class="page-subtitle">Les personnes qui reçoivent vos envois.</p>
     </div>
+    <div class="page-header-actions">
+        <a href="{{ url_for('imports.index') }}" class="btn btn-secondary">Importer</a>
+        <a href="{{ url_for('contacts.new') }}" class="btn btn-primary">+ Nouveau contact</a>
+    </div>
+</div>
+
+{# --- Barre d'outils : recherche + filtres en pills + lien Corbeille (GET) --- #}
+<form method="GET" class="contacts-toolbar" id="filter-form">
+    <div class="search-wrap">
+        <span class="search-ico" aria-hidden="true">⌕</span>
+        <input type="text" name="q" value="{{ search }}" placeholder="Rechercher un nom ou un email…" class="search-input">
+    </div>
+    <select name="liste" class="filter-pill" onchange="this.form.submit()">
+        <option value="">Liste : Toutes</option>
+        {% for liste in listes %}
+        <option value="{{ liste.id }}" {% if liste.id == liste_filter %}selected{% endif %}>Liste : {{ liste.nom }} ({{ liste.count }})</option>
+        {% endfor %}
+    </select>
+    <select name="statut" class="filter-pill" onchange="this.form.submit()">
+        <option value="">Statut : Tous</option>
+        <option value="abonne"    {% if statut_filter=='abonne'    %}selected{% endif %}>Statut : Abonnés</option>
+        <option value="desabonne" {% if statut_filter=='desabonne' %}selected{% endif %}>Statut : Désabonnés</option>
+        <option value="bounce"    {% if statut_filter=='bounce'    %}selected{% endif %}>Statut : Bounces</option>
+    </select>
+    {% if current_user.is_admin and sources %}
+    <select name="source" class="filter-pill" onchange="this.form.submit()">
+        <option value="">Source : Toutes</option>
+        {% for src in sources %}
+        <option value="{{ src }}" {% if src == source_filter %}selected{% endif %}>Source : {{ src }}</option>
+        {% endfor %}
+    </select>
+    {% endif %}
+    {% if has_filter %}<a href="{{ url_for('contacts.index') }}" class="btn btn-secondary btn-small">Effacer</a>{% endif %}
+    <a href="{{ url_for('settings.trash') }}" class="toolbar-trash">Corbeille</a>
+</form>
+
+{# Form cible des actions groupées (les cases la référencent via form="bulk-form") #}
+<form method="POST" action="{{ url_for('contacts.bulk_action') }}" id="bulk-form">
+    <input type="hidden" name="action" id="bulk-action-input" value="">
+    <input type="hidden" name="liste_id" id="bulk-liste-id" value="">
+    <input type="hidden" name="source_liste_id" value="{{ liste_filter or '' }}">
     <input type="hidden" name="back_liste" value="{{ liste_filter or '' }}">
     <input type="hidden" name="back_source" value="{{ source_filter or '' }}">
     <input type="hidden" name="back_q" value="{{ search or '' }}">
 </form>
 
-<table class="data-table data-table-contacts">
-    <thead>
-        <tr>
-            <th class="col-checkbox"></th>
-            <th data-sort>Nom</th>
-            <th data-sort>Email</th>
-            <th data-sort>Téléphone</th>
-            <th data-sort>Organisation</th>
-            <th data-sort>Listes</th>
-            <th data-sort>Statut</th>
-            <th class="col-actions">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for contact in contacts %}
-        <tr>
-            <td><input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox" form="bulk-form"></td>
-                <td>
-                    <div class="user-name-cell">
-                        <span class="avatar-sm">{{ ((contact.prenom or ' ')[0] ~ (contact.nom or ' ')[0])|upper }}</span>
-                        <span><strong>{{ contact.nom }}</strong> {{ contact.prenom }}</span>
+<div class="card contacts-card">
+    {# Bandeau de sélection (apparaît dès ≥1 coché) #}
+    <div class="select-bar" id="select-bar" hidden>
+        <span class="select-bar-count"><strong id="sel-count">0</strong> sélectionné(s)</span>
+        <div class="select-bar-actions">
+            <button type="button" class="btn btn-small btn-secondary" onclick="openListeModal('add_to_liste')">Ajouter à une liste</button>
+            {% if liste_filter %}
+            <button type="button" class="btn btn-small btn-secondary" onclick="openListeModal('transfer')">Transférer vers…</button>
+            {% endif %}
+            <button type="button" class="btn btn-small btn-secondary" onclick="openListeModal('remove_from_liste')">Retirer d'une liste</button>
+            {# Bouton à statut variable, piloté par le filtre Statut #}
+            {% if statut_filter == 'desabonne' %}
+            <button type="button" class="btn btn-small btn-secondary" onclick="submitBulk('resubscribe', 'Abonner les contacts sélectionnés ?')">Abonner</button>
+            {% elif statut_filter in ('abonne', 'bounce') %}
+            <button type="button" class="btn btn-small btn-secondary" onclick="submitBulk('unsubscribe', 'Désabonner les contacts sélectionnés ?')">Désabonner</button>
+            {% else %}
+            <button type="button" class="btn btn-small btn-secondary is-muted"
+                    title="Filtrez sur « Abonnés » pour pouvoir les désabonner, ou sur « Désabonnés » pour les réabonner."
+                    onclick="alert('Filtrez sur « Abonnés » pour les désabonner, ou sur « Désabonnés » pour les réabonner.');">Abonner / Désabonner</button>
+            {% endif %}
+            {% if current_user.is_admin %}
+            <button type="button" class="btn btn-small btn-secondary" onclick="openExportModal()">Exporter</button>
+            {% endif %}
+            <button type="button" class="btn btn-small btn-danger-outline" onclick="submitBulk('delete', 'Déplacer les contacts sélectionnés dans la corbeille ?')">Mettre à la corbeille</button>
+        </div>
+    </div>
+
+    <table class="data-table data-table-contacts contacts-table" id="contacts-table">
+        <thead>
+            <tr>
+                <th class="col-checkbox"><input type="checkbox" id="select-all" title="Tout sélectionner"></th>
+                <th class="th-sort" data-k="contact">Contact</th>
+                <th class="th-sort" data-k="tel">Téléphone</th>
+                <th class="th-sort" data-k="listes">Listes</th>
+                <th class="th-sort" data-k="statut">Statut</th>
+                <th class="col-edit"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in contacts %}
+            <tr class="contact-row" data-cid="{{ c.id }}"
+                data-k-contact="{{ (c.nom ~ ' ' ~ c.prenom)|trim|lower }}"
+                data-k-tel="{{ c.telephone or '' }}"
+                data-k-listes="{{ (c.listes|map(attribute='nom')|join(' '))|lower }}"
+                data-k-statut="{{ 1 if c.is_unsubscribed else (2 if c.has_bounced else 0) }}">
+                <td class="col-checkbox"><input type="checkbox" name="contact_ids" value="{{ c.id }}" class="contact-cb" form="bulk-form"></td>
+                <td class="cell-contact">
+                    <div class="recip-ident">
+                        <span class="avatar-sm">{{ ((c.prenom or ' ')[0] ~ (c.nom or ' ')[0])|upper }}</span>
+                        <div class="recip-ident-text">
+                            <strong>{{ c.prenom }} {{ c.nom }}</strong>
+                            <div class="recip-mail">{{ c.email }}</div>
+                        </div>
                     </div>
                 </td>
-                <td><a href="mailto:{{ contact.email }}">{{ contact.email }}</a></td>
-                <td>{% if contact.telephone %}<a href="tel:{{ contact.telephone }}" class="tel-link">{{ contact.telephone }}</a>{% else %}-{% endif %}</td>
-                <td>{{ contact.organisation or '-' }}</td>
+                <td class="text-muted">{{ c.telephone or '—' }}</td>
+                <td class="recip-tags">{% for l in c.listes %}<span class="tag">{{ l.nom }}</span>{% else %}<span class="text-muted">—</span>{% endfor %}</td>
                 <td>
-                    {% for liste in contact.listes %}
-                    <span class="tag">{{ liste.nom }}</span>
-                    {% endfor %}
+                    {% if c.is_unsubscribed %}<span class="status-dot is-danger" title="Désabonné"></span>
+                    {% elif c.has_bounced %}<span class="status-dot is-warn" title="Adresse en erreur (bounce)"></span>
+                    {% else %}<span class="status-dot" title="Abonné"></span>{% endif %}
                 </td>
-                <td>
-                    {% if contact.is_unsubscribed %}<span class="status-dot is-danger">Désabonné</span>
-                    {% elif contact.has_bounced %}<span class="status-dot is-warn">Bounce</span>
-                    {% else %}<span class="status-dot">Abonné</span>{% endif %}
+                <td class="col-edit">
+                    <a href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}"
+                       class="icon-edit edit-link" title="Modifier la fiche" onclick="event.stopPropagation()" aria-label="Modifier">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </a>
                 </td>
-                <td class="actions">
-                    <a href="{{ url_for('contacts.edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-warning btn-small">Modifier</a>
-                    <form method="POST" action="{{ url_for('contacts.delete', id=contact.id) }}" style="display:inline">
-                        <button type="submit" class="btn btn-danger btn-small"
-                                onclick="return confirm('Supprimer ce contact ?')">Suppr.</button>
-                    </form>
+            </tr>
+            <tr class="row-summary" data-summary-for="{{ c.id }}" hidden>
+                <td></td>
+                <td colspan="5">
+                    {{ summary_grid(c, current_user.is_admin) }}
+                    <div class="summary-actions">
+                        <a href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}" class="btn btn-small btn-primary edit-link">Modifier la fiche</a>
+                    </div>
                 </td>
             </tr>
             {% else %}
-            <tr>
-                <td colspan="8" class="empty">Aucun contact trouvé</td>
-            </tr>
+            <tr><td colspan="6" class="empty">Aucun contact trouvé</td></tr>
             {% endfor %}
         </tbody>
     </table>
 
-<!-- Vue cards pour mobile -->
+    <div class="contacts-foot">
+        <span class="text-muted">{{ contacts|length }} contact{{ 's' if contacts|length > 1 }}</span>
+        <div class="pager" id="pager"></div>
+    </div>
+</div>
+
+{# --- Vue cartes (mobile) --- #}
 <div class="mobile-cards">
-    {% for contact in contacts %}
-    <div class="contact-card">
+    {% for c in contacts %}
+    <div class="contact-card" data-cid="{{ c.id }}">
         <div class="contact-card-header">
             <label class="contact-card-check">
-                <input type="checkbox" name="contact_ids" value="{{ contact.id }}" class="contact-checkbox" form="bulk-form">
+                <input type="checkbox" name="contact_ids" value="{{ c.id }}" class="contact-cb" form="bulk-form">
             </label>
-            <div>
-                <div class="contact-card-name">
-                    {{ contact.nom }} {{ contact.prenom }}
-                    {% if contact.is_unsubscribed %}<span class="tag tag-unsub">Désabonné</span>{% endif %}{% if contact.has_bounced %}<span class="tag tag-bounce">Bounce</span>{% endif %}
+            <div class="recip-ident">
+                <span class="avatar-sm">{{ ((c.prenom or ' ')[0] ~ (c.nom or ' ')[0])|upper }}</span>
+                <div class="recip-ident-text">
+                    <strong>{{ c.prenom }} {{ c.nom }}</strong>
+                    <div class="recip-mail">{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% endif %}</div>
                 </div>
-                {% if contact.organisation %}<div style="font-size:0.8rem;color:var(--gray-500);">{{ contact.organisation }}</div>{% endif %}
             </div>
-            <div class="contact-card-actions">
-                <a href="{{ url_for('contacts.edit', id=contact.id, back_liste=liste_filter or '') }}" class="btn btn-warning btn-small">Modifier</a>
-                <form method="POST" action="{{ url_for('contacts.delete', id=contact.id) }}" style="display:inline">
-                    <button type="submit" class="btn btn-danger btn-small"
-                            onclick="return confirm('Supprimer ce contact ?')">Suppr.</button>
-                </form>
-            </div>
+            <a href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}" class="icon-edit edit-link" title="Modifier">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </a>
         </div>
         <div class="contact-card-body">
-            {% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% endif %}
-            {% if contact.telephone %}<a href="tel:{{ contact.telephone }}">📞 {{ contact.telephone }}</a>{% endif %}
-            <div>{% for liste in contact.listes %}<span class="tag">{{ liste.nom }}</span>{% endfor %}</div>
+            {% if c.telephone %}<span>📞 <a href="{{ tel_uri(c.telephone) }}">{{ c.telephone }}</a></span>{% endif %}
+            <span>
+                {% if c.is_unsubscribed %}<span class="status-dot is-danger">Désabonné</span>
+                {% elif c.has_bounced %}<span class="status-dot is-warn">Bounce</span>
+                {% else %}<span class="status-dot">Abonné</span>{% endif %}
+            </span>
+            <div>{% for l in c.listes %}<span class="tag">{{ l.nom }}</span>{% endfor %}</div>
+        </div>
+        {# Affichage étendu (tap sur la carte) — boutons d'action explicites #}
+        <div class="card-summary" hidden>
+            {{ summary_grid(c, current_user.is_admin) }}
+            <div class="summary-actions">
+                {% if c.telephone %}<a class="btn btn-small btn-secondary" href="{{ tel_uri(c.telephone) }}">📞 Appeler</a>{% endif %}
+                {% if c.email %}<a class="btn btn-small btn-secondary" href="mailto:{{ c.email }}">✉️ Écrire</a>{% endif %}
+                <a class="btn btn-small btn-primary edit-link" href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}">Modifier la fiche</a>
+            </div>
         </div>
     </div>
     {% else %}
@@ -152,51 +206,221 @@
     {% endfor %}
 </div>
 
+{# --- Modale : choix de liste (Ajouter / Transférer / Retirer) --- #}
+<div class="modal-overlay" id="modal-liste" onclick="if(event.target===this)closeModal('modal-liste')">
+    <div class="modal">
+        <div class="modal-body">
+            <h2 id="modal-liste-title">Ajouter à une liste</h2>
+            <p id="modal-liste-desc" class="text-muted"></p>
+            <select id="modal-liste-select" class="modal-liste-select">
+                <option value="">— Choisir une liste —</option>
+                {% for liste in listes %}<option value="{{ liste.id }}">{{ liste.nom }}</option>{% endfor %}
+            </select>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-liste')">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="confirmListeAction()">Valider</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% if current_user.is_admin %}
-{% if liste_filter %}
-<div class="export-section">
-    <a href="{{ url_for('imports.export_contacts', liste=liste_filter) }}" class="btn">Exporter cette liste (TSV)</a>
-    <a href="{{ url_for('imports.export_vcard', liste=liste_filter, version='3.0') }}" class="btn">Exporter cette liste (vCard 3.0)</a>
-    <a href="{{ url_for('imports.export_vcard', liste=liste_filter, version='4.0') }}" class="btn">Exporter cette liste (vCard 4.0)</a>
+{# --- Modale : export de la sélection --- #}
+<div class="modal-overlay" id="modal-export" onclick="if(event.target===this)closeModal('modal-export')">
+    <div class="modal">
+        <div class="modal-body">
+            <h2>Exporter la sélection</h2>
+            <p class="text-muted"><span id="export-count">0</span> contact(s) sélectionné(s).</p>
+            <div class="export-choices">
+                <button type="button" class="btn btn-secondary" onclick="exportSelection('tsv')">TSV</button>
+                <button type="button" class="btn btn-secondary" onclick="exportSelection('v3')">vCard 3.0</button>
+                <button type="button" class="btn btn-secondary" onclick="exportSelection('v4')">vCard 4.0</button>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-export')">Fermer</button>
+            </div>
+        </div>
+    </div>
 </div>
-{% else %}
-<div class="export-section">
-    <a href="{{ url_for('imports.export_contacts') }}" class="btn">Exporter tous les contacts (TSV)</a>
-    <a href="{{ url_for('imports.export_vcard', version='3.0') }}" class="btn">Exporter tous (vCard 3.0)</a>
-    <a href="{{ url_for('imports.export_vcard', version='4.0') }}" class="btn">Exporter tous (vCard 4.0)</a>
-</div>
-{% endif %}
 {% endif %}
 
 <script>
-document.getElementById('select-all').addEventListener('change', function() {
-    document.querySelectorAll('.contact-checkbox').forEach(cb => {
-        if (cb.offsetParent !== null) cb.checked = this.checked;
+// ---------- Modale ----------
+function openModal(id){ document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ document.querySelectorAll('.modal-overlay.open').forEach(function(m){ m.classList.remove('open'); }); document.body.style.overflow=''; } });
+
+var SEL_KEY = 'contacts_sel';
+var cbs = Array.from(document.querySelectorAll('.contact-cb'));
+
+// ---------- Sélection (persistée ENTRE FILTRES ; vidée APRÈS une action groupée) ----------
+// Sûreté : une action groupée ne porte que sur les cases RÉELLEMENT affichées (les sélectionnés
+// hors du filtre courant ne sont jamais dans le POST). On peut donc mémoriser la sélection entre
+// filtres sans risque — il suffit de la vider après une action (submitBulk / confirmListeAction).
+// Une même fiche a 2 cases (tableau + carte mobile) → dédoublonnage par id.
+function selectedIds(){
+    var seen = {}, out = [];
+    cbs.forEach(function(cb){ if (cb.checked && !seen[cb.value]){ seen[cb.value] = 1; out.push(cb.value); } });
+    return out;
+}
+var TOTAL_CONTACTS = (function(){ var s = {}; cbs.forEach(function(cb){ s[cb.value] = 1; }); return Object.keys(s).length; })();
+function loadSel(){ try { return JSON.parse(sessionStorage.getItem(SEL_KEY) || '[]') || []; } catch(e){ return []; } }
+function storeSel(arr){ try { sessionStorage.setItem(SEL_KEY, JSON.stringify(arr)); } catch(e){} }
+function clearSel(){ try { sessionStorage.removeItem(SEL_KEY); } catch(e){} }
+function saveSel(){
+    // Fusion : conserver les sélectionnés HORS filtre courant + ceux cochés ici.
+    var dom = new Set(cbs.map(function(cb){ return cb.value; }));
+    var kept = loadSel().map(String).filter(function(id){ return !dom.has(id); });
+    storeSel(kept.concat(selectedIds()));
+}
+function restoreSel(){
+    var set = new Set(loadSel().map(String));
+    if (!set.size) return;
+    cbs.forEach(function(cb){ if (set.has(cb.value)) cb.checked = true; });
+}
+function updateCount(){
+    var n = selectedIds().length;   // compte les cochés VISIBLES = ce qui sera réellement actionné
+    var bar = document.getElementById('select-bar');
+    if (bar) bar.hidden = (n === 0);
+    var sc = document.getElementById('sel-count'); if (sc) sc.textContent = n;
+    var ec = document.getElementById('export-count'); if (ec) ec.textContent = n;
+    var sa = document.getElementById('select-all');
+    if (sa) sa.checked = (n > 0 && n === TOTAL_CONTACTS);
+}
+cbs.forEach(function(cb){ cb.addEventListener('change', function(){ saveSel(); updateCount(); }); });
+var selAll = document.getElementById('select-all');
+if (selAll) selAll.addEventListener('change', function(){
+    cbs.forEach(function(cb){ cb.checked = selAll.checked; });
+    saveSel(); updateCount();
+});
+
+// ---------- Actions groupées ----------
+var CUR_ACTION = null;
+function openListeModal(action){
+    if (selectedIds().length === 0){ alert('Aucun contact sélectionné.'); return; }
+    CUR_ACTION = action;
+    var titles = { add_to_liste:'Ajouter à une liste', transfer:'Transférer vers…', remove_from_liste:"Retirer d'une liste" };
+    var descs = {
+        add_to_liste: 'Les contacts sélectionnés seront ajoutés à la liste choisie.',
+        transfer: 'Les contacts seront retirés de la liste affichée puis ajoutés à la liste choisie.',
+        remove_from_liste: 'Les contacts sélectionnés seront retirés de la liste choisie.'
+    };
+    document.getElementById('modal-liste-title').textContent = titles[action] || 'Listes';
+    document.getElementById('modal-liste-desc').textContent = descs[action] || '';
+    document.getElementById('modal-liste-select').value = '';
+    openModal('modal-liste');
+}
+function confirmListeAction(){
+    var lid = document.getElementById('modal-liste-select').value;
+    if (!lid){ alert('Choisissez une liste.'); return; }
+    clearSel();  // l'action consomme la sélection → pas de report après redirection
+    document.getElementById('bulk-action-input').value = CUR_ACTION;
+    document.getElementById('bulk-liste-id').value = lid;
+    document.getElementById('bulk-form').submit();
+}
+function submitBulk(action, confirmMsg){
+    if (selectedIds().length === 0){ alert('Aucun contact sélectionné.'); return; }
+    if (confirmMsg && !confirm(confirmMsg)) return;
+    clearSel();  // l'action consomme la sélection → pas de report après redirection
+    document.getElementById('bulk-action-input').value = action;
+    document.getElementById('bulk-form').submit();
+}
+{% if current_user.is_admin %}
+var EXPORT_TSV = "{{ url_for('imports.export_contacts') }}";
+var EXPORT_VCF = "{{ url_for('imports.export_vcard') }}";
+function openExportModal(){
+    if (selectedIds().length === 0){ alert('Aucun contact sélectionné.'); return; }
+    openModal('modal-export');
+}
+function exportSelection(fmt){
+    var ids = selectedIds().join(',');
+    if (fmt === 'tsv') window.location = EXPORT_TSV + '?ids=' + ids;
+    else if (fmt === 'v3') window.location = EXPORT_VCF + '?version=3.0&ids=' + ids;
+    else if (fmt === 'v4') window.location = EXPORT_VCF + '?version=4.0&ids=' + ids;
+    closeModal('modal-export');
+}
+{% endif %}
+
+// ---------- Résumé inline (accordéon) ----------
+function summaryOf(row){ return document.querySelector('.row-summary[data-summary-for="' + row.dataset.cid + '"]'); }
+document.querySelectorAll('.contact-row').forEach(function(row){
+    row.addEventListener('click', function(e){
+        if (e.target.closest('input, a, button, label, .icon-edit')) return;
+        var open = row.classList.toggle('is-open');
+        var s = summaryOf(row);
+        if (s) s.hidden = !open;
+    });
+});
+// Mobile : tap sur une carte → déplie son résumé étendu (hors case/lien/bouton)
+document.querySelectorAll('.contact-card').forEach(function(card){
+    card.addEventListener('click', function(e){
+        if (e.target.closest('input, a, button, label')) return;
+        var s = card.querySelector('.card-summary');
+        if (s){ s.hidden = !s.hidden; card.classList.toggle('is-open'); }
     });
 });
 
-function toggleBulk(btn) {
-    var bar = document.getElementById('bulk-actions-bar');
-    var open = bar.classList.toggle('bulk-actions-open');
-    btn.textContent = open ? 'Actions ▴' : 'Actions ▾';
+// ---------- Tri (colonnes) — garde chaque résumé apparié à sa ligne ----------
+var mainRows = Array.from(document.querySelectorAll('.contact-row'));
+document.querySelectorAll('#contacts-table th.th-sort').forEach(function(th){
+    th.addEventListener('click', function(){
+        var key = th.dataset.k, numeric = (key === 'statut');
+        var asc = th.dataset.sortDir !== 'asc';
+        th.dataset.sortDir = asc ? 'asc' : 'desc';
+        document.querySelectorAll('#contacts-table th.th-sort').forEach(function(t){ t.classList.remove('sort-asc','sort-desc'); });
+        th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+        mainRows.sort(function(a, b){
+            var av = a.getAttribute('data-k-' + key) || '', bv = b.getAttribute('data-k-' + key) || '';
+            var r = numeric ? (parseFloat(av) - parseFloat(bv)) : av.localeCompare(bv, 'fr', {numeric:true});
+            return asc ? r : -r;
+        });
+        var tbody = document.querySelector('#contacts-table tbody');
+        mainRows.forEach(function(row){ tbody.appendChild(row); var s = summaryOf(row); if (s) tbody.appendChild(s); });
+        page = 1; renderPage();
+    });
+});
+
+// ---------- Pagination client (toutes les lignes restent dans le DOM) ----------
+var PAGE_SIZE = 25;
+var page = 1;
+function pageCount(){ return Math.max(1, Math.ceil(mainRows.length / PAGE_SIZE)); }
+function renderPage(){
+    var start = (page - 1) * PAGE_SIZE, end = start + PAGE_SIZE;
+    mainRows.forEach(function(row, i){
+        var vis = (i >= start && i < end);
+        row.style.display = vis ? '' : 'none';
+        var s = summaryOf(row);
+        if (s) s.hidden = !(vis && row.classList.contains('is-open'));
+    });
+    renderPager();
+}
+function renderPager(){
+    var pager = document.getElementById('pager');
+    pager.innerHTML = '';
+    var total = pageCount();
+    if (total <= 1) return;
+    function btn(label, target, disabled, current){
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'pager-btn' + (current ? ' is-current' : '');
+        b.textContent = label; b.disabled = !!disabled;
+        if (!disabled && !current) b.onclick = function(){ page = target; renderPage(); };
+        pager.appendChild(b);
+    }
+    btn('‹ Précédent', page - 1, page === 1);
+    var from = Math.max(1, page - 2), to = Math.min(total, from + 4);
+    from = Math.max(1, to - 4);
+    if (from > 1) btn('1', 1, false, page === 1);
+    if (from > 2){ var e = document.createElement('span'); e.className='pager-gap'; e.textContent='…'; pager.appendChild(e); }
+    for (var p = from; p <= to; p++) btn(String(p), p, false, p === page);
+    if (to < total - 1){ var e2 = document.createElement('span'); e2.className='pager-gap'; e2.textContent='…'; pager.appendChild(e2); }
+    if (to < total) btn(String(total), total, false, page === total);
+    btn('Suivant ›', page + 1, page === total);
 }
 
-function updateListeButtons(val) {
-    var hasListe = val !== '';
-    document.getElementById('btn-add-liste').disabled = !hasListe;
-    document.getElementById('btn-remove-liste').disabled = !hasListe;
-}
+// ---------- Init ----------
+restoreSel();
+updateCount();
+renderPage();
 </script>
-
-<style>
-.tag-unsub {
-    background: #fee2e2;
-    color: #991b1b;
-    font-size: 0.7rem;
-    padding: 0.1rem 0.4rem;
-    border-radius: 99px;
-    font-weight: 600;
-    margin-left: 0.25rem;
-}
-</style>
 {% endblock %}

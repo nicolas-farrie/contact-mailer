@@ -332,11 +332,17 @@ def index():
 def export_vcard():
     from vcard_converter import create_vcard
     liste_id = request.args.get('liste', type=int)
+    ids = request.args.get('ids', '').strip()
     version = request.args.get('version', '3.0')
     if version not in ('3.0', '4.0'):
         version = '3.0'
 
-    if liste_id:
+    if ids:
+        id_list = [int(x) for x in ids.split(',') if x.strip().isdigit()]
+        contacts = (Contact.query.filter(Contact.id.in_(id_list), Contact.is_deleted == False)
+                    .order_by(Contact.nom, Contact.prenom).all())
+        filename = 'contacts_selection.vcf'
+    elif liste_id:
         liste = Liste.query.get_or_404(liste_id)
         contacts = liste.active_contacts
         filename = f'contacts_{liste.nom}.vcf'
@@ -374,8 +380,14 @@ def export_vcard():
 @admin_required
 def export_contacts():
     liste_id = request.args.get('liste', type=int)
+    ids = request.args.get('ids', '').strip()
 
-    if liste_id:
+    if ids:
+        id_list = [int(x) for x in ids.split(',') if x.strip().isdigit()]
+        contacts = (Contact.query.filter(Contact.id.in_(id_list), Contact.is_deleted == False)
+                    .order_by(Contact.nom, Contact.prenom).all())
+        filename = 'contacts_selection.tsv'
+    elif liste_id:
         liste = Liste.query.get_or_404(liste_id)
         contacts = liste.active_contacts
         filename = f'contacts_{liste.nom}.tsv'

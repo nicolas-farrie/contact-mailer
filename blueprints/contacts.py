@@ -52,6 +52,7 @@ def index():
     liste_filter = request.args.get('liste', type=int)
     source_filter = request.args.get('source', '').strip()
     search = request.args.get('q', '').strip()
+    statut_filter = request.args.get('statut', '').strip()
 
     query = Contact.query.filter(Contact.is_deleted == False)
 
@@ -62,6 +63,14 @@ def index():
 
     if source_filter:
         query = query.filter(Contact.source == source_filter)
+
+    # Statut = point coloré : abonné (vert) / désabonné (rouge) / bounce (ambre)
+    if statut_filter == 'abonne':
+        query = query.filter(Contact.is_unsubscribed == False, Contact.has_bounced == False)
+    elif statut_filter == 'desabonne':
+        query = query.filter(Contact.is_unsubscribed == True)
+    elif statut_filter == 'bounce':
+        query = query.filter(Contact.has_bounced == True)
 
     if search:
         search_pattern = f'%{search}%'
@@ -87,6 +96,7 @@ def index():
                            sources=sources,
                            liste_filter=liste_filter,
                            source_filter=source_filter,
+                           statut_filter=statut_filter,
                            search=search)
 
 
@@ -186,6 +196,43 @@ def bulk_action():
                 contact.listes.remove(liste)
         db.session.commit()
         flash(f'{len(contacts)} contacts retirés de "{liste.nom}"', 'success')
+
+    elif action == 'transfer':
+        source_id = request.form.get('source_liste_id', type=int)
+        source = Liste.query.get(source_id) if source_id else None
+        if liste and source:
+            for contact in contacts:
+                if source in contact.listes:
+                    contact.listes.remove(source)
+                if liste not in contact.listes:
+                    contact.listes.append(liste)
+            db.session.commit()
+            flash(f'{len(contacts)} contacts transférés de "{source.nom}" vers "{liste.nom}"', 'success')
+        else:
+            flash('Transfert impossible : liste source ou cible manquante.', 'error')
+
+    elif action == 'resubscribe':
+        n = 0
+        for contact in contacts:
+            if contact.is_unsubscribed:
+                contact.is_unsubscribed = False
+                contact.unsubscribed_at = None
+                contact.updated_by_id = current_user.id  # trace de l'acteur
+                n += 1
+        db.session.commit()
+        flash(f'{n} contact(s) réabonné(s)', 'success')
+
+    elif action == 'unsubscribe':
+        now = datetime.utcnow()
+        n = 0
+        for contact in contacts:
+            if not contact.is_unsubscribed:
+                contact.is_unsubscribed = True
+                contact.unsubscribed_at = now
+                contact.updated_by_id = current_user.id  # trace de l'acteur
+                n += 1
+        db.session.commit()
+        flash(f'{n} contact(s) désabonné(s)', 'success')
 
     elif action == 'delete':
         now = datetime.utcnow()
