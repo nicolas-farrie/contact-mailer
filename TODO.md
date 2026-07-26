@@ -116,9 +116,9 @@
 - [x] Affichage du message dans la file d'attente : toggle afficher/masquer, rendu HTML via iframe
 - [~] Historique mailing : affichage du détail d'une campagne (corps du mail, liste, pièces jointes) — clic sur ligne ou bouton dédié
 - [ ] Envoi asynchrone (ne pas bloquer l'interface pendant l'envoi)
-- [ ] Pagination de la liste des contacts
+- [x] Pagination de la liste des contacts (Lot A refonte : pagination client 25/page, sélection conservée entre pages)
 - [x] Cache-busting des assets statiques (fait : ?v=mtime via global Jinja asset_version) (`?v={{ config.APP_VERSION }}` sur style.css / JS) — évite que le navigateur serve un ancien CSS après déploiement (piège rencontré en test refonte : Ctrl+Shift+R nécessaire)
-- [ ] **Segments dynamiques accessibles à l'utilisateur** (décision 22/07) : donner accès depuis la page Contacts
+- [~] **Segments dynamiques accessibles à l'utilisateur** (décision 22/07 ; **PARTIEL** : filtre Statut Abonnés/Désabonnés/Bounces ajouté en Lot A — reste « jamais mailés » + corbeille comme vues) : donner accès depuis la page Contacts
   aux sélections calculées — **désabonnés**, **bounces** (`has_bounced`), **jamais mailés**, corbeille — sous forme de
   filtres/vues. Aujourd'hui la page Contacts ne filtre que par liste / source / recherche → impossible de voir les
   désabonnés. Les listes restent l'outil end-user "curé" ; les segments sont l'outil dynamique, mais ils doivent être
@@ -141,8 +141,8 @@
 - [ ] (Confort) WAL SQLite, pages d'erreur 404/500 personnalisées, envoi asynchrone si les listes grossissent
 
 ## Session debug 2026-07 (régressions post-restructuration blueprints)
-- [ ] Bouton « Envoyer un email de test » : câbler la route POST /mailing/test-smtp (existe déjà) dans la page **Paramètres** — page à renommer **« Généraux »**
-- [ ] Régler le bloqueur bounce 553 (MAIL FROM=bounce@ rejeté par le SMTP) — décision config/infra
+- [~] Bouton « Envoyer un email de test » : câbler la route POST /mailing/test-smtp (existe déjà) dans la page **Généraux** — *renommage « Paramètres »→« Généraux » **FAIT** 26/07 ; reste à câbler le bouton*
+- [x] Régler le bloqueur bounce 553 (MAIL FROM=bounce@ rejeté par le SMTP) — fait 26/07 : fonction bounce **retirée du `.env`** (BOUNCE_RETURN_PATH/IMAP vidés) → enveloppe = compte SMTP authentifié. **À répliquer en prod lfll.** (Le toggle UI « Gestion du Bounce » reste à faire, voir plus bas.)
 - [ ] Test exhaustif bouton par bouton : Mailing (M1–M18) puis Formulaires (F1–F11)
 - [ ] Mailing/P2 — gestion de l'absence de Civilité : la civilité reste optionnelle (respect / non-binaire), donc `{civilite}` peut être vide → l'assistant variables (P2) doit aider à gérer l'absence proprement (ex. `{civilite:{civilite} :}` conditionnel, ou salutation neutre par défaut) pour éviter les « Bonjour ,  Nom » disgracieux. (L'accord de genre, lui, est réglé : « Inclusif » par défaut, jamais vide.)
 - [ ] Éditeur mailing : passer l'UI/commandes en français ; ajouter un bouton « insérer une image » (seul Ctrl+V/Ctrl+C fonctionne)
@@ -185,6 +185,44 @@
 - [ ] Documentation utilisateur : rédiger une vraie doc par fonction (menus Mailing, Formulaires, Contacts, Listes, Paramètres… chaque bouton/action), destinée aux utilisateurs finaux des petites structures
 - [ ] Paramètres : ajouter une case à cocher « Gestion du Bounce » (activer/désactiver). Sur les petites structures (cœur de cible de l'app), le suivi des bounces n'est pas indispensable → permettre de le désactiver proprement dans l'UI, au lieu de bidouiller les variables .env (quand OFF : pas d'adresse bounce forcée en enveloppe → règle aussi le rejet SMTP 553)
 - [x] Page "Listes" : bouton « Exporter » désormais affiché uniquement si current_user.is_admin (listes.html)
+
+
+## ═══════════ REFONTE v2 (chantier UI/UX — sessions juillet 2026) ═══════════
+# Branche `design/claude-design-v2`. Refonte écran par écran, chaque écran mené à 100 %.
+
+### Fait
+- [x] **P0 — Fondation** : design system v2 (tokens indigo/crème), shell **sidebar gauche** (Travail/Configuration + bloc user)
+- [x] **P1 — Fiche contact** refondue (page pleine, sections/cartes pilotées par le registre `fields.py`) + backend **champs personnalisés** (`Contact.custom_fields` JSON, `CustomFieldDefinition`, écran admin CRUD) + civilité / accord de genre
+- [x] **Contacts (liste)** — conforme CLD 01a/01b : en-tête (Importer/Nouveau + sous-titre), barre d'outils (recherche + filtres Liste/Statut en pills + Corbeille), avatars + nom/email empilés, **statut = point** (vert/rouge/ambre), colonnes triables, **pagination client**, **résumé étendu au clic** (desktop accordéon + carte dépliable mobile), ✎ édition, mailto:/tel: (numéro nettoyé). Bandeau de sélection : Ajouter/Transférer/Retirer d'une liste, **(dés)abonner à statut variable** (tracé), Exporter (par ids), Corbeille. **Sélection persistante entre filtres** + vidée après action + conservée à l'aller-retour ✎
+- [x] **Listes** — refonte v2 (tuiles stats, pastilles couleur choisies, actions en icônes, archivage réversible, colonne « dernier usage », modales créer/éditer/supprimer) — validé 100 %
+- [x] **Utilisateurs** — refonte v2 (email sous le nom, actions en icônes, création/édition en modale, signature de modération)
+- [x] **Mailing** — composer v2 (éditeur **TinyMCE 6 auto-hébergé en français**, boutons Variable/Lien formulaire/Image en **CID** privé), multi-listes + dédoublonnage, **parcours d'envoi 4 étapes** (Composer→Aperçu→Destinataires→Envoi) avec barre d'étapes + modale de confirmation + état de succès
+- [x] **Navigation** — sous-nav Mailing réordonnée (Historique · Demandes · File) ; **Paramètres** : sidebar locale retirée → **sous-nav dans la sidebar principale** (Généraux · Champs personnalisés · Corbeilles) ; page **« Paramètres »→« Généraux »** ; nouvelle page **Corbeilles** (extensible) ; section **Intégrations** niveau 1 (Seafile · BookStack)
+- [x] **Données (dev)** — nettoyage des faux doublons de test + des `titre="None"`
+
+### À faire — Refonte v2 (backlog accumulé, à traiter plus tard)
+**Écrans restants (dans l'ordre) :**
+- [ ] **E. Mailing — historique + file globale** (polish) : passer les actions de l'historique en **icônes** (homogène Contacts/Listes/Users) ; **sécuriser le « Supprimer campagne »** de l'historique (efface aussi l'historique = piège) — mettre Archiver en avant / confirmation renforcée
+- [ ] **F. Formulaires** — refonte cartes (statut Actif/Expire/Archivé, validité, nb réponses) + net-new (RGPD, apparence, aperçu) — cf. gros sujets Formulaires plus haut
+- [ ] **G. Demandes de diffusion** — refonte (aperçu du contenu depuis la liste, UX pièces jointes, vue des archivées) — cf. items « Demandes de diffusion » plus haut
+- [ ] **H. Paramètres — contenu** : onglet/section **« Valeurs par défaut »** (éditer `choices.civilite`/`choices.titre` via `options_source`) ; **câbler le test SMTP** ; **toggle « Gestion du Bounce »** (ON/OFF)
+
+**Composants / UX transverses :**
+- [ ] **Modale de confirmation réutilisable et unique** (remplacer les `confirm()` natifs : corbeille contacts, suppression utilisateur, suppression campagne…)
+- [ ] **Assistant variables** dans l'éditeur mailing + gestion propre de l'absence de **civilité** (éviter « Bonjour ,  Nom »)
+- [ ] Polish shell : icônes dans la sidebar, en-tête sticky
+
+**Contacts / données :**
+- [ ] **Recherche étendue** : au-delà de nom/prénom/email → ex. « contacts sans téléphone », recherche dans les **champs personnalisés**
+- [ ] **(Dés)abonnement — traçabilité complète** : modale avec champ **« Raisons »** + colonne dédiée **`unsubscribed_by_id`** (aujourd'hui l'acteur est tracé via `updated_by_id`)
+- [ ] **Corbeille en mode user** : accès en **restauration seule**, via modale, **filtré sur les mises en corbeille du `current_user`**
+- [ ] Fiche contact : filet défensif d'affichage/import (valeurs `"None"`/`"nan"` → champ vide)
+
+**Listes :**
+- [ ] **Mobile** : le chapeau de 3 tuiles stats (Listes actives / Contacts / Abonnés joignables) prend trop de place → compacter / masquer / accordéon
+
+**Mailing :**
+- [ ] **Templates génériques** (email de bienvenue, de désabonnement, etc.) : aujourd'hui « enregistrer le brouillon » puis l'utiliser **détruit** le brouillon → concevoir une vraie notion de modèle réutilisable
 
 
 
