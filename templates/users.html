@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Utilisateurs - {{ app_name }}{% endblock %}
+{% import "_icons.html" as ico %}
 
 {# --- Champs du formulaire utilisateur (partagés entre modale création et édition) --- #}
 {% macro userfields(user, contacts, idp) %}
@@ -66,9 +67,12 @@
     {% for u in users %}
     <tr{% if not u.is_active %} class="cf-inactive"{% endif %}>
         <td>
-            <div class="user-name-cell">
+            <div class="recip-ident">
                 <span class="avatar-sm">{{ ((u.prenom or u.username or ' ')[0] ~ (u.nom or ' ')[0])|upper }}</span>
-                <strong>{{ u.display_name }}</strong>
+                <div class="recip-ident-text">
+                    <strong>{{ u.display_name }}</strong>
+                    {% if u.email %}<div class="recip-mail">{{ u.email }}</div>{% endif %}
+                </div>
             </div>
         </td>
         <td><code>{{ u.username }}</code></td>
@@ -76,10 +80,17 @@
         <td><span class="status-dot {{ 'is-off' if not u.is_active }}">{{ 'Actif' if u.is_active else 'Inactif' }}</span></td>
         <td>
             <div class="table-actions">
-                <button type="button" class="btn btn-small" onclick="openModal('modal-edit-{{ u.id }}')">Modifier</button>
+                <button type="button" class="icon-btn" title="Modifier" onclick="openModal('modal-edit-{{ u.id }}')">{{ ico.edit() }}</button>
                 {% if u.id != current_user.id %}
-                <form method="POST" action="{{ url_for('users.toggle_active', id=u.id) }}"><button class="btn btn-small">{{ 'Désactiver' if u.is_active else 'Activer' }}</button></form>
-                <form method="POST" action="{{ url_for('users.delete', id=u.id) }}" onsubmit="return confirm('Supprimer l’utilisateur « {{ u.username }} » ?')"><button class="btn btn-small btn-danger">Suppr.</button></form>
+                <form method="POST" action="{{ url_for('users.toggle_active', id=u.id) }}" style="display:inline">
+                    <button type="submit" class="icon-btn" title="{{ 'Désactiver le compte' if u.is_active else 'Réactiver le compte' }}">
+                        {% if u.is_active %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>
+                        {% else %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{% endif %}
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('users.delete', id=u.id) }}" onsubmit="return confirm('Supprimer l’utilisateur « {{ u.username }} » ?')" style="display:inline">
+                    <button type="submit" class="icon-btn icon-danger" title="Supprimer">{{ ico.trash() }}</button>
+                </form>
                 {% else %}
                 <span class="hint" style="font-size:0.75rem;">(votre compte)</span>
                 {% endif %}
