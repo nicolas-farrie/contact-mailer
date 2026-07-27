@@ -157,9 +157,21 @@ a:hover {
 .form-status.is-active { color: var(--success-text); background: var(--success-bg); }
 .form-status.is-soon { color: var(--warning-text); background: var(--warning-bg); }
 .form-status.is-off { color: var(--text-muted); background: var(--bg-muted); }
-/* Édition formulaire : verrou structurel */
-.pref-liste-row.is-locked-out { opacity: 0.5; }
+/* Édition formulaire : verrou + groupes ordonnés */
 .lock-banner { margin-bottom: 1rem; }
+.group-add-row { margin-bottom: 1rem; }
+.group-add-row select { max-width: 340px; }
+.selected-groups { display: flex; flex-direction: column; gap: 0.6rem; }
+.group-row { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.7rem 0.8rem; background: var(--bg-muted); }
+.group-row-head { display: flex; align-items: center; gap: 0.6rem; }
+.group-reorder { display: flex; flex-direction: column; gap: 2px; }
+.reorder-btn { width: 24px; height: 18px; line-height: 1; padding: 0; border: 1px solid var(--border-strong); background: var(--bg-surface); border-radius: 4px; cursor: pointer; color: var(--text-secondary); font-size: 0.6rem; }
+.reorder-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+.group-name { flex: 1; }
+.group-remove { border: none; background: none; font-size: 1.35rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 0.3rem; }
+.group-remove:hover { color: var(--danger); }
+.group-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.6rem; }
+@media (max-width: 720px) { .group-fields { grid-template-columns: 1fr; } }
 
 .sidebar-user {
     border-top: 1px solid var(--divider);

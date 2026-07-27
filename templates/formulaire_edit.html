@@ -2,6 +2,31 @@
 {% block title %}{{ 'Modifier' if form else 'Nouveau' }} formulaire - {{ app_name }}{% endblock %}
 {% block container_class %}container-wide{% endblock %}
 
+{% set liste_map = {} %}
+{% for l in listes %}{% set _ = liste_map.update({l.id: l}) %}{% endfor %}
+{% set current_ids = form.listes|map(attribute='liste_id')|list if form else [] %}
+
+{# --- Ligne d'un groupe sélectionné (ordonné) --- #}
+{% macro group_row(liste, fl, locked) %}
+<div class="group-row" data-id="{{ liste.id }}" data-nom="{{ liste.nom }}" data-count="{{ liste.count }}">
+    <div class="group-row-head">
+        <div class="group-reorder">
+            <button type="button" class="reorder-btn" title="Monter" onclick="moveGroup(this,-1)">&#9650;</button>
+            <button type="button" class="reorder-btn" title="Descendre" onclick="moveGroup(this,1)">&#9660;</button>
+        </div>
+        <div class="group-name"><strong>{{ liste.nom }}</strong> <span class="pref-count">({{ liste.count }} contact{{ 's' if liste.count != 1 }})</span></div>
+        {% if not locked %}<button type="button" class="group-remove" title="Retirer du formulaire" onclick="removeGroup(this)">&times;</button>{% endif %}
+    </div>
+    <div class="group-fields">
+        <div class="form-group"><label>Libellé affiché</label>
+            <input type="text" name="label_{{ liste.id }}" value="{{ fl.label if fl else liste.nom }}" placeholder="{{ liste.nom }}"></div>
+        <div class="form-group"><label>Explication (info-bulle ?)</label>
+            <input type="text" name="help_{{ liste.id }}" value="{{ fl.help_text if fl else '' }}" placeholder="Facultatif — précise le rôle ou l'engagement attendu"></div>
+    </div>
+    <input type="hidden" name="liste_ids" value="{{ liste.id }}">
+</div>
+{% endmacro %}
+
 {% block content %}
 <div class="page-header">
     <div class="page-header-title">
@@ -29,7 +54,6 @@
             <textarea id="description" name="description" rows="3"
                       placeholder="ex: Dans le cadre de l'organisation de notre événement annuel, merci de nous indiquer le niveau d'implication qui vous correspond.">{{ form.description or '' }}</textarea>
         </div>
-
         <div class="form-row">
             <div class="form-group">
                 <label for="expires_at">Date de clôture automatique <span class="hint" style="font-weight:normal;">(optionnel)</span></label>
@@ -47,63 +71,36 @@
             {% endif %}
         </div>
         <p class="field-help"><strong>Conseillé :</strong> fixez toujours une échéance — une campagne de préférences est
-        par nature temporaire, et une date de clôture est requise pour pouvoir archiver ensuite. Ne laissez « illimité »
-        (vide) que pour un espace de réglages permanent ouvert en continu aux contacts.</p>
+        par nature temporaire, et une date de clôture est requise pour pouvoir archiver ensuite.</p>
     </section>
 
     <!-- Groupes proposés -->
     <section class="card settings-section">
         <h2>Groupes proposés</h2>
-        <p class="settings-hint">Cochez les groupes à proposer, définissez le libellé affiché au contact et une explication optionnelle (icône ?).</p>
+        <p class="settings-hint">Ajoutez les groupes à proposer, ordonnez-les (↑/↓) et définissez le libellé affiché au contact + une explication optionnelle. L'ordre ici = l'ordre d'affichage sur la page publique.</p>
 
         {% if locked %}
         <div class="alert alert-info lock-banner">
-            🔒 Ce formulaire est <strong>ouvert</strong> : vous pouvez modifier les <strong>libellés et aides</strong>,
+            🔒 Ce formulaire est <strong>ouvert</strong> : vous pouvez modifier les <strong>libellés, aides et l'ordre</strong>,
             mais <strong>pas ajouter ni retirer de groupes</strong> (des contacts peuvent être en train d'y répondre).
-            Pour restructurer, clôturez-le d'abord (fixez une date de clôture passée ou décochez « actif » ci-dessus), puis rééditez.
+            Pour restructurer, clôturez-le d'abord (date de clôture passée ou décochez « actif »), puis rééditez.
         </div>
         {% endif %}
 
-        {% set current_ids = form.listes|map(attribute='liste_id')|list if form else [] %}
-        {% set current_map = {} %}
-        {% if form %}{% for fl in form.listes %}{% set _ = current_map.update({fl.liste_id: fl}) %}{% endfor %}{% endif %}
-
-        <div id="listes-container">
-            {% for liste in listes %}
-            {% set fl = current_map.get(liste.id) %}
-            {% set checked = liste.id in current_ids %}
-            <div class="pref-liste-row{% if locked and not checked %} is-locked-out{% endif %}" data-id="{{ liste.id }}">
-                <div class="pref-liste-check">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="liste_select_{{ liste.id }}"
-                               class="liste-cb" data-id="{{ liste.id }}"
-                               {% if checked %}checked{% endif %}{% if locked %} disabled{% endif %}>
-                        <strong>{{ liste.nom }}</strong>
-                        <span class="pref-count">({{ liste.count }} contact{% if liste.count != 1 %}s{% endif %})</span>
-                    </label>
-                </div>
-                <div class="pref-liste-fields" {% if not checked %}style="display:none"{% endif %}>
-                    <input type="hidden" name="liste_order_{{ liste.id }}" class="liste-order" value="{{ loop.index0 }}">
-                    <div class="form-row" style="margin-bottom:0.5rem;">
-                        <div class="form-group" style="margin-bottom:0;">
-                            <label>Libellé affiché</label>
-                            <input type="text" name="label_{{ liste.id }}"
-                                   value="{{ fl.label if fl else liste.nom }}" placeholder="{{ liste.nom }}">
-                        </div>
-                        <div class="form-group" style="margin-bottom:0;">
-                            <label>Explication (info-bulle <span title="Affiché avec une icône ? à côté du libellé">?</span>)</label>
-                            <input type="text" name="help_{{ liste.id }}"
-                                   value="{{ fl.help_text or '' }}"
-                                   placeholder="Facultatif — précise le rôle ou l'engagement attendu">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-            {% if not listes %}
-            <p class="hint">Aucune liste créée. <a href="{{ url_for('listes.new') }}">Créer une liste</a> d'abord.</p>
-            {% endif %}
+        <div class="group-add-row">
+            <select id="add-group-select" {% if locked %}disabled title="Formulaire ouvert : ajout impossible"{% endif %} onchange="addGroup(this)">
+                <option value="">+ Ajouter un groupe…</option>
+                {% for liste in listes if liste.id not in current_ids %}
+                <option value="{{ liste.id }}" data-nom="{{ liste.nom }}" data-count="{{ liste.count }}">{{ liste.nom }}</option>
+                {% endfor %}
+            </select>
         </div>
+
+        <div id="selected-groups" class="selected-groups">
+            {% if form %}{% for fl in form.listes|sort(attribute='ordre') %}{% set liste = liste_map.get(fl.liste_id) %}{% if liste %}{{ group_row(liste, fl, locked) }}{% endif %}{% endfor %}{% endif %}
+        </div>
+        <p class="hint" id="no-groups-hint" {% if current_ids %}style="display:none"{% endif %}>Aucun groupe sélectionné — ajoutez-en avec la liste déroulante ci-dessus.</p>
+        {% if not listes %}<p class="hint">Aucune liste créée. <a href="{{ url_for('listes.new') }}">Créer une liste</a> d'abord.</p>{% endif %}
     </section>
 
     <div class="form-actions">
@@ -113,20 +110,50 @@
 </form>
 
 <script>
-document.querySelectorAll('.liste-cb').forEach(function(cb) {
-    cb.addEventListener('change', function() {
-        const row = this.closest('.pref-liste-row');
-        row.querySelector('.pref-liste-fields').style.display = this.checked ? '' : 'none';
-    });
-});
-document.getElementById('pref-form').addEventListener('submit', function() {
-    // Injecte les liste_ids des groupes cochés, dans l'ordre du DOM.
-    // (Ignoré côté serveur si le formulaire est verrouillé.)
-    document.querySelectorAll('.liste-cb:checked').forEach(function(cb) {
-        const inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = 'liste_ids'; inp.value = cb.dataset.id;
-        document.getElementById('pref-form').appendChild(inp);
-    });
-});
+function escAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function updateEmptyHint(){
+    var has = document.querySelectorAll('#selected-groups .group-row').length > 0;
+    document.getElementById('no-groups-hint').style.display = has ? 'none' : '';
+}
+function buildRow(id, nom, count){
+    var s = count > 1 ? 's' : '';
+    var n = escAttr(nom);
+    return '<div class="group-row" data-id="'+id+'" data-nom="'+n+'" data-count="'+count+'">'
+      + '<div class="group-row-head">'
+      +   '<div class="group-reorder"><button type="button" class="reorder-btn" title="Monter" onclick="moveGroup(this,-1)">&#9650;</button><button type="button" class="reorder-btn" title="Descendre" onclick="moveGroup(this,1)">&#9660;</button></div>'
+      +   '<div class="group-name"><strong>'+n+'</strong> <span class="pref-count">('+count+' contact'+s+')</span></div>'
+      +   '<button type="button" class="group-remove" title="Retirer du formulaire" onclick="removeGroup(this)">&times;</button>'
+      + '</div>'
+      + '<div class="group-fields">'
+      +   '<div class="form-group"><label>Libellé affiché</label><input type="text" name="label_'+id+'" value="'+n+'" placeholder="'+n+'"></div>'
+      +   '<div class="form-group"><label>Explication (info-bulle ?)</label><input type="text" name="help_'+id+'" value="" placeholder="Facultatif — précise le rôle ou l\'engagement attendu"></div>'
+      + '</div>'
+      + '<input type="hidden" name="liste_ids" value="'+id+'">'
+      + '</div>';
+}
+function addGroup(sel){
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    var id = opt.value, nom = opt.dataset.nom, count = parseInt(opt.dataset.count || '0', 10);
+    document.getElementById('selected-groups').insertAdjacentHTML('beforeend', buildRow(id, nom, count));
+    opt.remove();
+    sel.value = '';
+    updateEmptyHint();
+}
+function removeGroup(btn){
+    var row = btn.closest('.group-row');
+    var sel = document.getElementById('add-group-select');
+    var o = document.createElement('option');
+    o.value = row.dataset.id; o.dataset.nom = row.dataset.nom; o.dataset.count = row.dataset.count;
+    o.textContent = row.dataset.nom;
+    sel.appendChild(o);
+    row.remove();
+    updateEmptyHint();
+}
+function moveGroup(btn, dir){
+    var row = btn.closest('.group-row');
+    if (dir < 0 && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+    else if (dir > 0 && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+}
 </script>
 {% endblock %}

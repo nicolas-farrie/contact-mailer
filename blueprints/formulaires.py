@@ -175,13 +175,21 @@ def _save_form_listes(pf, form_data, all_listes):
 
 
 def _update_form_listes_texts(pf, form_data):
-    """Verrou structurel : met à jour uniquement le libellé et l'aide des groupes
-    DÉJÀ présents dans le formulaire, sans modifier le jeu de groupes ni l'ordre."""
-    for fl in pf.listes:
-        label = form_data.get(f'label_{fl.liste_id}', '').strip()
+    """Verrou structurel : le JEU de groupes est figé (ajouts/retraits ignorés) mais
+    on met à jour le libellé, l'aide ET l'ORDRE des groupes déjà présents, d'après la
+    séquence soumise (liste_ids). Conforme à la règle « ouvert = ordre modifiable »."""
+    existing = {fl.liste_id: fl for fl in pf.listes}
+    ordre = 0
+    for lid in form_data.getlist('liste_ids', type=int):
+        fl = existing.get(lid)
+        if fl is None:
+            continue  # tentative d'ajout d'un groupe hors jeu → ignorée (verrou)
+        fl.ordre = ordre
+        ordre += 1
+        label = form_data.get(f'label_{lid}', '').strip()
         if label:
             fl.label = label
-        fl.help_text = form_data.get(f'help_{fl.liste_id}', '').strip() or None
+        fl.help_text = form_data.get(f'help_{lid}', '').strip() or None
 
 
 # --- Page publique ---
