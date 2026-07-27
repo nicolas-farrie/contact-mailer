@@ -1,0 +1,33 @@
+{# En-tête + navigation par onglets de l'admin d'un formulaire (v2).
+   active ∈ edition|lien|reponses|valider ; pending = nb de modifications à valider. #}
+{% macro header(form, active, now, pending=0) %}
+{% set expired = form.expires_at and form.expires_at < now %}
+{% set soon = form.expires_at and form.expires_at > now and (form.expires_at - now).days <= 15 %}
+<a href="{{ url_for('formulaires.index') }}" class="back-link">← Retour aux formulaires</a>
+<div class="page-header form-admin-header">
+    <div class="page-header-title">
+        <h1>{{ form.nom }}
+            {% if not form.is_active %}<span class="form-status is-off">Inactif</span>
+            {% elif expired %}<span class="form-status is-off">Clos</span>
+            {% elif soon %}<span class="form-status is-soon">Expire bientôt</span>
+            {% else %}<span class="form-status is-active">Actif</span>{% endif %}
+        </h1>
+    </div>
+    <div class="page-header-actions">
+        <button type="button" class="btn btn-secondary is-muted" title="Aperçu de la page publique — bientôt"
+                onclick="alert('Aperçu de la page publique — à venir.');">👁 Aperçu</button>
+        {% if expired and not form.is_archived %}
+        <form method="POST" action="{{ url_for('formulaires.archive', id=form.id) }}" style="display:inline"
+              onsubmit="return confirm('Archiver « {{ form.nom }} » ? (réversible, réponses conservées)');">
+            <button type="submit" class="btn btn-danger-outline">Archiver</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+<nav class="form-tabs">
+    <a class="form-tab{{ ' active' if active=='edition' }}" href="{{ url_for('formulaires.edit', id=form.id) }}">Édition</a>
+    <a class="form-tab{{ ' active' if active=='lien' }}" href="{{ url_for('formulaires.detail', id=form.id, tab='lien') }}">Lien</a>
+    <a class="form-tab{{ ' active' if active=='reponses' }}" href="{{ url_for('formulaires.detail', id=form.id, tab='reponses') }}">Réponses <span class="tab-count">{{ form.responses|length }}</span></a>
+    <a class="form-tab{{ ' active' if active=='valider' }}" href="{{ url_for('formulaires.detail', id=form.id, tab='valider') }}">À valider{% if pending %} <span class="tab-count is-alert">{{ pending }}</span>{% endif %}</a>
+</nav>
+{% endmacro %}

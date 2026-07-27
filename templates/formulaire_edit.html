@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Modifier' if form else 'Nouveau' }} formulaire - {{ app_name }}{% endblock %}
 {% block container_class %}container-wide{% endblock %}
+{% import "_form_tabs.html" as tabs %}
 
 {% set liste_map = {} %}
 {% for l in listes %}{% set _ = liste_map.update({l.id: l}) %}{% endfor %}
@@ -28,16 +29,17 @@
 {% endmacro %}
 
 {% block content %}
+{% if form %}
+{{ tabs.header(form, 'edition', now, pending) }}
+{% else %}
 <div class="page-header">
-    <div class="page-header-title">
-        <h1>{{ 'Modifier le formulaire' if form else 'Nouveau formulaire' }}</h1>
-        {% if form %}<p class="page-subtitle">{{ form.nom }}</p>{% endif %}
-    </div>
+    <div class="page-header-title"><h1>Nouveau formulaire</h1></div>
     <div class="page-header-actions">
-        <a href="{{ url_for('formulaires.detail', id=form.id) if form else url_for('formulaires.index') }}" class="btn btn-secondary">Annuler</a>
-        <button type="submit" form="pref-form" class="btn btn-primary">{{ 'Enregistrer' if form else 'Créer le formulaire' }}</button>
+        <a href="{{ url_for('formulaires.index') }}" class="btn btn-secondary">Annuler</a>
+        <button type="submit" form="pref-form" class="btn btn-primary">Créer le formulaire</button>
     </div>
 </div>
+{% endif %}
 
 <form method="POST" id="pref-form">
 

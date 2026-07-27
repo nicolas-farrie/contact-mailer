@@ -1,27 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ form.nom }} - {{ app_name }}{% endblock %}
 {% block container_class %}container-wide{% endblock %}
+{% import "_form_tabs.html" as tabs %}
 
 {% block content %}
 {% set expired = form.expires_at and form.expires_at < now %}
-{% set soon = form.expires_at and form.expires_at > now and (form.expires_at - now).days <= 15 %}
+{{ tabs.header(form, tab, now, pending) }}
 
-<a href="{{ url_for('formulaires.index') }}" class="back-link">← Retour aux formulaires</a>
-
-<div class="page-header">
-    <div class="page-header-title">
-        <h1>{{ form.nom }}
-            {% if not form.is_active %}<span class="form-status is-off">Inactif</span>
-            {% elif expired %}<span class="form-status is-off">Clos</span>
-            {% elif soon %}<span class="form-status is-soon">Expire bientôt</span>
-            {% else %}<span class="form-status is-active">Actif</span>{% endif %}
-        </h1>
-        {% if form.description %}<p class="page-subtitle">{{ form.description }}</p>{% endif %}
-    </div>
-    <a href="{{ url_for('formulaires.edit', id=form.id) }}" class="btn btn-primary">Modifier</a>
-</div>
-
-<!-- Lien public -->
+{# ===================== Onglet LIEN ===================== #}
+{% if tab == 'lien' %}
 <section class="card settings-section">
     <div class="detail-link-head">
         <div>
@@ -40,32 +27,18 @@
     <code class="pref-link-code">{{ link_template }}</code>
 </section>
 
-<!-- Groupes proposés -->
+{# ===================== Onglet RÉPONSES ===================== #}
+{% elif tab == 'reponses' %}
 <section class="card settings-section">
-    <h2>Groupes proposés</h2>
-    {% if form.listes %}
-    <ol class="detail-groups">
-        {% for fl in form.listes|sort(attribute='ordre') %}
-        <li>
-            <strong>{{ fl.label }}</strong>
-            {% if fl.help_text %}<span class="text-muted"> — {{ fl.help_text }}</span>{% endif %}
-            <span class="detail-group-src">liste : {{ fl.liste.nom }}</span>
-        </li>
-        {% endfor %}
-    </ol>
-    {% else %}
-    <p class="hint">Aucun groupe configuré. <a href="{{ url_for('formulaires.edit', id=form.id) }}">Modifier le formulaire</a></p>
-    {% endif %}
-</section>
-
-<!-- Réponses -->
-<section class="card settings-section">
-    <h2>Réponses reçues <span class="badge badge-gray">{{ responses|length }}</span></h2>
+    <div class="detail-link-head">
+        <h2 style="margin:0;">Réponses reçues <span class="badge badge-gray">{{ responses|length }}</span></h2>
+        {% if responses and current_user.is_admin %}
+        <a href="{{ url_for('imports.export_contacts') }}" class="btn btn-small btn-secondary">↓ Exporter (CSV)</a>
+        {% endif %}
+    </div>
     {% if responses %}
     <table class="data-table">
-        <thead>
-            <tr><th data-sort>Contact</th><th data-sort>Email</th><th data-sort>Répondu le</th></tr>
-        </thead>
+        <thead><tr><th data-sort>Contact</th><th data-sort>Email</th><th data-sort>Répondu le</th></tr></thead>
         <tbody>
             {% for r in responses %}
             <tr>
@@ -81,12 +54,31 @@
     {% endif %}
 </section>
 
+{# ===================== Onglet À VALIDER ===================== #}
+{% elif tab == 'valider' %}
+<section class="card settings-section">
+    <h2 style="margin-bottom:0.15rem;">Modifications proposées</h2>
+    <p class="settings-hint">Corrections saisies par les contacts via un bloc « Champs de fiche ». Rien n'est enregistré tant qu'un administrateur n'a pas validé.</p>
+    {% if proposals %}
+    {# Regroupées par contact — application/rejet câblés en M6 #}
+    <p class="hint">{{ proposals|length }} modification(s) en attente. <em>(Validation/rejet : à venir — M6.)</em></p>
+    <ul class="detail-groups">
+        {% for p in proposals %}
+        <li><strong>{{ p.contact.prenom if p.contact else '' }} {{ p.contact.nom if p.contact else '?' }}</strong>
+            — {{ p.field_key }} : <span class="text-muted">{{ p.old_value or '—' }}</span> → <strong>{{ p.new_value or '—' }}</strong></li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state-text">Aucune modification en attente de validation.</p>
+    {% endif %}
+</section>
+{% endif %}
+
 <script>
 function copyLink(btn) {
     navigator.clipboard.writeText('{{ link_template }}').then(function() {
-        var original = btn.textContent;
-        btn.textContent = 'Copié ✓'; btn.disabled = true;
-        setTimeout(function() { btn.textContent = original; btn.disabled = false; }, 1500);
+        var o = btn.textContent; btn.textContent = 'Copié ✓'; btn.disabled = true;
+        setTimeout(function(){ btn.textContent = o; btn.disabled = false; }, 1500);
     });
 }
 </script>

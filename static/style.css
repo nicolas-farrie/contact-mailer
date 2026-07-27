@@ -184,6 +184,15 @@ a:hover {
 .detail-group-src { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; margin-left: 0.4rem; }
 .page-header-title h1 .form-status { vertical-align: middle; margin-left: 0.5rem; }
 
+/* Formulaire admin — navigation par onglets (v2) */
+.form-admin-header { margin-bottom: 0.25rem; }
+.form-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; overflow-x: auto; }
+.form-tab { padding: 0.55rem 0.9rem; color: var(--text-secondary); font-size: 0.92rem; font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.form-tab:hover { color: var(--text); }
+.form-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-count { display: inline-block; min-width: 18px; padding: 0 0.35rem; border-radius: var(--radius-pill); background: var(--bg-muted); color: var(--text-muted); font-size: 0.72rem; text-align: center; }
+.tab-count.is-alert { background: var(--warning-bg); color: var(--warning-text); }
+
 .sidebar-user {
     border-top: 1px solid var(--divider);
     padding: 0.7rem 0.85rem; display: flex; align-items: center; gap: 0.6rem;

@@ -10,7 +10,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
 from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
-                    PreferenceResponse)
+                    PreferenceResponse, FieldProposal)
 from config import Config
 from helpers import admin_required
 
@@ -36,7 +36,8 @@ def new():
         nom = request.form.get('nom', '').strip()
         if not nom:
             flash('Le nom du formulaire est requis.', 'error')
-            return render_template('formulaire_edit.html', form=None, listes=listes, locked=False)
+            return render_template('formulaire_edit.html', form=None, listes=listes, locked=False,
+                               now=datetime.utcnow(), pending=0)
         pf = PreferenceForm(nom=nom,
                             description=request.form.get('description', '').strip() or None,
                             created_by_id=current_user.id)
@@ -67,8 +68,14 @@ def detail(id):
     responses = (PreferenceResponse.query
                  .filter_by(form_id=pf.id)
                  .order_by(PreferenceResponse.submitted_at.desc()).all())
+    tab = request.args.get('tab', 'reponses')
+    if tab not in ('lien', 'reponses', 'valider'):
+        tab = 'reponses'
+    proposals = (FieldProposal.query.filter_by(form_id=pf.id, status='pending')
+                 .order_by(FieldProposal.proposed_at.desc()).all())
     return render_template('formulaire_detail.html', form=pf,
                            link_template=link_template, responses=responses,
+                           tab=tab, proposals=proposals, pending=len(proposals),
                            now=datetime.utcnow())
 
 
@@ -109,7 +116,9 @@ def edit(id):
         flash('Formulaire mis à jour.' + (' Groupes verrouillés (formulaire ouvert) : seuls les libellés ont été enregistrés.' if was_open else ''), 'success')
         return redirect(url_for('formulaires.detail', id=pf.id))
     locked = pf.is_active and (pf.expires_at is None or pf.expires_at > datetime.utcnow())
-    return render_template('formulaire_edit.html', form=pf, listes=listes, locked=locked)
+    pending = FieldProposal.query.filter_by(form_id=pf.id, status='pending').count()
+    return render_template('formulaire_edit.html', form=pf, listes=listes, locked=locked,
+                           now=datetime.utcnow(), pending=pending)
 
 
 @bp.route('/formulaires/<int:id>/delete', methods=['POST'])
