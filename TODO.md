@@ -173,7 +173,7 @@
   NOUVELLE instance (nouvel id/token/lien), l'ancienne figée ; (C) snapshot JSON dans
   PreferenceResponse (ce qui était proposé/coché) pour rester interprétable après édition.
   → Reco cible petites structures : garder A + le verrou ci-dessous + éventuellement C.
-- [ ] Formulaires — VERROU structurel tant que le formulaire est ouvert (is_active ET date de
+- [x] Formulaires — VERROU structurel (FAIT F2 : UI cases désactivées + bandeau explicatif + enforcement SERVEUR — le jeu de groupes est figé si le formulaire est ouvert, vérifié) tant que le formulaire est ouvert (is_active ET date de
   clôture non dépassée) : interdire l'AJOUT/RETRAIT de listes, n'autoriser que les retouches de
   texte (nom, description, label/help de chaque liste, ordre) + la date de clôture. Pour
   restructurer : clore d'abord le formulaire (déverrouille). Enforcement SERVEUR obligatoire

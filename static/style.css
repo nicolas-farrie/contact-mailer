@@ -157,6 +157,9 @@ a:hover {
 .form-status.is-active { color: var(--success-text); background: var(--success-bg); }
 .form-status.is-soon { color: var(--warning-text); background: var(--warning-bg); }
 .form-status.is-off { color: var(--text-muted); background: var(--bg-muted); }
+/* Édition formulaire : verrou structurel */
+.pref-liste-row.is-locked-out { opacity: 0.5; }
+.lock-banner { margin-bottom: 1rem; }
 
 .sidebar-user {
     border-top: 1px solid var(--divider);

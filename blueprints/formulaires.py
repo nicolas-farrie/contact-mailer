@@ -36,7 +36,7 @@ def new():
         nom = request.form.get('nom', '').strip()
         if not nom:
             flash('Le nom du formulaire est requis.', 'error')
-            return render_template('formulaire_edit.html', form=None, listes=listes)
+            return render_template('formulaire_edit.html', form=None, listes=listes, locked=False)
         pf = PreferenceForm(nom=nom,
                             description=request.form.get('description', '').strip() or None,
                             created_by_id=current_user.id)
@@ -81,7 +81,12 @@ def edit(id):
         nom = request.form.get('nom', '').strip()
         if not nom:
             flash('Le nom du formulaire est requis.', 'error')
-            return render_template('formulaire_edit.html', form=pf, listes=listes)
+            return render_template('formulaire_edit.html', form=pf, listes=listes,
+                                   locked=(pf.is_active and (pf.expires_at is None or pf.expires_at > datetime.utcnow())))
+        # Verrou structurel : basé sur l'état AVANT édition. Un formulaire ouvert
+        # (actif ET non expiré) ne peut pas voir son JEU de groupes modifié (des
+        # contacts peuvent être en train d'y répondre) — seuls libellés/aides bougent.
+        was_open = pf.is_active and (pf.expires_at is None or pf.expires_at > datetime.utcnow())
         pf.nom = nom
         pf.description = request.form.get('description', '').strip() or None
         pf.is_active = request.form.get('is_active') == 'on'
@@ -93,14 +98,18 @@ def edit(id):
                 pass
         else:
             pf.expires_at = None
-        for fl in pf.listes:
-            db.session.delete(fl)
-        db.session.flush()
-        _save_form_listes(pf, request.form, listes)
+        if was_open:
+            _update_form_listes_texts(pf, request.form)   # verrou : jeu de groupes figé
+        else:
+            for fl in pf.listes:
+                db.session.delete(fl)
+            db.session.flush()
+            _save_form_listes(pf, request.form, listes)
         db.session.commit()
-        flash('Formulaire mis à jour.', 'success')
+        flash('Formulaire mis à jour.' + (' Groupes verrouillés (formulaire ouvert) : seuls les libellés ont été enregistrés.' if was_open else ''), 'success')
         return redirect(url_for('formulaires.detail', id=pf.id))
-    return render_template('formulaire_edit.html', form=pf, listes=listes)
+    locked = pf.is_active and (pf.expires_at is None or pf.expires_at > datetime.utcnow())
+    return render_template('formulaire_edit.html', form=pf, listes=listes, locked=locked)
 
 
 @bp.route('/formulaires/<int:id>/delete', methods=['POST'])
@@ -163,6 +172,16 @@ def _save_form_listes(pf, form_data, all_listes):
         fl = PreferenceFormListe(form_id=pf.id, liste_id=lid,
                                  label=label, help_text=help_text, ordre=ordre)
         db.session.add(fl)
+
+
+def _update_form_listes_texts(pf, form_data):
+    """Verrou structurel : met à jour uniquement le libellé et l'aide des groupes
+    DÉJÀ présents dans le formulaire, sans modifier le jeu de groupes ni l'ordre."""
+    for fl in pf.listes:
+        label = form_data.get(f'label_{fl.liste_id}', '').strip()
+        if label:
+            fl.label = label
+        fl.help_text = form_data.get(f'help_{fl.liste_id}', '').strip() or None
 
 
 # --- Page publique ---
