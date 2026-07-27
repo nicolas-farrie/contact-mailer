@@ -1,63 +1,68 @@
 {% extends "base.html" %}
-{% block title %}Formulaires de préférences - {{ app_name }}{% endblock %}
+{% block title %}Formulaires - {{ app_name }}{% endblock %}
+{% import "_icons.html" as ico %}
+
+{# --- Carte formulaire (réutilisée : actifs + archivés) --- #}
+{% macro form_card(f, archived=False) %}
+{% set expired = f.expires_at and f.expires_at < now %}
+{% set soon = f.expires_at and f.expires_at > now and (f.expires_at - now).days <= 15 %}
+<div class="card form-card-v2">
+    <div class="form-card-head">
+        <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="form-card-title">{{ f.nom }}</a>
+        {% if archived %}<span class="form-status is-off">Archivé</span>
+        {% elif expired %}<span class="form-status is-off">Clos</span>
+        {% elif soon %}<span class="form-status is-soon">Expire bientôt</span>
+        {% elif f.is_active %}<span class="form-status is-active">Actif</span>
+        {% else %}<span class="form-status is-off">Inactif</span>{% endif %}
+    </div>
+
+    {% if f.description %}<p class="form-card-desc">{{ f.description }}</p>{% endif %}
+
+    <div class="form-card-meta">
+        <div><span class="k">Validité</span>
+            <span class="v">{% if f.expires_at %}{{ "Expiré le" if expired else "Jusqu'au" }} {{ f.expires_at.strftime('%d/%m/%Y') }}{% else %}Illimité{% endif %}</span>
+        </div>
+        <div><span class="k">Réponses</span><span class="v">{{ f.responses|length }}</span></div>
+    </div>
+
+    <div class="form-card-actions">
+        {% if archived %}
+        <form method="POST" action="{{ url_for('formulaires.unarchive', id=f.id) }}" style="display:inline">
+            <button type="submit" class="btn btn-small btn-secondary">Désarchiver</button>
+        </form>
+        {% if current_user.is_admin %}
+        <form method="POST" action="{{ url_for('formulaires.delete', id=f.id) }}" style="display:inline"
+              onsubmit="return confirm('Supprimer DÉFINITIVEMENT « {{ f.nom }} » et ses {{ f.responses|length }} réponse(s) ?\n\nAction irréversible.');">
+            <button type="submit" class="icon-btn icon-danger" title="Supprimer définitivement">{{ ico.trash() }}</button>
+        </form>
+        {% endif %}
+        {% else %}
+        <a href="{{ url_for('formulaires.edit', id=f.id) }}" class="btn btn-small btn-primary">Modifier</a>
+        <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="btn btn-small btn-secondary">Réponses</a>
+        {% if expired %}
+        <form method="POST" action="{{ url_for('formulaires.archive', id=f.id) }}" style="display:inline"
+              onsubmit="return confirm('Archiver « {{ f.nom }} » ? Il sera masqué de la liste (réversible, les réponses sont conservées).');">
+            <button type="submit" class="icon-btn" title="Archiver (formulaire clos)">{{ ico.archive() }}</button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
 
 {% block content %}
 <div class="page-header">
-    <h1>Formulaires de préférences</h1>
+    <div class="page-header-title">
+        <h1>Formulaires</h1>
+        <p class="page-subtitle">Vos contacts choisissent eux-mêmes les listes dont ils veulent recevoir les informations.</p>
+    </div>
     <a href="{{ url_for('formulaires.new') }}" class="btn btn-primary">+ Nouveau formulaire</a>
 </div>
 
 {% if forms %}
-<table class="data-table">
-    <thead>
-        <tr>
-            <th data-sort>Nom</th>
-            <th data-sort>Créé par</th>
-            <th data-sort>Créé le</th>
-            <th data-sort>Clôture</th>
-            <th data-sort>Réponses</th>
-            <th>Statut</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for f in forms %}
-        <tr>
-            <td><a href="{{ url_for('formulaires.detail', id=f.id) }}">{{ f.nom }}</a></td>
-            <td>{{ f.created_by.display_name if f.created_by else '—' }}</td>
-            <td>{{ f.created_at.strftime('%d/%m/%Y') }}</td>
-            <td>
-                {% if f.expires_at %}
-                {{ f.expires_at.strftime('%d/%m/%Y') }}{% if f.expires_at < now %} <span class="badge badge-gray" title="Date de clôture dépassée">clos</span>{% endif %}
-                {% else %}
-                <span style="color:var(--gray-500)">illimité</span>
-                {% endif %}
-            </td>
-            <td>{{ f.responses|length }}</td>
-            <td>
-                {% if f.is_active %}
-                <span class="badge badge-green">Actif</span>
-                {% else %}
-                <span class="badge badge-gray">Inactif</span>
-                {% endif %}
-            </td>
-            <td class="table-actions">
-                <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="btn btn-small">Voir</a>
-                <a href="{{ url_for('formulaires.edit', id=f.id) }}" class="btn btn-small btn-warning">Modifier</a>
-                {% if f.expires_at and f.expires_at < now %}
-                <form method="POST" action="{{ url_for('formulaires.archive', id=f.id) }}" style="display:inline"
-                      onsubmit="return confirm('Archiver « {{ f.nom }} » ? Il sera masqué de la liste (réversible, les réponses sont conservées).');">
-                    <button type="submit" class="btn btn-small btn-secondary">Archiver</button>
-                </form>
-                {% else %}
-                <button type="button" class="btn btn-small btn-secondary"
-                        onclick="alert('Seuls les formulaires dont la date de clôture est dépassée peuvent être archivés.\n\nFixez d\'abord une date de clôture passée (Modifier) pour clore ce formulaire, puis archivez-le.');">Archiver</button>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="forms-grid">
+    {% for f in forms %}{{ form_card(f) }}{% endfor %}
+</div>
 {% else %}
 <div class="empty-state">
     <p>Aucun formulaire créé.</p>
@@ -66,52 +71,11 @@
 {% endif %}
 
 {% if archived %}
-<div style="margin-top:1.5rem;">
-    <button type="button" class="btn btn-secondary" onclick="toggleArchived()">
-        Archivés <span class="badge badge-gray">{{ archived|length }}</span>
-    </button>
-</div>
-<div id="archived-section" style="display:none; margin-top:1rem;">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th data-sort>Nom</th>
-                <th data-sort>Créé par</th>
-                <th data-sort>Créé le</th>
-                <th data-sort>Réponses</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for f in archived %}
-            <tr>
-                <td><a href="{{ url_for('formulaires.detail', id=f.id) }}">{{ f.nom }}</a></td>
-                <td>{{ f.created_by.display_name if f.created_by else '—' }}</td>
-                <td>{{ f.created_at.strftime('%d/%m/%Y') }}</td>
-                <td>{{ f.responses|length }}</td>
-                <td class="table-actions">
-                    <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="btn btn-small">Voir</a>
-                    <form method="POST" action="{{ url_for('formulaires.unarchive', id=f.id) }}" style="display:inline">
-                        <button type="submit" class="btn btn-small btn-action">Désarchiver</button>
-                    </form>
-                    {% if current_user.is_admin %}
-                    <form method="POST" action="{{ url_for('formulaires.delete', id=f.id) }}" style="display:inline"
-                          onsubmit="return confirm('Supprimer DÉFINITIVEMENT « {{ f.nom }} » et ses {{ f.responses|length }} réponse(s) ?\n\nAction irréversible.');">
-                        <button type="submit" class="btn btn-small btn-danger">Supprimer</button>
-                    </form>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+<details class="archived-section">
+    <summary>Formulaires archivés ({{ archived|length }})</summary>
+    <div class="forms-grid" style="margin-top:0.75rem;">
+        {% for f in archived %}{{ form_card(f, archived=True) }}{% endfor %}
+    </div>
+</details>
 {% endif %}
-
-<script>
-function toggleArchived() {
-    const section = document.getElementById('archived-section');
-    if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
-}
-</script>
 {% endblock %}

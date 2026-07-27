@@ -140,6 +140,24 @@ a:hover {
 .sidebar-sublink.is-soon:hover { background: none; color: var(--text-secondary); }
 .soon-tag { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; background: var(--bg-muted); color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0.02rem 0.35rem; }
 
+/* ==================== Écran Formulaires (v2 — cible 04) ==================== */
+.forms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+.form-card-v2 { display: flex; flex-direction: column; gap: 0.7rem; }
+.form-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.form-card-title { font-weight: 700; font-size: 1.02rem; color: var(--text); }
+.form-card-title:hover { color: var(--primary); }
+.form-card-desc { color: var(--text-secondary); font-size: 0.88rem; margin: 0; }
+.form-card-meta { display: flex; flex-direction: column; gap: 0.3rem; border-top: 1px solid var(--divider); padding-top: 0.6rem; margin-top: auto; }
+.form-card-meta > div { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: 0.88rem; }
+.form-card-meta .k { color: var(--text-muted); }
+.form-card-meta .v { font-weight: 600; }
+.form-card-actions { display: flex; align-items: center; gap: 0.5rem; }
+.form-status { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: var(--radius-pill); white-space: nowrap; }
+.form-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.form-status.is-active { color: var(--success-text); background: var(--success-bg); }
+.form-status.is-soon { color: var(--warning-text); background: var(--warning-bg); }
+.form-status.is-off { color: var(--text-muted); background: var(--bg-muted); }
+
 .sidebar-user {
     border-top: 1px solid var(--divider);
     padding: 0.7rem 0.85rem; display: flex; align-items: center; gap: 0.6rem;
