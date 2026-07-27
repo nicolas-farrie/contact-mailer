@@ -287,7 +287,11 @@
   - [x] Entrée de sous-nav **« Modèles »** posée (inactive, badge « bientôt ») — 27/07, pour visibilité roadmap (meeting).
 
 **Accueil / Dashboard (idée #20) :**
-- [ ] **Landing page d'accueil** (après login) : tableau de bord avec stats + **mise en exergue de ce qui demande attention** — erreurs d'envoi, bounces (quand traités), demandes de diffusion en attente, etc. Deviendra la vraie « vue neutre » d'accueil (le clic « Mailing » reste sur Historique en attendant). 
+- [ ] **Landing page d'accueil** (après login) : tableau de bord avec stats + **mise en exergue de ce qui demande attention** — erreurs d'envoi, bounces (quand traités), demandes de diffusion en attente, etc. Deviendra la vraie « vue neutre » d'accueil (le clic « Mailing » reste sur Historique en attendant).
+
+**Identité / signature de l'app (v2, idée 2026-07-27) :**
+- [ ] **Page « À propos »** (`/a-propos`) : présentation des fonctions + paramétrages + **crédits** (« Conçu par Nicolas Farrié, développé par Nicolas Farrié & Claude »). Accès : rendre **cliquable la ligne de version** en pied de sidebar + lien depuis Paramètres → Généraux + **signature discrète en pied de la page de connexion**. **Texte de base prêt** : `doc-travail/a-propos-brouillon.md`. (Graine de la future landing page + de la doc utilisateur.)
+- [ ] **Page de connexion — texte de présentation éditable par la structure** : un champ (Setting, éditable dans **Paramètres → Généraux**) où l'association saisit quelques lignes de présentation, **affichées sur le login** (à côté / sous le formulaire). Complète l'apparence login déjà personnalisable (image de fond + voile). 
       
 
 
