@@ -168,6 +168,7 @@ class PreferenceFormListe(db.Model):
     label = db.Column(db.String(200), nullable=False)
     help_text = db.Column(db.Text, nullable=True)
     ordre = db.Column(db.Integer, default=0)
+    block_id = db.Column(db.Integer, db.ForeignKey('form_block.id'), nullable=True)  # assembleur v2
     form = db.relationship('PreferenceForm', back_populates='listes')
     liste = db.relationship('Liste')
 
@@ -178,8 +179,60 @@ class PreferenceResponse(db.Model):
     contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=False)
     form_id = db.Column(db.Integer, db.ForeignKey('preference_form.id'), nullable=False)
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    data = db.Column(db.JSON, nullable=True)   # payload v2 : {listes:[ids], survey:{question_id: réponse}}
     contact = db.relationship('Contact')
     form = db.relationship('PreferenceForm', back_populates='responses')
+
+
+# --- Formulaires v2 : assembleur de blocs ---
+
+class FormBlock(db.Model):
+    """Bloc typé d'un formulaire (assembleur v2). Chaque bloc porte son propre
+    régime de sécurité : `listes`/`sondage` = accès direct ; `fiche` = OTP + validation admin."""
+    __tablename__ = 'form_block'
+    id = db.Column(db.Integer, primary_key=True)
+    form_id = db.Column(db.Integer, db.ForeignKey('preference_form.id'), nullable=False)
+    type = db.Column(db.String(20), nullable=False)   # 'listes' | 'sondage' | 'fiche'
+    ordre = db.Column(db.Integer, default=0)
+    config = db.Column(db.JSON)   # ex bloc fiche : {"fields": ["telephone", "adresse_rue", ...]}
+    form = db.relationship('PreferenceForm',
+                           backref=db.backref('blocks', order_by='FormBlock.ordre',
+                                              cascade='all, delete-orphan'))
+    questions = db.relationship('SurveyQuestion', back_populates='block',
+                                order_by='SurveyQuestion.ordre', cascade='all, delete-orphan')
+
+
+class SurveyQuestion(db.Model):
+    """Question d'un bloc « sondage » (hors base de données — stockage isolé dans
+    PreferenceResponse.data ; n'écrit jamais sur la fiche du contact)."""
+    __tablename__ = 'survey_question'
+    id = db.Column(db.Integer, primary_key=True)
+    block_id = db.Column(db.Integer, db.ForeignKey('form_block.id'), nullable=False)
+    ordre = db.Column(db.Integer, default=0)
+    label = db.Column(db.String(300), nullable=False)
+    type = db.Column(db.String(20), default='texte_court')   # 'oui_non' | 'texte_court' | (extensible)
+    config = db.Column(db.JSON)   # options éventuelles
+    block = db.relationship('FormBlock', back_populates='questions')
+
+
+class FieldProposal(db.Model):
+    """Modification d'un champ de la FICHE proposée par un contact via un bloc « fiche »
+    (cas 1). Rien n'est écrit sur la fiche tant qu'un admin n'a pas validé (onglet « À valider »)."""
+    __tablename__ = 'field_proposal'
+    id = db.Column(db.Integer, primary_key=True)
+    form_id = db.Column(db.Integer, db.ForeignKey('preference_form.id'), nullable=False)
+    contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=False)
+    field_key = db.Column(db.String(64), nullable=False)   # clé fields.py (hors RESERVED_KEYS)
+    old_value = db.Column(db.Text)     # valeur canonique au moment de la proposition
+    new_value = db.Column(db.Text)     # valeur proposée par le contact
+    status = db.Column(db.String(20), default='pending', nullable=False)   # pending | applied | rejected
+    otp_verified = db.Column(db.Boolean, default=False, nullable=False)     # Phase 2 (OTP email)
+    proposed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    contact = db.relationship('Contact')
+    form = db.relationship('PreferenceForm')
+    reviewed_by = db.relationship('User', foreign_keys=[reviewed_by_id])
 
 
 class BookstackRole(db.Model):
