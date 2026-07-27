@@ -224,6 +224,38 @@
 - **Modèle de données** : `FormBlock(form_id, type, ordre, config JSON)` ; étendre `PreferenceResponse` (`data` JSON + `status` pending/applied/rejected + `applied_by`) = file **« modifications proposées »**. Écran admin de modération (même mental model que demandes de diffusion / corbeille).
 - **⚠️ Transverse — auth ≠ sanitisation** (dès qu'un contact écrit, cas 1 OU 2) : échappement à TOUS les points de sortie de NOTRE code : `mailer` (HTML), `imports.export_contacts` TSV (**préfixer `= + - @`** anti-formula-injection Excel), `export_vcard`, affichage admin. \+ **rate-limit** sur l'envoi OTP (anti-flood boîte), \+ **CSRF** sur la session OTP.
 - **Périmètre v2** : refonte préférences + **ossature de l'assembleur** + blocs faibles (listes ✅, sondage) ; **différer le public cas 1**, ou le livrer en **write-only + validation (sans OTP)**.
+
+### 🗺️ Formulaires v2 — PLAN D'ATTAQUE (handoff CLD `update_formulaires`, écrans 04a→04e2d)
+> Le design CLD valide notre archi. F1/F2/F3 déjà livrés sont **pré-assembleur** → partiellement réabsorbés (F1→M7, F2→M3, F3→M2/M5).
+
+**Fondations (données)**
+- [ ] **M1 — Modèle de données** (migrations `migrate_*`, backup + dry-run) :
+  - `FormBlock(id, form_id, type ∈ {listes,sondage,fiche}, ordre, config JSON)` — migrer les `PreferenceFormListe` existants en un bloc `listes`.
+  - `SurveyQuestion(id, block_id, ordre, label, type ∈ {oui_non, texte_court, …})` (bloc sondage).
+  - bloc `fiche` : config = liste blanche de `field_key` (issus de `fields.py`, hors RESERVED).
+  - `PreferenceResponse` étendu : `data` JSON (listes choisies + réponses sondage).
+  - `FieldProposal(id, form_id, contact_id, field_key, old_value, new_value, status ∈ {pending,applied,rejected}, otp_verified, proposed_at, reviewed_by, reviewed_at)` = file « À valider ».
+  - *(Phase 2)* `FormAccessCode(form_id, contact_uid, code_hash, expires_at, attempts)` (OTP).
+
+**Admin — le formulaire devient UNE page à ONGLETS** (Édition · Lien · Réponses · À valider·N)
+- [ ] **M2 — Coque onglets** : en-tête (← Formulaires + titre + statut + Aperçu + Archiver) + navigation par onglets (remplace pages détail/édition séparées).
+- [ ] **M3 — Onglet Édition = éditeur en BLOCS** : Réglages généraux (message d'accueil, date de validité + **garde-fou clôture obligatoire si bloc fiche**) ; « Contenu du formulaire » = blocs empilables réordonnables, chacun **badgé** (Accès direct / OTP+validation) avec son éditeur : listes (↑/↓ + droplist — **réutilise F2**) · sondage (questions + type) · fiche (**liste blanche groupée depuis le registre**, email 🔒 verrouillé).
+- [ ] **M4 — Onglet Lien** : URL + copier + bandeaux (OTP si fiche · lien nominatif) + validité.
+- [ ] **M5 — Onglet Réponses** : cartes (contact + listes choisies + réponses sondage) + **Exporter CSV** (échappé).
+- [ ] **M6 — Onglet À valider** : file « modifications proposées » (diff **ancien→nouveau**, Rejeter / Appliquer à la fiche + trace) — badge « email vérifié (code) » en Phase 2.
+
+**Liste des formulaires**
+- [ ] **M7 — Cartes révisées** (réabsorbe F1) : **badges de type de bloc** ; **4 actions en ICÔNES** + tooltips (✎ Modifier · 📥 Réponses · 👁 Aperçu · 🔗 Lien) ; **compteur réponses gardé en méta** ; **pastille « À valider · N »** si modifs en attente ; **toolbar** (recherche nom/desc + filtre Statut + filtre Type + **tri par dropdown** : Nom/Création/Réponses/Validité) ; **pagination client** (~15/page, en filet). Archivés = section repliable (déjà là).
+
+**Public + sécurité**
+- [ ] **M8 — Page publique multi-blocs** : rendu listes + sondage ; bloc fiche en **write-only** (Phase 1) → crée des `FieldProposal` (pending), **sans OTP**. Sanitisation en sortie.
+- [ ] **M9 (Phase 2) — OTP + pré-remplissage** : flux 2 temps (ouverture → « code envoyé par email » → saisie → session courte → édition **pré-remplie**) ; rate-limit envoi OTP ; badge « email vérifié ».
+
+**⚠️ Transverse (dès qu'un contact écrit)** : échappement à TOUS les points de sortie (mailer HTML, export TSV `= + - @`, vCard, admin) ; CSRF (Flask-WTF) sur POST publics + session OTP.
+
+**Phasage** :
+- **Phase 1 (MVP livrable)** = M1(sans OTP) → M2 → M3 → M4 → M5 → M6(sans badge OTP) → M7 → M8(write-only). Assembleur complet + sondage + file de validation + liste enrichie, **sans OTP/pré-remplissage**.
+- **Phase 2** = M9 (OTP + pré-remplissage) + badge email-vérifié.
 - [ ] **G. Demandes de diffusion** — refonte (aperçu du contenu depuis la liste, UX pièces jointes, vue des archivées) — cf. items « Demandes de diffusion » plus haut
 - [ ] **H. Paramètres — contenu** : onglet/section **« Valeurs par défaut »** (éditer `choices.civilite`/`choices.titre` via `options_source`) ; **câbler le test SMTP** ; **toggle « Gestion du Bounce »** (ON/OFF)
 
