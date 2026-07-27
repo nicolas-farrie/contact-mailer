@@ -139,6 +139,10 @@
 - [ ] Ajouter la protection CSRF (Flask-WTF) sur les formulaires POST
 - [ ] Fork-safety : `init_db()`/`db.engine.dispose()` en post_fork (gunicorn --preload) ; assert SECRET_KEY ≠ défaut en prod
 - [ ] (Confort) WAL SQLite, pages d'erreur 404/500 personnalisées, envoi asynchrone si les listes grossissent
+- [ ] **Portabilité moteur DB — SQLite → Postgres (audit 2026-07-27)** : couche d'accès **saine** (100 % ORM, aucun SQL brut, URI **env-driven** `SQLALCHEMY_DATABASE_URI`, `.ilike`/`db.JSON` portables ; un Postgres **neuf** marche via `db.create_all()`). **Bascule = coût faible et borné, pas de réécriture.** 2 chantiers à traiter le jour où on bascule :
+  - [ ] **Migrations → Alembic / Flask-Migrate** : les ~10 `tools/migrate_*.py` sont en **`sqlite3` brut + PRAGMA** → non portables. Converger vers Alembic (engine-agnostic) ; ne concerne que l'évolution in-place (pas un déploiement neuf). Cf. [[deploy-and-migrations-cleanup]].
+  - [ ] **Fiabiliser les hard-deletes (contraintes FK)** : SQLite n'applique pas les FK, **Postgres oui** → `users.delete` (+ `FieldProposal`, refs `*_by_id` de Contact/PreferenceForm) lèverait une **violation FK**. Nuller les refs / `ondelete='SET NULL'` + activer `PRAGMA foreign_keys=ON` en dev pour dé-risquer tôt. **Recoupe l'item RGPD** (suppression utilisateur). Les relations en `cascade='all, delete-orphan'` sont déjà propres.
+  - [ ] Ops bascule : ajouter `psycopg2`, service Postgres, ETL one-shot des données (ex. `pgloader`).
 
 ## Session debug 2026-07 (régressions post-restructuration blueprints)
 - [~] Bouton « Envoyer un email de test » : câbler la route POST /mailing/test-smtp (existe déjà) dans la page **Généraux** — *renommage « Paramètres »→« Généraux » **FAIT** 26/07 ; reste à câbler le bouton*
