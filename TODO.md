@@ -204,6 +204,26 @@
 **Écrans restants (dans l'ordre) :**
 - [ ] **E. Mailing — historique + file globale** (polish) : passer les actions de l'historique en **icônes** (homogène Contacts/Listes/Users) ; **sécuriser le « Supprimer campagne »** de l'historique (efface aussi l'historique = piège) — mettre Archiver en avant / confirmation renforcée
 - [ ] **F. Formulaires** — refonte cartes (statut Actif/Expire/Archivé, validité, nb réponses) + net-new (RGPD, apparence, aperçu) — cf. gros sujets Formulaires plus haut
+  - [x] **F1** liste en cartes · [x] **F2** édition en sections + verrou structurel + ordre des groupes (droplist + ↑/↓) — commités
+  - [ ] **F2 à REPENSER (pause 27/07 — usage/utilisabilité, #21-F2)** :
+    - (a) **Verrou trop agressif** : un formulaire ACTIF mais **jamais utilisé (0 réponse)** doit rester **librement modifiable**. Aujourd'hui il faut désactiver → enregistrer → rééditer. → baser le verrou sur « **a des réponses** » (responses > 0) plutôt que sur « actif ».
+    - (b) **Bug « None »** dans le champ Explication (info-bulle) quand `help_text` est vide (Jinja rend `None` = « None ») → `{{ (fl.help_text if fl else '') or '' }}`.
+    - (c) Repenser plus globalement l'ergonomie de l'édition (retour utilisateur).
+  - [ ] **F1 polish (#21)** : nom du formulaire en **bleu cliquable** ; redondance nom-lien vs bouton « Réponses » à trancher.
+
+### ⭐ Formulaires v2 — ARCHITECTURE (décisions actées avec CLD, 2026-07-27)
+- **Un formulaire = description + N blocs typés** (assembleur de blocs, pas 2 écrans séparés). Régime de sécurité PAR bloc :
+  - **`listes`** (préférences, l'actuel) : cases = Listes, écrit sur `Contact.listes`. Régime **direct** (token+uid+clôture). ✅ existe.
+  - **`sondage`** (cas 2, champs HORS base) : réponses en **stockage isolé** (jamais sur la fiche canonique). Régime **direct** — même niveau que les listes (pas de lecture de données existantes, pas d'écrasement). Échappement en sortie obligatoire.
+  - **`fiche`** (cas 1, champs de la BASE) : édition de champs canoniques. Régime **validation admin** (propose→valide). 
+- **OTP découplé du pré-remplissage** (insight clé) : l'OTP ne sert qu'à sécuriser le **pré-remplissage** (exposition en LECTURE des données existantes).
+  - **v1 (reco)** : bloc `fiche` en **write-only** (pas de pré-remplissage) + **validation admin** → zéro exposition lecture, écriture neutralisée, **PAS d'OTP**. Plus simple + plus respectueux de la donnée (aligné militant).
+  - **v2 (confort)** : pré-remplissage (le contact voit/corrige ses valeurs) → **OTP à la demande** (code envoyé quand il ouvre la page, **JAMAIS dans le mail du lien**) + session courte + expiry.
+- **Liste blanche des champs éditables** = sous-ensemble de `fields.py` `contact_fields()` **hors `RESERVED_KEYS`** (email/uid/listes). Typage/libellés déjà fournis par le registre.
+- **Clôture OBLIGATOIRE** dès qu'un bloc `fiche` est exposé (réduit la fenêtre de fuite du lien).
+- **Modèle de données** : `FormBlock(form_id, type, ordre, config JSON)` ; étendre `PreferenceResponse` (`data` JSON + `status` pending/applied/rejected + `applied_by`) = file **« modifications proposées »**. Écran admin de modération (même mental model que demandes de diffusion / corbeille).
+- **⚠️ Transverse — auth ≠ sanitisation** (dès qu'un contact écrit, cas 1 OU 2) : échappement à TOUS les points de sortie de NOTRE code : `mailer` (HTML), `imports.export_contacts` TSV (**préfixer `= + - @`** anti-formula-injection Excel), `export_vcard`, affichage admin. \+ **rate-limit** sur l'envoi OTP (anti-flood boîte), \+ **CSRF** sur la session OTP.
+- **Périmètre v2** : refonte préférences + **ossature de l'assembleur** + blocs faibles (listes ✅, sondage) ; **différer le public cas 1**, ou le livrer en **write-only + validation (sans OTP)**.
 - [ ] **G. Demandes de diffusion** — refonte (aperçu du contenu depuis la liste, UX pièces jointes, vue des archivées) — cf. items « Demandes de diffusion » plus haut
 - [ ] **H. Paramètres — contenu** : onglet/section **« Valeurs par défaut »** (éditer `choices.civilite`/`choices.titre` via `options_source`) ; **câbler le test SMTP** ; **toggle « Gestion du Bounce »** (ON/OFF)
 
