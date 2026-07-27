@@ -227,7 +227,11 @@
   - [ ][ ] **Archi** : flag **`is_template`** sur `MailCampaign` (+ migration) ; un modèle n'est jamais envoyé ; « Utiliser » = clone via la logique de persistance existante. Réutilise le pattern **archivage réversible + suppression admin depuis les archives** (comme Listes / Formulaires).
   - [ ][ ] **Listes copiées = valeurs par défaut pré-cochées, PAS un verrou** → modifiables à l'étape Destinataires (la cible varie souvent, ex. email de bienvenue).
   - [ ][ ] **Pièces jointes dupliquées physiquement** (copie dans le dossier de la nouvelle campagne) → la PJ de l'instance est indépendante de celle du modèle.
-  - [ ][ ] Bouton **« Enregistrer comme modèle »** (promotion d'un brouillon). Distinction claire : **brouillon** = à envoyer une fois ↔ **modèle** = réutilisable N fois. 
+  - [ ][ ] Bouton **« Enregistrer comme modèle »** (promotion d'un brouillon). Distinction claire : **brouillon** = à envoyer une fois ↔ **modèle** = réutilisable N fois.
+  - [x] Entrée de sous-nav **« Modèles »** posée (inactive, badge « bientôt ») — 27/07, pour visibilité roadmap (meeting).
+
+**Accueil / Dashboard (idée #20) :**
+- [ ] **Landing page d'accueil** (après login) : tableau de bord avec stats + **mise en exergue de ce qui demande attention** — erreurs d'envoi, bounces (quand traités), demandes de diffusion en attente, etc. Deviendra la vraie « vue neutre » d'accueil (le clic « Mailing » reste sur Historique en attendant). 
       
 
 

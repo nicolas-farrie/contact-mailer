@@ -36,6 +36,8 @@
                     {% if request.blueprint == 'mailing' %}
                     <div class="sidebar-subnav">
                         <a class="sidebar-sublink{% if request.endpoint in ['mailing.history', 'mailing.history_archive', 'mailing.history_unarchive', 'mailing.history_delete'] %} active{% endif %}" href="{{ url_for('mailing.history') }}">Historique</a>
+                        <a class="sidebar-sublink{% if request.endpoint == 'mailing.compose' %} active{% endif %}" href="{{ url_for('mailing.compose') }}">Nouveau</a>
+                        <span class="sidebar-sublink is-soon" title="Bientôt disponible">Modèles <span class="soon-tag">bientôt</span></span>
                         <a class="sidebar-sublink{% if request.endpoint in ['mailing.submissions', 'mailing.submission_use', 'mailing.submission_archive'] %} active{% endif %}" href="{{ url_for('mailing.submissions') }}">Demandes de diffusion</a>
                         <a class="sidebar-sublink{% if request.endpoint in ['mailing.queue', 'mailing.process', 'mailing.queue_retry'] %} active{% endif %}" href="{{ url_for('mailing.queue') }}">File d'attente</a>
                     </div>

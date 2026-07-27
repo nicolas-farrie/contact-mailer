@@ -136,6 +136,9 @@ a:hover {
 }
 .sidebar-sublink:hover { background: var(--bg-muted); color: var(--text); text-decoration: none; }
 .sidebar-sublink.active { background: var(--primary-tint); color: var(--primary-text); font-weight: 600; }
+.sidebar-sublink.is-soon { opacity: 0.55; cursor: default; display: flex; align-items: center; gap: 0.4rem; }
+.sidebar-sublink.is-soon:hover { background: none; color: var(--text-secondary); }
+.soon-tag { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; background: var(--bg-muted); color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0.02rem 0.35rem; }
 
 .sidebar-user {
     border-top: 1px solid var(--divider);
