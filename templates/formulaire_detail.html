@@ -9,22 +9,30 @@
 
 {# ===================== Onglet LIEN ===================== #}
 {% if tab == 'lien' %}
+{% set has_fiche = form.blocks|selectattr('type', 'equalto', 'fiche')|list|length > 0 %}
 <section class="card settings-section">
-    <div class="detail-link-head">
-        <div>
-            <h2 style="margin-bottom:0.15rem;">Lien à diffuser</h2>
-            <p class="settings-hint" style="margin:0;">Insérez cette URL dans un mailing — le <code>{uid}</code> est remplacé automatiquement par l'UID de chaque contact.</p>
-        </div>
-        <div class="detail-link-status">
-            {% if form.expires_at %}
-            <span class="text-muted" style="font-size:0.85rem;">{{ "Clôturé le" if expired else "Clôture le" }} {{ form.expires_at.strftime('%d/%m/%Y') }}</span>
-            {% else %}
-            <span class="text-muted" style="font-size:0.85rem;">Durée illimitée</span>
-            {% endif %}
-            <button class="btn btn-small btn-secondary" onclick="copyLink(this)">Copier le lien</button>
-        </div>
+    <h2 style="margin-bottom:0.15rem;">Lien du formulaire</h2>
+    <p class="settings-hint">Copiez ce lien et insérez-le dans un mailing — ou retrouvez-le via « Ajouter un formulaire » dans l'éditeur de mailing. Le <code>{uid}</code> est remplacé par contact.</p>
+
+    <div class="link-copy-row">
+        <code class="pref-link-code">{{ link_template }}</code>
+        <button class="btn btn-secondary" onclick="copyLink(this)">Copier</button>
     </div>
-    <code class="pref-link-code">{{ link_template }}</code>
+
+    {% if has_fiche %}
+    <div class="alert alert-warning" style="margin-top:1rem;">
+        🔒 Ce formulaire modifie des <strong>champs de fiche</strong> : à l'ouverture, le contact devra saisir un
+        <strong>code envoyé par email</strong>. Ne communiquez jamais ce code — il est demandé automatiquement sur la page.
+    </div>
+    {% endif %}
+    <div class="alert alert-info" style="margin-top:0.75rem;">
+        🔒 Le lien est <strong>nominatif et non devinable</strong> : transmettez-le uniquement par email à vos contacts.
+    </div>
+
+    <p class="settings-foot" style="margin-top:1rem;">
+        {% if form.expires_at %}Actif jusqu'au <strong>{{ form.expires_at.strftime('%d/%m/%Y') }}</strong>. Après cette date, le lien affiche « formulaire clôturé ».
+        {% else %}Durée illimitée (aucune date de clôture).{% endif %}
+    </p>
 </section>
 
 {# ===================== Onglet RÉPONSES ===================== #}
