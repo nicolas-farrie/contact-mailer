@@ -229,7 +229,7 @@
 > Le design CLD valide notre archi. F1/F2/F3 déjà livrés sont **pré-assembleur** → partiellement réabsorbés (F1→M7, F2→M3, F3→M2/M5).
 
 **Fondations (données)**
-- [ ] **M1 — Modèle de données** (migrations `migrate_*`, backup + dry-run) :
+- [x] **M1 — Modèle de données** (migrations `migrate_*`, backup + dry-run) :
   - `FormBlock(id, form_id, type ∈ {listes,sondage,fiche}, ordre, config JSON)` — migrer les `PreferenceFormListe` existants en un bloc `listes`.
   - `SurveyQuestion(id, block_id, ordre, label, type ∈ {oui_non, texte_court, …})` (bloc sondage).
   - bloc `fiche` : config = liste blanche de `field_key` (issus de `fields.py`, hors RESERVED).
