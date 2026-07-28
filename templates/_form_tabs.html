@@ -14,8 +14,7 @@
         </h1>
     </div>
     <div class="page-header-actions">
-        <button type="button" class="btn btn-secondary is-muted" title="Aperçu de la page publique — bientôt"
-                onclick="alert('Aperçu de la page publique — à venir.');">👁 Aperçu</button>
+        <a href="{{ url_for('formulaires.apercu', id=form.id) }}" target="_blank" class="btn btn-secondary" title="Aperçu de la page publique (nouvel onglet)">👁 Aperçu</a>
         {% if expired and not form.is_archived %}
         <form method="POST" action="{{ url_for('formulaires.archive', id=form.id) }}" style="display:inline"
               onsubmit="return confirm('Archiver « {{ form.nom }} » ? (réversible, réponses conservées)');">

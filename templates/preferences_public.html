@@ -7,47 +7,105 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; }
         body { font-family: system-ui, sans-serif; background: #f3f4f6; margin: 0; padding: 2rem 1rem; color: #111827; }
-        .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); max-width: 520px; margin: 0 auto; padding: 2rem; }
+        .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); max-width: 560px; margin: 0 auto; padding: 2rem; }
         h1 { font-size: 1.3rem; margin: 0 0 0.5rem; }
         .contact-id { font-size: 0.85rem; color: #6b7280; margin: 0 0 1rem; }
         .description { font-style: italic; color: #374151; background: #f9fafb; border-left: 3px solid #d1d5db; padding: 0.6rem 0.9rem; border-radius: 0 4px 4px 0; margin: 0 0 1.5rem; font-size: 0.92rem; line-height: 1.5; }
-        .choice-list { list-style: none; padding: 0; margin: 0 0 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
-        .choice-item { display: flex; align-items: flex-start; gap: 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 0.75rem 1rem; cursor: pointer; transition: border-color .15s; }
+        .preview-banner { background: #eef0fb; color: #33469f; border: 1px solid #cfd4f0; border-radius: 6px; padding: 0.6rem 0.9rem; margin: 0 0 1.25rem; font-size: 0.88rem; }
+        .block-section { margin: 0 0 1.5rem; }
+        .block-heading { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: #6b7280; margin: 0 0 0.6rem; font-weight: 700; }
+        .block-note { font-size: 0.82rem; color: #6b7280; margin: -0.3rem 0 0.75rem; }
+        .choice-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+        .choice-item { display: flex; align-items: flex-start; gap: 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 0.75rem 1rem; cursor: pointer; }
         .choice-item:has(input:checked) { border-color: #2563eb; background: #eff6ff; }
         .choice-item input[type=checkbox] { width: 1.1rem; height: 1.1rem; margin-top: 0.15rem; flex-shrink: 0; accent-color: #2563eb; }
         .choice-label { flex: 1; }
         .choice-label strong { display: block; font-size: 0.95rem; }
         .choice-help { font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem; }
-        .btn { display: inline-block; padding: 0.65rem 1.5rem; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer; width: 100%; text-align: center; }
+        .field-block { margin-bottom: 0.9rem; }
+        .field-block > label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.3rem; }
+        input[type=text], input[type=email], input[type=tel], input[type=number], input[type=date], textarea, select {
+            width: 100%; padding: 0.55rem 0.7rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; }
+        textarea { resize: vertical; }
+        .survey-radios { display: flex; gap: 1.25rem; }
+        .survey-radios label { font-weight: 400; display: inline-flex; align-items: center; gap: 0.35rem; }
+        .btn { display: inline-block; padding: 0.7rem 1.5rem; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer; width: 100%; text-align: center; }
         .btn:hover { background: #1d4ed8; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .footer { text-align: center; font-size: 0.75rem; color: #9ca3af; margin-top: 1.5rem; }
     </style>
 </head>
 <body>
 <div class="card">
+    {% if preview %}<div class="preview-banner">👁 <strong>Aperçu</strong> — page telle que la voit le contact. Aucune donnée n'est enregistrée.</div>{% endif %}
     <h1>{{ form.nom }}</h1>
     <p class="contact-id">Votre fiche : <strong>{{ contact.prenom }} {{ contact.nom }}</strong>{% if contact.email %} &mdash; {{ contact.email }}{% endif %}</p>
-    {% if form.description %}
-    <p class="description">{{ form.description }}</p>
-    {% endif %}
+    {% if form.description %}<p class="description">{{ form.description }}</p>{% endif %}
 
-    <form method="POST">
-        <ul class="choice-list">
-            {% for fl in form.listes %}
-            <li class="choice-item">
-                <input type="checkbox" name="liste_ids" value="{{ fl.liste_id }}"
-                       id="lst_{{ fl.liste_id }}"
-                       {% if fl.liste_id in contact_liste_ids %}checked{% endif %}>
-                <label class="choice-label" for="lst_{{ fl.liste_id }}">
-                    <strong>{{ fl.label }}</strong>
-                    {% if fl.help_text %}
-                    <span class="choice-help">{{ fl.help_text }}</span>
-                    {% endif %}
-                </label>
-            </li>
+    <form method="POST"{% if preview %} onsubmit="return false;"{% endif %}>
+        {% for block in blocks %}
+
+        {% if block.type == 'listes' and form.listes %}
+        <div class="block-section">
+            <div class="block-heading">Vos abonnements</div>
+            <ul class="choice-list">
+                {% for fl in form.listes|sort(attribute='ordre') %}
+                <li class="choice-item">
+                    <input type="checkbox" name="liste_ids" value="{{ fl.liste_id }}" id="lst_{{ fl.liste_id }}"{% if fl.liste_id in contact_liste_ids %} checked{% endif %}>
+                    <label class="choice-label" for="lst_{{ fl.liste_id }}"><strong>{{ fl.label }}</strong>{% if fl.help_text %}<span class="choice-help">{{ fl.help_text }}</span>{% endif %}</label>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% elif block.type == 'sondage' and block.questions %}
+        <div class="block-section">
+            <div class="block-heading">Questions</div>
+            {% for q in block.questions|sort(attribute='ordre') %}
+            <div class="field-block">
+                <label>{{ q.label }}</label>
+                {% if q.type == 'oui_non' %}
+                <div class="survey-radios">
+                    <label><input type="radio" name="survey_{{ q.id }}" value="Oui"> Oui</label>
+                    <label><input type="radio" name="survey_{{ q.id }}" value="Non"> Non</label>
+                </div>
+                {% elif q.type == 'texte_long' %}
+                <textarea name="survey_{{ q.id }}" rows="3"></textarea>
+                {% else %}
+                <input type="text" name="survey_{{ q.id }}">
+                {% endif %}
+            </div>
             {% endfor %}
-        </ul>
-        <button type="submit" class="btn">Enregistrer mes préférences</button>
+        </div>
+
+        {% elif block.type == 'fiche' %}
+        {% set fkeys = (block.config or {}).get('fields', []) %}
+        {% if fkeys %}
+        <div class="block-section">
+            <div class="block-heading">Vos informations</div>
+            <p class="block-note">🔒 Vos corrections seront <strong>relues par un administrateur</strong> avant d'être appliquées. Laissez vide ce que vous ne souhaitez pas modifier.</p>
+            {% for key in fkeys %}
+            {% set f = field_map.get(key) %}
+            {% if f %}
+            <div class="field-block">
+                <label>{{ f.label }}</label>
+                {% if f.type == 'textarea' %}
+                <textarea name="fiche_{{ key }}" rows="2"></textarea>
+                {% elif f.type == 'select' %}
+                <select name="fiche_{{ key }}"><option value="">— inchangé —</option>{% for opt in field_options(f) %}{% if opt %}<option value="{{ opt }}">{{ opt }}</option>{% endif %}{% endfor %}</select>
+                {% else %}
+                <input type="{{ f.type if f.type in ['email','tel','number','date'] else 'text' }}" name="fiche_{{ key }}">
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% endif %}
+        {% endfor %}
+
+        <button type="submit" class="btn"{% if preview %} disabled{% endif %}>{{ 'Aperçu — soumission désactivée' if preview else 'Enregistrer' }}</button>
     </form>
     <p class="footer">Vos préférences sont enregistrées immédiatement. Vous pouvez revenir sur ce lien à tout moment pour les modifier.</p>
 </div>

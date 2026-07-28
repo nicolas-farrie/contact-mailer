@@ -243,7 +243,7 @@
 
 **Admin — le formulaire devient UNE page à ONGLETS** (Édition · Lien · Réponses · À valider·N)
 - [x] **M2 — Coque onglets** : en-tête (← Formulaires + titre + statut + Aperçu + Archiver) + navigation par onglets (remplace pages détail/édition séparées).
-- [ ] **M3 — Onglet Édition = éditeur en BLOCS** : Réglages généraux (message d'accueil, date de validité + **garde-fou clôture obligatoire si bloc fiche**) ; « Contenu du formulaire » = blocs empilables réordonnables, chacun **badgé** (Accès direct / OTP+validation) avec son éditeur : listes (↑/↓ + droplist — **réutilise F2**) · sondage (questions + type) · fiche (**liste blanche groupée depuis le registre**, email 🔒 verrouillé).
+- [x] **M3 — Onglet Édition = éditeur en BLOCS** (M3a ossature+verrou affiné · M3b bloc fiche · M3c bloc sondage) : Réglages généraux (message d'accueil, date de validité + **garde-fou clôture obligatoire si bloc fiche**) ; « Contenu du formulaire » = blocs empilables réordonnables, chacun **badgé** (Accès direct / OTP+validation) avec son éditeur : listes (↑/↓ + droplist — **réutilise F2**) · sondage (questions + type) · fiche (**liste blanche groupée depuis le registre**, email 🔒 verrouillé).
 - [x] **M4 — Onglet Lien** : URL + copier + bandeaux (OTP si fiche · lien nominatif) + validité.
 - [ ] **M5 — Onglet Réponses** : cartes (contact + listes choisies + réponses sondage) + **Exporter CSV** (échappé).
 - [ ] **M6 — Onglet À valider** : file « modifications proposées » (diff **ancien→nouveau**, Rejeter / Appliquer à la fiche + trace) — badge « email vérifié (code) » en Phase 2.
@@ -252,7 +252,7 @@
 - [ ] **M7 — Cartes révisées** (réabsorbe F1) : **badges de type de bloc** ; **4 actions en ICÔNES** + tooltips (✎ Modifier · 📥 Réponses · 👁 Aperçu · 🔗 Lien) ; **compteur réponses gardé en méta** ; **pastille « À valider · N »** si modifs en attente ; **toolbar** (recherche nom/desc + filtre Statut + filtre Type + **tri par dropdown** : Nom/Création/Réponses/Validité) ; **pagination client** (~15/page, en filet). Archivés = section repliable (déjà là).
 
 **Public + sécurité**
-- [ ] **M8 — Page publique multi-blocs** : rendu listes + sondage ; bloc fiche en **write-only** (Phase 1) → crée des `FieldProposal` (pending), **sans OTP**. Sanitisation en sortie.
+- [x] **M8 — Page publique multi-blocs** + Aperçu admin : rendu listes + sondage ; bloc fiche en **write-only** (Phase 1) → crée des `FieldProposal` (pending), **sans OTP**. Sanitisation en sortie.
 - [ ] **M9 (Phase 2) — OTP + pré-remplissage** : flux 2 temps (ouverture → « code envoyé par email » → saisie → session courte → édition **pré-remplie**) ; rate-limit envoi OTP ; badge « email vérifié ».
 
 **⚠️ Transverse (dès qu'un contact écrit)** : échappement à TOUS les points de sortie (mailer HTML, export TSV `= + - @`, vCard, admin) ; CSRF (Flask-WTF) sur POST publics + session OTP.

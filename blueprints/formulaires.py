@@ -286,34 +286,80 @@ def _update_form_listes_texts(pf, form_data):
 
 # --- Page publique ---
 
+def _contact_field_value(contact, key):
+    """Valeur canonique d'un champ de contact (colonne ou champ perso)."""
+    fdef = fields_registry.field_map().get(key)
+    if fdef and fdef.source == 'custom':
+        return (contact.custom_fields or {}).get(key)
+    return getattr(contact, key, None)
+
+
+@bp.route('/formulaires/<int:id>/apercu')
+@login_required
+def apercu(id):
+    """Aperçu admin de la page publique (lecture seule, aucune donnée enregistrée).
+    N'exige pas l'OTP : c'est une prévisualisation côté admin."""
+    pf = PreferenceForm.query.get_or_404(id)
+    blocks = sorted(pf.blocks, key=lambda b: b.ordre)
+    dummy = type('Preview', (), {'prenom': 'Aperçu', 'nom': '', 'email': None})()
+    return render_template('preferences_public.html', form=pf, contact=dummy,
+                           contact_liste_ids=set(), blocks=blocks,
+                           field_map=fields_registry.field_map(),
+                           field_options=fields_registry.field_options, preview=True)
+
+
 @bp.route('/p/<form_token>/<contact_uid>', methods=['GET', 'POST'])
 def public(form_token, contact_uid):
     pf = PreferenceForm.query.filter_by(token=form_token).first_or_404()
     if not pf.is_active or (pf.expires_at and pf.expires_at < datetime.utcnow()):
         return render_template('preferences_expired.html', form=pf)
     contact = Contact.query.filter_by(uid=contact_uid, is_deleted=False).first_or_404()
+    blocks = sorted(pf.blocks, key=lambda b: b.ordre)
 
     if request.method == 'POST':
-        checked_ids = set(request.form.getlist('liste_ids', type=int))
-        allowed_ids = {fl.liste_id for fl in pf.listes}
-        for fl in pf.listes:
-            liste = fl.liste
-            if fl.liste_id in checked_ids:
-                if liste not in contact.listes:
+        data = {}
+        # --- Bloc listes : appliqué directement sur Contact.listes ---
+        if any(b.type == 'listes' for b in blocks):
+            checked_ids = set(request.form.getlist('liste_ids', type=int))
+            for fl in pf.listes:
+                liste = fl.liste
+                if fl.liste_id in checked_ids and liste not in contact.listes:
                     contact.listes.append(liste)
-            else:
-                if liste in contact.listes:
+                elif fl.liste_id not in checked_ids and liste in contact.listes:
                     contact.listes.remove(liste)
-        # Enregistre ou met à jour la trace
-        resp = PreferenceResponse.query.filter_by(
-            contact_id=contact.id, form_id=pf.id).first()
+            data['listes'] = sorted(checked_ids)
+        # --- Bloc sondage : réponses stockées isolément (jamais sur la fiche) ---
+        survey = {}
+        for b in blocks:
+            if b.type == 'sondage':
+                for q in b.questions:
+                    val = (request.form.get(f'survey_{q.id}', '') or '').strip()
+                    if val:
+                        survey[str(q.id)] = val
+        if survey:
+            data['survey'] = survey
+        # --- Bloc fiche : WRITE-ONLY → propositions en attente de validation (pas d'écriture directe) ---
+        allowed = _editable_field_keys()
+        for b in blocks:
+            if b.type == 'fiche':
+                for k in [k for k in (b.config or {}).get('fields', []) if k in allowed]:
+                    newv = (request.form.get(f'fiche_{k}', '') or '').strip()
+                    curv = _contact_field_value(contact, k)
+                    if newv and newv != (curv or ''):
+                        db.session.add(FieldProposal(
+                            form_id=pf.id, contact_id=contact.id, field_key=k,
+                            old_value=curv, new_value=newv, status='pending', otp_verified=False))
+        # Trace / met à jour la réponse (payload isolé)
+        resp = PreferenceResponse.query.filter_by(contact_id=contact.id, form_id=pf.id).first()
         if resp:
-            resp.submitted_at = datetime.utcnow()
+            resp.submitted_at = datetime.utcnow(); resp.data = data
         else:
-            db.session.add(PreferenceResponse(contact_id=contact.id, form_id=pf.id))
+            db.session.add(PreferenceResponse(contact_id=contact.id, form_id=pf.id, data=data))
         db.session.commit()
         return render_template('preferences_confirm.html', form=pf, contact=contact)
 
     contact_liste_ids = {l.id for l in contact.listes}
     return render_template('preferences_public.html', form=pf, contact=contact,
-                           contact_liste_ids=contact_liste_ids)
+                           contact_liste_ids=contact_liste_ids, blocks=blocks,
+                           field_map=fields_registry.field_map(),
+                           field_options=fields_registry.field_options, preview=False)
