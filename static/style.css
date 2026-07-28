@@ -157,6 +157,11 @@ a:hover {
 .form-status.is-active { color: var(--success-text); background: var(--success-bg); }
 .form-status.is-soon { color: var(--warning-text); background: var(--warning-bg); }
 .form-status.is-off { color: var(--text-muted); background: var(--bg-muted); }
+.type-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0.1rem 0 0.35rem; }
+.type-badge { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: var(--radius-pill); border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg-muted); white-space: nowrap; }
+.type-badge.is-fiche { background: var(--warning-bg); color: var(--warning-text); border-color: var(--warning-border); }
+.avalider-pill { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: var(--radius-pill); background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning-border); white-space: nowrap; }
+.form-card-icons { display: flex; gap: 0.3rem; }
 /* Édition formulaire : verrou + groupes ordonnés */
 .lock-banner { margin-bottom: 1rem; }
 .group-add-row { margin-bottom: 1rem; }

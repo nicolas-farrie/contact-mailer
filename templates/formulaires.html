@@ -1,19 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Formulaires - {{ app_name }}{% endblock %}
+{% block container_class %}container-wide{% endblock %}
 {% import "_icons.html" as ico %}
 
-{# --- Carte formulaire (réutilisée : actifs + archivés) --- #}
+{# --- Carte formulaire (M7) --- #}
 {% macro form_card(f, archived=False) %}
 {% set expired = f.expires_at and f.expires_at < now %}
 {% set soon = f.expires_at and f.expires_at > now and (f.expires_at - now).days <= 15 %}
-<div class="card form-card-v2">
+{% set status = 'inactif' if not f.is_active else ('clos' if expired else ('soon' if soon else 'actif')) %}
+{% set types = f.blocks|map(attribute='type')|list %}
+{% set pending = pending_by_form.get(f.id, 0) %}
+<div class="card form-card-v2"
+     data-name="{{ (f.nom ~ ' ' ~ (f.description or ''))|lower }}"
+     data-status="{{ 'archive' if archived else status }}"
+     data-types="{{ 'listes ' if f.listes }}{{ 'fiche ' if 'fiche' in types }}{{ 'sondage' if 'sondage' in types }}"
+     data-created="{{ f.created_at.timestamp()|int }}"
+     data-responses="{{ f.responses|length }}"
+     data-validity="{{ f.expires_at.timestamp()|int if f.expires_at else 9999999999 }}">
     <div class="form-card-head">
         <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="form-card-title">{{ f.nom }}</a>
         {% if archived %}<span class="form-status is-off">Archivé</span>
-        {% elif expired %}<span class="form-status is-off">Clos</span>
-        {% elif soon %}<span class="form-status is-soon">Expire bientôt</span>
-        {% elif f.is_active %}<span class="form-status is-active">Actif</span>
+        {% elif status == 'clos' %}<span class="form-status is-off">Clos</span>
+        {% elif status == 'soon' %}<span class="form-status is-soon">Expire bientôt</span>
+        {% elif status == 'actif' %}<span class="form-status is-active">Actif</span>
         {% else %}<span class="form-status is-off">Inactif</span>{% endif %}
+    </div>
+
+    <div class="type-badges">
+        {% if f.listes %}<span class="type-badge">☑ Listes</span>{% endif %}
+        {% if 'fiche' in types %}<span class="type-badge is-fiche">🔒 Champs de fiche</span>{% endif %}
+        {% if 'sondage' in types %}<span class="type-badge">❓ Sondage</span>{% endif %}
+        {% if pending %}<span class="avalider-pill">⚠ À valider · {{ pending }}</span>{% endif %}
     </div>
 
     {% if f.description %}<p class="form-card-desc">{{ f.description }}</p>{% endif %}
@@ -32,19 +49,21 @@
         </form>
         {% if current_user.is_admin %}
         <form method="POST" action="{{ url_for('formulaires.delete', id=f.id) }}" style="display:inline"
-              onsubmit="return confirm('Supprimer DÉFINITIVEMENT « {{ f.nom }} » et ses {{ f.responses|length }} réponse(s) ?\n\nAction irréversible.');">
+              onsubmit="return confirm('Supprimer DÉFINITIVEMENT « {{ f.nom }} » et ses {{ f.responses|length }} réponse(s) ?');">
             <button type="submit" class="icon-btn icon-danger" title="Supprimer définitivement">{{ ico.trash() }}</button>
         </form>
         {% endif %}
         {% else %}
-        <a href="{{ url_for('formulaires.edit', id=f.id) }}" class="btn btn-small btn-primary">Modifier</a>
-        <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="btn btn-small btn-secondary">Réponses</a>
-        {% if expired %}
-        <form method="POST" action="{{ url_for('formulaires.archive', id=f.id) }}" style="display:inline"
-              onsubmit="return confirm('Archiver « {{ f.nom }} » ? Il sera masqué de la liste (réversible, les réponses sont conservées).');">
-            <button type="submit" class="icon-btn" title="Archiver (formulaire clos)">{{ ico.archive() }}</button>
-        </form>
-        {% endif %}
+        <div class="form-card-icons">
+            <a href="{{ url_for('formulaires.edit', id=f.id) }}" class="icon-btn" title="Modifier">{{ ico.edit() }}</a>
+            <a href="{{ url_for('formulaires.detail', id=f.id, tab='reponses') }}" class="icon-btn" title="Réponses">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            </a>
+            <a href="{{ url_for('formulaires.apercu', id=f.id) }}" target="_blank" class="icon-btn" title="Aperçu">{{ ico.eye() }}</a>
+            <a href="{{ url_for('formulaires.detail', id=f.id, tab='lien') }}" class="icon-btn" title="Lien">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </a>
+        </div>
         {% endif %}
     </div>
 </div>
@@ -53,15 +72,46 @@
 {% block content %}
 <div class="page-header">
     <div class="page-header-title">
-        <h1>Formulaires</h1>
-        <p class="page-subtitle">Vos contacts choisissent eux-mêmes les listes dont ils veulent recevoir les informations.</p>
+        <h1>Formulaires <span class="count">{{ forms|length }}</span></h1>
+        <p class="page-subtitle">Une page personnalisée envoyée à vos contacts : ils choisissent leurs listes, corrigent leurs coordonnées ou répondent à un sondage.</p>
     </div>
     <a href="{{ url_for('formulaires.new') }}" class="btn btn-primary">+ Nouveau formulaire</a>
 </div>
 
 {% if forms %}
-<div class="forms-grid">
+<div class="contacts-toolbar">
+    <div class="search-wrap">
+        <span class="search-ico" aria-hidden="true">⌕</span>
+        <input type="text" id="f-search" class="search-input" placeholder="Rechercher un formulaire…" oninput="applyForms()">
+    </div>
+    <select id="f-status" class="filter-pill" onchange="applyForms()">
+        <option value="">Statut : Tous</option>
+        <option value="actif">Actifs</option>
+        <option value="soon">Expire bientôt</option>
+        <option value="clos">Clos</option>
+        <option value="inactif">Inactifs</option>
+    </select>
+    <select id="f-type" class="filter-pill" onchange="applyForms()">
+        <option value="">Type : Tous</option>
+        <option value="listes">Listes</option>
+        <option value="fiche">Champs de fiche</option>
+        <option value="sondage">Sondage</option>
+    </select>
+    <select id="f-sort" class="filter-pill" onchange="applyForms()">
+        <option value="created">Trier : Création</option>
+        <option value="name">Nom</option>
+        <option value="responses">Réponses</option>
+        <option value="validity">Validité</option>
+    </select>
+</div>
+
+<div class="forms-grid" id="forms-grid">
     {% for f in forms %}{{ form_card(f) }}{% endfor %}
+</div>
+<p class="empty-state-text" id="forms-empty" style="display:none;">Aucun formulaire ne correspond.</p>
+<div class="contacts-foot">
+    <span class="text-muted"><span id="forms-count">{{ forms|length }}</span> formulaire(s)</span>
+    <div class="pager" id="forms-pager"></div>
 </div>
 {% else %}
 <div class="empty-state">
@@ -78,4 +128,50 @@
     </div>
 </details>
 {% endif %}
+
+<script>
+var allCards = Array.from(document.querySelectorAll('#forms-grid .form-card-v2'));
+var F_PAGE = 15, fPage = 1;
+function fFilteredSorted(){
+    var q = (document.getElementById('f-search').value || '').toLowerCase().trim();
+    var st = document.getElementById('f-status').value;
+    var ty = document.getElementById('f-type').value;
+    var sort = document.getElementById('f-sort').value;
+    var r = allCards.filter(function(c){
+        if (q && c.dataset.name.indexOf(q) < 0) return false;
+        if (st && c.dataset.status !== st) return false;
+        if (ty && c.dataset.types.indexOf(ty) < 0) return false;
+        return true;
+    });
+    r.sort(function(a,b){
+        if (sort === 'name') return a.dataset.name.localeCompare(b.dataset.name, 'fr');
+        if (sort === 'responses') return (+b.dataset.responses) - (+a.dataset.responses);
+        if (sort === 'validity') return (+a.dataset.validity) - (+b.dataset.validity);
+        return (+b.dataset.created) - (+a.dataset.created);
+    });
+    return r;
+}
+function applyForms(){ fPage = 1; renderForms(); }
+function renderForms(){
+    var list = fFilteredSorted();
+    allCards.forEach(function(c){ c.style.display = 'none'; });
+    var grid = document.getElementById('forms-grid');
+    list.forEach(function(c){ grid.appendChild(c); });
+    var start = (fPage-1)*F_PAGE, end = start+F_PAGE;
+    list.slice(start, end).forEach(function(c){ c.style.display = ''; });
+    document.getElementById('forms-count').textContent = list.length;
+    document.getElementById('forms-empty').style.display = list.length ? 'none' : '';
+    renderFPager(list.length);
+}
+function renderFPager(total){
+    var pager = document.getElementById('forms-pager'); pager.innerHTML = '';
+    var pages = Math.max(1, Math.ceil(total / F_PAGE));
+    if (pages <= 1) return;
+    function btn(lbl, t, dis, cur){ var b=document.createElement('button'); b.type='button'; b.className='pager-btn'+(cur?' is-current':''); b.textContent=lbl; b.disabled=!!dis; if(!dis&&!cur) b.onclick=function(){ fPage=t; renderForms(); }; pager.appendChild(b); }
+    btn('‹', fPage-1, fPage===1);
+    for (var p=1; p<=pages; p++) btn(String(p), p, false, p===fPage);
+    btn('›', fPage+1, fPage===pages);
+}
+renderForms();
+</script>
 {% endblock %}

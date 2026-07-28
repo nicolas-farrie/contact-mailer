@@ -25,8 +25,11 @@ def index():
              .order_by(PreferenceForm.created_at.desc()).all())
     archived = (PreferenceForm.query.filter_by(is_archived=True)
                 .order_by(PreferenceForm.created_at.desc()).all())
+    pending_by_form = dict(db.session.query(FieldProposal.form_id, db.func.count())
+                           .filter(FieldProposal.status == 'pending')
+                           .group_by(FieldProposal.form_id).all())
     return render_template('formulaires.html', forms=forms, archived=archived,
-                           now=datetime.utcnow())
+                           pending_by_form=pending_by_form, now=datetime.utcnow())
 
 
 @bp.route('/formulaires/new', methods=['GET', 'POST'])
