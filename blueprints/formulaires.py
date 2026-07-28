@@ -13,6 +13,7 @@ from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
                     PreferenceResponse, FieldProposal, FormBlock)
 from config import Config
 from helpers import admin_required
+import fields as fields_registry
 
 bp = Blueprint('formulaires', __name__)
 
@@ -37,7 +38,10 @@ def new():
         if not nom:
             flash('Le nom du formulaire est requis.', 'error')
             return render_template('formulaire_edit.html', form=None, listes=listes, locked=False,
-                               now=datetime.utcnow(), pending=0)
+                               now=datetime.utcnow(), pending=0,
+                               field_groups=fields_registry.fields_by_group(),
+                               editable_keys=_editable_field_keys(),
+                               fiche_selected=[], has_fiche=False)
         pf = PreferenceForm(nom=nom,
                             description=request.form.get('description', '').strip() or None,
                             created_by_id=current_user.id)
@@ -91,6 +95,13 @@ def edit(id):
             return render_template('formulaire_edit.html', form=pf, listes=listes,
                                    locked=(len(pf.responses) > 0), now=datetime.utcnow(),
                                    pending=FieldProposal.query.filter_by(form_id=pf.id, status='pending').count())
+        # Garde-fou : une date de clôture est obligatoire dès qu'un bloc « fiche »
+        # est exposé (limite la fenêtre de fuite du lien d'accès).
+        if 'fiche' in request.form.getlist('block_types') and not request.form.get('expires_at', '').strip():
+            flash("Une date de clôture est obligatoire quand un bloc « Champs de fiche » est présent "
+                  "(elle limite la durée de vie du lien d'accès).", 'error')
+            return redirect(url_for('formulaires.edit', id=pf.id))
+
         # Verrou structurel affiné (#21) : le JEU de groupes n'est figé QUE si le
         # formulaire a DÉJÀ des réponses (des contacts y ont répondu). Un formulaire
         # jamais utilisé reste librement restructurable, même actif.
@@ -107,8 +118,9 @@ def edit(id):
         else:
             pf.expires_at = None
         if was_locked:
-            _update_form_listes_texts(pf, request.form)   # verrou : jeu de groupes figé, ordre/libellés OK
+            _update_form_listes_texts(pf, request.form)   # verrou : jeu de blocs/groupes figé, ordre/libellés OK
         else:
+            _save_blocks(pf, request.form)                # jeu de blocs (fiche add/remove + whitelist)
             for fl in pf.listes:
                 db.session.delete(fl)
             db.session.flush()
@@ -118,8 +130,13 @@ def edit(id):
         return redirect(url_for('formulaires.detail', id=pf.id))
     locked = len(pf.responses) > 0
     pending = FieldProposal.query.filter_by(form_id=pf.id, status='pending').count()
+    fiche_block = next((b for b in pf.blocks if b.type == 'fiche'), None)
     return render_template('formulaire_edit.html', form=pf, listes=listes, locked=locked,
-                           now=datetime.utcnow(), pending=pending)
+                           now=datetime.utcnow(), pending=pending,
+                           field_groups=fields_registry.fields_by_group(),
+                           editable_keys=_editable_field_keys(),
+                           fiche_selected=((fiche_block.config or {}).get('fields', []) if fiche_block else []),
+                           has_fiche=bool(fiche_block))
 
 
 @bp.route('/formulaires/<int:id>/delete', methods=['POST'])
@@ -179,6 +196,42 @@ def _get_or_create_listes_block(pf):
         db.session.add(blk)
         db.session.flush()
     return blk
+
+
+def _editable_field_keys():
+    """Clés des champs de la fiche qu'un contact peut être autorisé à corriger
+    (liste blanche = champs éditables du registre, hors e-mail verrouillé / système)."""
+    return {f.key for f in fields_registry.contact_fields()
+            if f.editable and f.key != 'email'}
+
+
+def _save_blocks(pf, form_data):
+    """Reconcilie le JEU de blocs (hors lignes de listes, gérées à part) d'après
+    l'ordre soumis (`block_types`, dans l'ordre du DOM). Le bloc 'listes' reste
+    obligatoire en M3b ; le bloc 'fiche' est ajoutable/retirable + sa liste blanche.
+    À n'appeler QUE hors verrou (formulaire sans réponse)."""
+    order = []
+    for t in form_data.getlist('block_types'):
+        if t in ('listes', 'fiche', 'sondage') and t not in order:
+            order.append(t)
+    if 'listes' not in order:
+        order.insert(0, 'listes')
+    existing = {b.type: b for b in pf.blocks}
+    for i, t in enumerate(order):
+        blk = existing.get(t)
+        if blk is None:
+            blk = FormBlock(form_id=pf.id, type=t, ordre=i)
+            db.session.add(blk); db.session.flush()
+            existing[t] = blk
+        else:
+            blk.ordre = i
+        if t == 'fiche':
+            allowed = _editable_field_keys()
+            keys = [k for k in form_data.getlist('fiche_fields') if k in allowed]
+            blk.config = {'fields': keys}
+    for t, blk in list(existing.items()):
+        if t not in order:
+            db.session.delete(blk)   # cascade : questions ; les lignes de listes suivent l'ordre plus bas
 
 
 def _save_form_listes(pf, form_data, all_listes):

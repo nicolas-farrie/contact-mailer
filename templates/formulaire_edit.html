@@ -60,7 +60,7 @@
             <div class="form-group">
                 <label for="expires_at">Date de clôture automatique <span class="hint" style="font-weight:normal;">(optionnel)</span></label>
                 <input type="date" id="expires_at" name="expires_at"
-                       value="{{ form.expires_at.strftime('%Y-%m-%d') if form and form.expires_at else '' }}" style="max-width:220px;">
+                       value="{{ form.expires_at.strftime('%Y-%m-%d') if form and form.expires_at else '' }}">
             </div>
             {% if form %}
             <div class="form-group">
@@ -74,43 +74,100 @@
         </div>
         <p class="field-help"><strong>Conseillé :</strong> fixez toujours une échéance — une campagne de préférences est
         par nature temporaire, et une date de clôture est requise pour pouvoir archiver ensuite.</p>
+        <div class="alert alert-warning" id="fiche-warning"{% if not has_fiche %} style="display:none"{% endif %}>
+            ⚠ Ce formulaire expose des <strong>champs de la fiche</strong> : une date de clôture est <strong>obligatoire</strong> (elle limite la durée de vie du lien d'accès).
+        </div>
     </section>
 
     <!-- Contenu du formulaire (assembleur de blocs) -->
-    <h2 class="blocks-title">Contenu du formulaire <span class="text-muted" style="font-weight:400;">· {{ (form.blocks|length) if form else 1 }} bloc(s)</span></h2>
+    <h2 class="blocks-title">Contenu du formulaire <span class="text-muted" style="font-weight:400;">· <span id="block-count"></span> bloc(s)</span></h2>
     <p class="settings-hint" style="margin-top:-0.4rem;">Empilez des blocs. Chacun a son propre niveau de sécurité.</p>
 
-    <div class="form-block">
-        <div class="form-block-head">
-            <div class="form-block-title">
-                <span class="block-ico">☑</span>
-                <strong>Groupes / listes</strong>
-                <span class="block-desc">Le contact s'abonne ou se désabonne des listes proposées.</span>
+    <div id="blocks-container">
+        <!-- Bloc Groupes / listes (toujours présent) -->
+        <div class="form-block" data-block-type="listes">
+            <input type="hidden" name="block_types" value="listes" class="block-type-input">
+            <div class="form-block-head">
+                <div class="form-block-title">
+                    <span class="block-ico">☑</span><strong>Groupes / listes</strong>
+                    <span class="block-desc">Le contact s'abonne ou se désabonne des listes proposées.</span>
+                </div>
+                <div class="form-block-controls">
+                    <span class="block-badge is-direct">✓ Accès direct</span>
+                    {% if not locked %}<button type="button" class="block-move" title="Monter" onclick="moveBlock(this,-1)">&#9650;</button><button type="button" class="block-move" title="Descendre" onclick="moveBlock(this,1)">&#9660;</button>{% endif %}
+                </div>
             </div>
-            <span class="block-badge is-direct">✓ Accès direct</span>
+            <div class="form-block-body">
+                {% if locked %}
+                <div class="alert alert-info lock-banner">
+                    🔒 <strong>Des contacts ont déjà répondu</strong> : vous pouvez modifier les <strong>libellés, aides et l'ordre</strong>,
+                    mais <strong>pas ajouter ni retirer de groupes</strong> (pour ne pas changer le formulaire sous les répondants).
+                </div>
+                {% endif %}
+                <div class="group-add-row">
+                    <select id="add-group-select" {% if locked %}disabled title="Des réponses existent : ajout impossible"{% endif %} onchange="addGroup(this)">
+                        <option value="">+ Ajouter un groupe…</option>
+                        {% for liste in listes if liste.id not in current_ids %}
+                        <option value="{{ liste.id }}" data-nom="{{ liste.nom }}" data-count="{{ liste.count }}">{{ liste.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="selected-groups" class="selected-groups">
+                    {% if form %}{% for fl in form.listes|sort(attribute='ordre') %}{% set liste = liste_map.get(fl.liste_id) %}{% if liste %}{{ group_row(liste, fl, locked) }}{% endif %}{% endfor %}{% endif %}
+                </div>
+                <p class="hint" id="no-groups-hint" {% if current_ids %}style="display:none"{% endif %}>Aucun groupe sélectionné — ajoutez-en avec la liste déroulante ci-dessus.</p>
+                {% if not listes %}<p class="hint">Aucune liste créée. <a href="{{ url_for('listes.new') }}">Créer une liste</a> d'abord.</p>{% endif %}
+            </div>
         </div>
-        <div class="form-block-body">
-            {% if locked %}
-            <div class="alert alert-info lock-banner">
-                🔒 <strong>Des contacts ont déjà répondu</strong> : vous pouvez modifier les <strong>libellés, aides et l'ordre</strong>,
-                mais <strong>pas ajouter ni retirer de groupes</strong> (pour ne pas changer le formulaire sous les répondants).
+
+        <!-- Bloc Champs de la fiche (rendu toujours ; désactivé/masqué si non présent) -->
+        <div class="form-block block-fiche{% if not has_fiche %} is-hidden{% endif %}" data-block-type="fiche">
+            <input type="hidden" name="block_types" value="fiche" class="block-type-input"{% if not has_fiche %} disabled{% endif %}>
+            <div class="form-block-head">
+                <div class="form-block-title">
+                    <span class="block-ico">🔒</span><strong>Champs de la fiche</strong>
+                    <span class="block-desc">Le contact corrige ses propres informations déjà en base.</span>
+                </div>
+                <div class="form-block-controls">
+                    <span class="block-badge is-protected">🔒 OTP + validation</span>
+                    {% if not locked %}<button type="button" class="block-move" title="Monter" onclick="moveBlock(this,-1)">&#9650;</button><button type="button" class="block-move" title="Descendre" onclick="moveBlock(this,1)">&#9660;</button><button type="button" class="block-remove-btn" title="Retirer ce bloc" onclick="removeFicheBlock()">&times;</button>{% endif %}
+                </div>
             </div>
-            {% endif %}
-            <div class="group-add-row">
-                <select id="add-group-select" {% if locked %}disabled title="Des réponses existent : ajout impossible"{% endif %} onchange="addGroup(this)">
-                    <option value="">+ Ajouter un groupe…</option>
-                    {% for liste in listes if liste.id not in current_ids %}
-                    <option value="{{ liste.id }}" data-nom="{{ liste.nom }}" data-count="{{ liste.count }}">{{ liste.nom }}</option>
-                    {% endfor %}
-                </select>
+            <div class="form-block-body">
+                <div class="alert alert-warning">
+                    🔒 <strong>Accès protégé.</strong> Modifier des données déjà en base est sensible. À l'ouverture, le contact reçoit un
+                    <strong>code par email</strong> ; ses saisies ne sont <strong>pas écrites directement</strong> : elles arrivent dans l'onglet
+                    <strong>« À valider »</strong> pour relecture par un administrateur. L'e-mail et l'identifiant technique ne sont jamais modifiables.
+                </div>
+                <p class="settings-hint">Champs que le contact pourra corriger <span class="text-muted">(<span id="fiche-count">0</span> sélectionné(s))</span></p>
+                {% for gl, flds in field_groups.items() %}
+                {% set editable_in_group = flds|selectattr('editable')|list %}
+                {% if editable_in_group %}
+                <div class="fiche-group">
+                    <div class="fiche-group-label">{{ gl[1] }}</div>
+                    <div class="fiche-fields">
+                        {% for f in editable_in_group %}
+                        {% if f.key == 'email' %}
+                        <label class="fiche-field is-locked"><input type="checkbox" disabled> {{ f.label }} <span class="lock-tag">🔒 verrouillé</span></label>
+                        {% else %}
+                        <label class="fiche-field"><input type="checkbox" name="fiche_fields" value="{{ f.key }}"{% if f.key in fiche_selected %} checked{% endif %}{% if locked %} disabled{% endif %} onchange="updateFicheCount()"> {{ f.label }}</label>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
             </div>
-            <div id="selected-groups" class="selected-groups">
-                {% if form %}{% for fl in form.listes|sort(attribute='ordre') %}{% set liste = liste_map.get(fl.liste_id) %}{% if liste %}{{ group_row(liste, fl, locked) }}{% endif %}{% endfor %}{% endif %}
-            </div>
-            <p class="hint" id="no-groups-hint" {% if current_ids %}style="display:none"{% endif %}>Aucun groupe sélectionné — ajoutez-en avec la liste déroulante ci-dessus.</p>
-            {% if not listes %}<p class="hint">Aucune liste créée. <a href="{{ url_for('listes.new') }}">Créer une liste</a> d'abord.</p>{% endif %}
         </div>
     </div>
+
+    {% if not locked %}
+    <div class="add-block-row">
+        <span class="add-block-label">Ajouter un bloc :</span>
+        <button type="button" class="btn btn-small btn-secondary" id="add-fiche-btn" onclick="addFicheBlock()"{% if has_fiche %} style="display:none"{% endif %}>🔒 Champs de fiche</button>
+        <button type="button" class="btn btn-small btn-secondary is-muted" title="Bientôt (M3c)" onclick="alert('Bloc Sondage — à venir (M3c).');">❓ Sondage <span class="soon-tag">bientôt</span></button>
+    </div>
+    {% endif %}
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">{{ 'Enregistrer' if form else 'Créer le formulaire' }}</button>
@@ -164,5 +221,45 @@ function moveGroup(btn, dir){
     if (dir < 0 && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
     else if (dir > 0 && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
 }
+
+// ---- Blocs (assembleur) ----
+function activeBlocks(){
+    return Array.from(document.querySelectorAll('#blocks-container .form-block')).filter(function(b){
+        var inp = b.querySelector('.block-type-input'); return inp && !inp.disabled;
+    });
+}
+function updateBlockCount(){ var el=document.getElementById('block-count'); if(el) el.textContent = activeBlocks().length; }
+function updateFicheCount(){
+    var n = document.querySelectorAll('.block-fiche input[name="fiche_fields"]:checked').length;
+    var el = document.getElementById('fiche-count'); if(el) el.textContent = n;
+}
+function updateDateRequired(){
+    var inp = document.querySelector('.form-block.block-fiche .block-type-input');
+    var d = document.getElementById('expires_at');
+    if (d) d.required = !!(inp && !inp.disabled);
+}
+function moveBlock(btn, dir){
+    var blk = btn.closest('.form-block'), c = document.getElementById('blocks-container');
+    if (dir < 0){ var p = blk.previousElementSibling; while(p && p.classList.contains('is-hidden')) p=p.previousElementSibling; if(p) c.insertBefore(blk, p); }
+    else { var n = blk.nextElementSibling; while(n && n.classList.contains('is-hidden')) n=n.nextElementSibling; if(n) c.insertBefore(n, blk); }
+}
+function addFicheBlock(){
+    var blk = document.querySelector('.form-block.block-fiche');
+    blk.classList.remove('is-hidden');
+    blk.querySelector('.block-type-input').disabled = false;
+    var b=document.getElementById('add-fiche-btn'); if(b) b.style.display='none';
+    var w=document.getElementById('fiche-warning'); if(w) w.style.display='';
+    updateDateRequired(); updateBlockCount(); updateFicheCount();
+    blk.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function removeFicheBlock(){
+    var blk = document.querySelector('.form-block.block-fiche');
+    blk.classList.add('is-hidden');
+    blk.querySelector('.block-type-input').disabled = true;
+    var b=document.getElementById('add-fiche-btn'); if(b) b.style.display='';
+    var w=document.getElementById('fiche-warning'); if(w) w.style.display='none';
+    updateDateRequired(); updateBlockCount();
+}
+updateBlockCount(); updateFicheCount(); updateDateRequired();
 </script>
 {% endblock %}

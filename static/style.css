@@ -206,6 +206,21 @@ a:hover {
 .block-badge { font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: var(--radius-pill); white-space: nowrap; }
 .block-badge.is-direct { background: var(--success-bg); color: var(--success-text); }
 .block-badge.is-protected { background: var(--warning-bg); color: var(--warning-text); }
+.form-block-controls { display: flex; align-items: center; gap: 0.4rem; }
+.block-move, .block-remove-btn { border: 1px solid var(--border-strong); background: var(--bg-surface); border-radius: 4px; cursor: pointer; color: var(--text-secondary); width: 24px; height: 22px; line-height: 1; padding: 0; font-size: 0.6rem; }
+.block-move:hover { border-color: var(--primary-border); color: var(--primary); }
+.block-remove-btn { font-size: 1.1rem; color: var(--text-muted); }
+.block-remove-btn:hover { border-color: var(--danger-border); color: var(--danger); }
+.form-block.is-hidden { display: none; }
+.add-block-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 0.25rem 0 1rem; }
+.add-block-label { color: var(--text-muted); font-size: 0.9rem; }
+.fiche-group { margin-bottom: 0.75rem; }
+.fiche-group-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.35rem; }
+.fiche-fields { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.fiche-field { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.88rem; cursor: pointer; }
+.fiche-field:hover { border-color: var(--primary-border); }
+.fiche-field.is-locked { opacity: 0.6; cursor: default; background: var(--bg-muted); }
+.lock-tag { font-size: 0.7rem; color: var(--text-muted); }
 
 .sidebar-user {
     border-top: 1px solid var(--divider);
