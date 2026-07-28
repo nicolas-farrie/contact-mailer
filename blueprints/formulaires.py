@@ -6,6 +6,7 @@ formulaires.edit, formulaires.delete, formulaires.public.
 """
 import io
 import csv
+import re
 from datetime import datetime
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
@@ -144,8 +145,10 @@ def export_responses(id):
         row += [survey.get(str(q.id), '') for q in questions]
         w.writerow([_csv_safe(v) for v in row])
 
+    slug = re.sub(r'[^a-zA-Z0-9]+', '_', pf.nom or '').strip('_') or f'form{pf.id}'
+    fname = f'reponses_{slug}.csv'
     return Response(out.getvalue(), mimetype='text/csv',
-                    headers={'Content-Disposition': f'attachment; filename=reponses_form{pf.id}.csv'})
+                    headers={'Content-Disposition': f'attachment; filename={fname}'})
 
 
 @bp.route('/formulaires/<int:id>/edit', methods=['GET', 'POST'])
