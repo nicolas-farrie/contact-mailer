@@ -195,6 +195,18 @@ a:hover {
 .link-copy-row { display: flex; gap: 0.6rem; align-items: stretch; }
 .link-copy-row .pref-link-code { flex: 1; margin: 0; display: flex; align-items: center; }
 
+/* Assembleur de blocs (éditeur de formulaire v2) */
+.blocks-title { margin-top: 1.5rem; margin-bottom: 0.35rem; }
+.form-block { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1rem; background: var(--bg-surface); box-shadow: var(--shadow-card); overflow: hidden; }
+.form-block-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 0.8rem 1rem; background: var(--bg-muted); border-bottom: 1px solid var(--border); }
+.form-block-title { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.block-ico { font-size: 1rem; }
+.block-desc { color: var(--text-muted); font-size: 0.85rem; font-weight: 400; }
+.form-block-body { padding: 1rem; }
+.block-badge { font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: var(--radius-pill); white-space: nowrap; }
+.block-badge.is-direct { background: var(--success-bg); color: var(--success-text); }
+.block-badge.is-protected { background: var(--warning-bg); color: var(--warning-text); }
+
 .sidebar-user {
     border-top: 1px solid var(--divider);
     padding: 0.7rem 0.85rem; display: flex; align-items: center; gap: 0.6rem;

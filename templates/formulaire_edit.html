@@ -22,7 +22,7 @@
         <div class="form-group"><label>Libellé affiché</label>
             <input type="text" name="label_{{ liste.id }}" value="{{ fl.label if fl else liste.nom }}" placeholder="{{ liste.nom }}"></div>
         <div class="form-group"><label>Explication (info-bulle ?)</label>
-            <input type="text" name="help_{{ liste.id }}" value="{{ fl.help_text if fl else '' }}" placeholder="Facultatif — précise le rôle ou l'engagement attendu"></div>
+            <input type="text" name="help_{{ liste.id }}" value="{{ (fl.help_text or '') if fl else '' }}" placeholder="Facultatif — précise le rôle ou l'engagement attendu"></div>
     </div>
     <input type="hidden" name="liste_ids" value="{{ liste.id }}">
 </div>
@@ -45,7 +45,7 @@
 
     <!-- Réglages -->
     <section class="card settings-section">
-        <h2>Réglages</h2>
+        <h2>Réglages généraux</h2>
         <div class="form-group">
             <label for="nom">Nom du formulaire *</label>
             <input type="text" id="nom" name="nom" value="{{ form.nom if form else '' }}" required
@@ -76,34 +76,41 @@
         par nature temporaire, et une date de clôture est requise pour pouvoir archiver ensuite.</p>
     </section>
 
-    <!-- Groupes proposés -->
-    <section class="card settings-section">
-        <h2>Groupes proposés</h2>
-        <p class="settings-hint">Ajoutez les groupes à proposer, ordonnez-les (↑/↓) et définissez le libellé affiché au contact + une explication optionnelle. L'ordre ici = l'ordre d'affichage sur la page publique.</p>
+    <!-- Contenu du formulaire (assembleur de blocs) -->
+    <h2 class="blocks-title">Contenu du formulaire <span class="text-muted" style="font-weight:400;">· {{ (form.blocks|length) if form else 1 }} bloc(s)</span></h2>
+    <p class="settings-hint" style="margin-top:-0.4rem;">Empilez des blocs. Chacun a son propre niveau de sécurité.</p>
 
-        {% if locked %}
-        <div class="alert alert-info lock-banner">
-            🔒 Ce formulaire est <strong>ouvert</strong> : vous pouvez modifier les <strong>libellés, aides et l'ordre</strong>,
-            mais <strong>pas ajouter ni retirer de groupes</strong> (des contacts peuvent être en train d'y répondre).
-            Pour restructurer, clôturez-le d'abord (date de clôture passée ou décochez « actif »), puis rééditez.
+    <div class="form-block">
+        <div class="form-block-head">
+            <div class="form-block-title">
+                <span class="block-ico">☑</span>
+                <strong>Groupes / listes</strong>
+                <span class="block-desc">Le contact s'abonne ou se désabonne des listes proposées.</span>
+            </div>
+            <span class="block-badge is-direct">✓ Accès direct</span>
         </div>
-        {% endif %}
-
-        <div class="group-add-row">
-            <select id="add-group-select" {% if locked %}disabled title="Formulaire ouvert : ajout impossible"{% endif %} onchange="addGroup(this)">
-                <option value="">+ Ajouter un groupe…</option>
-                {% for liste in listes if liste.id not in current_ids %}
-                <option value="{{ liste.id }}" data-nom="{{ liste.nom }}" data-count="{{ liste.count }}">{{ liste.nom }}</option>
-                {% endfor %}
-            </select>
+        <div class="form-block-body">
+            {% if locked %}
+            <div class="alert alert-info lock-banner">
+                🔒 <strong>Des contacts ont déjà répondu</strong> : vous pouvez modifier les <strong>libellés, aides et l'ordre</strong>,
+                mais <strong>pas ajouter ni retirer de groupes</strong> (pour ne pas changer le formulaire sous les répondants).
+            </div>
+            {% endif %}
+            <div class="group-add-row">
+                <select id="add-group-select" {% if locked %}disabled title="Des réponses existent : ajout impossible"{% endif %} onchange="addGroup(this)">
+                    <option value="">+ Ajouter un groupe…</option>
+                    {% for liste in listes if liste.id not in current_ids %}
+                    <option value="{{ liste.id }}" data-nom="{{ liste.nom }}" data-count="{{ liste.count }}">{{ liste.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="selected-groups" class="selected-groups">
+                {% if form %}{% for fl in form.listes|sort(attribute='ordre') %}{% set liste = liste_map.get(fl.liste_id) %}{% if liste %}{{ group_row(liste, fl, locked) }}{% endif %}{% endfor %}{% endif %}
+            </div>
+            <p class="hint" id="no-groups-hint" {% if current_ids %}style="display:none"{% endif %}>Aucun groupe sélectionné — ajoutez-en avec la liste déroulante ci-dessus.</p>
+            {% if not listes %}<p class="hint">Aucune liste créée. <a href="{{ url_for('listes.new') }}">Créer une liste</a> d'abord.</p>{% endif %}
         </div>
-
-        <div id="selected-groups" class="selected-groups">
-            {% if form %}{% for fl in form.listes|sort(attribute='ordre') %}{% set liste = liste_map.get(fl.liste_id) %}{% if liste %}{{ group_row(liste, fl, locked) }}{% endif %}{% endfor %}{% endif %}
-        </div>
-        <p class="hint" id="no-groups-hint" {% if current_ids %}style="display:none"{% endif %}>Aucun groupe sélectionné — ajoutez-en avec la liste déroulante ci-dessus.</p>
-        {% if not listes %}<p class="hint">Aucune liste créée. <a href="{{ url_for('listes.new') }}">Créer une liste</a> d'abord.</p>{% endif %}
-    </section>
+    </div>
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">{{ 'Enregistrer' if form else 'Créer le formulaire' }}</button>

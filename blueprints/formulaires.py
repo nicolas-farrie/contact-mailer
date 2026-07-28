@@ -10,7 +10,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
 from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
-                    PreferenceResponse, FieldProposal)
+                    PreferenceResponse, FieldProposal, FormBlock)
 from config import Config
 from helpers import admin_required
 
@@ -89,11 +89,12 @@ def edit(id):
         if not nom:
             flash('Le nom du formulaire est requis.', 'error')
             return render_template('formulaire_edit.html', form=pf, listes=listes,
-                                   locked=(pf.is_active and (pf.expires_at is None or pf.expires_at > datetime.utcnow())))
-        # Verrou structurel : basé sur l'état AVANT édition. Un formulaire ouvert
-        # (actif ET non expiré) ne peut pas voir son JEU de groupes modifié (des
-        # contacts peuvent être en train d'y répondre) — seuls libellés/aides bougent.
-        was_open = pf.is_active and (pf.expires_at is None or pf.expires_at > datetime.utcnow())
+                                   locked=(len(pf.responses) > 0), now=datetime.utcnow(),
+                                   pending=FieldProposal.query.filter_by(form_id=pf.id, status='pending').count())
+        # Verrou structurel affiné (#21) : le JEU de groupes n'est figé QUE si le
+        # formulaire a DÉJÀ des réponses (des contacts y ont répondu). Un formulaire
+        # jamais utilisé reste librement restructurable, même actif.
+        was_locked = len(pf.responses) > 0
         pf.nom = nom
         pf.description = request.form.get('description', '').strip() or None
         pf.is_active = request.form.get('is_active') == 'on'
@@ -105,17 +106,17 @@ def edit(id):
                 pass
         else:
             pf.expires_at = None
-        if was_open:
-            _update_form_listes_texts(pf, request.form)   # verrou : jeu de groupes figé
+        if was_locked:
+            _update_form_listes_texts(pf, request.form)   # verrou : jeu de groupes figé, ordre/libellés OK
         else:
             for fl in pf.listes:
                 db.session.delete(fl)
             db.session.flush()
             _save_form_listes(pf, request.form, listes)
         db.session.commit()
-        flash('Formulaire mis à jour.' + (' Groupes verrouillés (formulaire ouvert) : seuls les libellés ont été enregistrés.' if was_open else ''), 'success')
+        flash('Formulaire mis à jour.' + (' Groupes verrouillés (des réponses existent) : seuls libellés, aides et ordre ont été enregistrés.' if was_locked else ''), 'success')
         return redirect(url_for('formulaires.detail', id=pf.id))
-    locked = pf.is_active and (pf.expires_at is None or pf.expires_at > datetime.utcnow())
+    locked = len(pf.responses) > 0
     pending = FieldProposal.query.filter_by(form_id=pf.id, status='pending').count()
     return render_template('formulaire_edit.html', form=pf, listes=listes, locked=locked,
                            now=datetime.utcnow(), pending=pending)
@@ -170,7 +171,18 @@ def unarchive(id):
     return redirect(url_for('formulaires.index'))
 
 
+def _get_or_create_listes_block(pf):
+    """Bloc 'listes' du formulaire (assembleur v2). Créé à la volée si absent."""
+    blk = next((b for b in pf.blocks if b.type == 'listes'), None)
+    if blk is None:
+        blk = FormBlock(form_id=pf.id, type='listes', ordre=0)
+        db.session.add(blk)
+        db.session.flush()
+    return blk
+
+
 def _save_form_listes(pf, form_data, all_listes):
+    block = _get_or_create_listes_block(pf)
     liste_ids = form_data.getlist('liste_ids', type=int)
     for ordre, lid in enumerate(liste_ids):
         liste = next((l for l in all_listes if l.id == lid), None)
@@ -178,7 +190,7 @@ def _save_form_listes(pf, form_data, all_listes):
             continue
         label = form_data.get(f'label_{lid}', '').strip() or liste.nom
         help_text = form_data.get(f'help_{lid}', '').strip() or None
-        fl = PreferenceFormListe(form_id=pf.id, liste_id=lid,
+        fl = PreferenceFormListe(form_id=pf.id, liste_id=lid, block_id=block.id,
                                  label=label, help_text=help_text, ordre=ordre)
         db.session.add(fl)
 
