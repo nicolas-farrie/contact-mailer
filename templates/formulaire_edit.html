@@ -28,6 +28,23 @@
 </div>
 {% endmacro %}
 
+{# --- Ligne d'une question de sondage --- #}
+{% macro question_row(q, locked) %}
+<div class="survey-q">
+    <div class="survey-q-reorder">
+        <button type="button" class="reorder-btn" title="Monter" onclick="moveQuestion(this,-1)">&#9650;</button>
+        <button type="button" class="reorder-btn" title="Descendre" onclick="moveQuestion(this,1)">&#9660;</button>
+    </div>
+    <input type="text" name="q_label" class="survey-q-label" value="{{ (q.label if q else '') }}" placeholder="Votre question…"{% if locked %} disabled{% endif %}>
+    <select name="q_type" class="survey-q-type"{% if locked %} disabled{% endif %}>
+        <option value="oui_non"{% if q and q.type == 'oui_non' %} selected{% endif %}>Oui / Non</option>
+        <option value="texte_court"{% if (not q) or q.type == 'texte_court' %} selected{% endif %}>Texte court</option>
+        <option value="texte_long"{% if q and q.type == 'texte_long' %} selected{% endif %}>Texte long</option>
+    </select>
+    {% if not locked %}<button type="button" class="survey-q-remove" title="Retirer" onclick="removeQuestion(this)">&times;</button>{% endif %}
+</div>
+{% endmacro %}
+
 {% block content %}
 {% if form %}
 {{ tabs.header(form, 'edition', now, pending) }}
@@ -159,13 +176,37 @@
                 {% endfor %}
             </div>
         </div>
+
+        <!-- Bloc Questions (sondage) -->
+        <div class="form-block block-sondage{% if not has_sondage %} is-hidden{% endif %}" data-block-type="sondage">
+            <input type="hidden" name="block_types" value="sondage" class="block-type-input"{% if not has_sondage %} disabled{% endif %}>
+            <div class="form-block-head">
+                <div class="form-block-title">
+                    <span class="block-ico">❓</span><strong>Questions (sondage)</strong>
+                    <span class="block-desc">Questions ponctuelles, hors base de données.</span>
+                </div>
+                <div class="form-block-controls">
+                    <span class="block-badge is-direct">✓ Accès direct</span>
+                    {% if not locked %}<button type="button" class="block-move" title="Monter" onclick="moveBlock(this,-1)">&#9650;</button><button type="button" class="block-move" title="Descendre" onclick="moveBlock(this,1)">&#9660;</button><button type="button" class="block-remove-btn" title="Retirer ce bloc" onclick="removeSondageBlock()">&times;</button>{% endif %}
+                </div>
+            </div>
+            <div class="form-block-body">
+                <div class="alert alert-info">
+                    ✓ <strong>Accès direct.</strong> Ces questions ne touchent <strong>jamais</strong> la fiche du contact : les réponses sont stockées à part (comme un sondage) → même niveau de sécurité que le choix de listes.
+                </div>
+                <div id="survey-questions" class="survey-questions">
+                    {% if sondage_block %}{% for q in sondage_block.questions|sort(attribute='ordre') %}{{ question_row(q, locked) }}{% endfor %}{% endif %}
+                </div>
+                {% if not locked %}<button type="button" class="btn btn-small btn-secondary" onclick="addQuestion()">+ Ajouter une question</button>{% endif %}
+            </div>
+        </div>
     </div>
 
     {% if not locked %}
     <div class="add-block-row">
         <span class="add-block-label">Ajouter un bloc :</span>
         <button type="button" class="btn btn-small btn-secondary" id="add-fiche-btn" onclick="addFicheBlock()"{% if has_fiche %} style="display:none"{% endif %}>🔒 Champs de fiche</button>
-        <button type="button" class="btn btn-small btn-secondary is-muted" title="Bientôt (M3c)" onclick="alert('Bloc Sondage — à venir (M3c).');">❓ Sondage <span class="soon-tag">bientôt</span></button>
+        <button type="button" class="btn btn-small btn-secondary" id="add-sondage-btn" onclick="addSondageBlock()"{% if has_sondage %} style="display:none"{% endif %}>❓ Sondage</button>
     </div>
     {% endif %}
 
@@ -259,6 +300,38 @@ function removeFicheBlock(){
     var b=document.getElementById('add-fiche-btn'); if(b) b.style.display='';
     var w=document.getElementById('fiche-warning'); if(w) w.style.display='none';
     updateDateRequired(); updateBlockCount();
+}
+// ---- Sondage ----
+function buildQuestionRow(){
+    return '<div class="survey-q">'
+      + '<div class="survey-q-reorder"><button type="button" class="reorder-btn" title="Monter" onclick="moveQuestion(this,-1)">&#9650;</button><button type="button" class="reorder-btn" title="Descendre" onclick="moveQuestion(this,1)">&#9660;</button></div>'
+      + '<input type="text" name="q_label" class="survey-q-label" placeholder="Votre question…">'
+      + '<select name="q_type" class="survey-q-type"><option value="oui_non">Oui / Non</option><option value="texte_court" selected>Texte court</option><option value="texte_long">Texte long</option></select>'
+      + '<button type="button" class="survey-q-remove" title="Retirer" onclick="removeQuestion(this)">&times;</button>'
+      + '</div>';
+}
+function addQuestion(){ document.getElementById('survey-questions').insertAdjacentHTML('beforeend', buildQuestionRow()); }
+function removeQuestion(btn){ btn.closest('.survey-q').remove(); }
+function moveQuestion(btn, dir){
+    var row = btn.closest('.survey-q');
+    if (dir < 0 && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+    else if (dir > 0 && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+}
+function addSondageBlock(){
+    var blk = document.querySelector('.form-block.block-sondage');
+    blk.classList.remove('is-hidden');
+    blk.querySelector('.block-type-input').disabled = false;
+    var b=document.getElementById('add-sondage-btn'); if(b) b.style.display='none';
+    if (!blk.querySelector('.survey-q')) addQuestion();
+    updateBlockCount();
+    blk.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function removeSondageBlock(){
+    var blk = document.querySelector('.form-block.block-sondage');
+    blk.classList.add('is-hidden');
+    blk.querySelector('.block-type-input').disabled = true;
+    var b=document.getElementById('add-sondage-btn'); if(b) b.style.display='';
+    updateBlockCount();
 }
 updateBlockCount(); updateFicheCount(); updateDateRequired();
 </script>

@@ -221,6 +221,13 @@ a:hover {
 .fiche-field:hover { border-color: var(--primary-border); }
 .fiche-field.is-locked { opacity: 0.6; cursor: default; background: var(--bg-muted); }
 .lock-tag { font-size: 0.7rem; color: var(--text-muted); }
+.survey-questions { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
+.survey-q { display: flex; align-items: center; gap: 0.5rem; }
+.survey-q-reorder { display: flex; flex-direction: column; gap: 2px; }
+.survey-q-label { flex: 1; }
+.survey-q-type { width: auto; flex: 0 0 auto; min-width: 130px; }
+.survey-q-remove { border: none; background: none; font-size: 1.35rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 0.3rem; }
+.survey-q-remove:hover { color: var(--danger); }
 
 .sidebar-user {
     border-top: 1px solid var(--divider);

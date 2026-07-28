@@ -10,7 +10,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
 from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
-                    PreferenceResponse, FieldProposal, FormBlock)
+                    PreferenceResponse, FieldProposal, FormBlock, SurveyQuestion)
 from config import Config
 from helpers import admin_required
 import fields as fields_registry
@@ -41,7 +41,8 @@ def new():
                                now=datetime.utcnow(), pending=0,
                                field_groups=fields_registry.fields_by_group(),
                                editable_keys=_editable_field_keys(),
-                               fiche_selected=[], has_fiche=False)
+                               fiche_selected=[], has_fiche=False,
+                               sondage_block=None, has_sondage=False)
         pf = PreferenceForm(nom=nom,
                             description=request.form.get('description', '').strip() or None,
                             created_by_id=current_user.id)
@@ -131,12 +132,14 @@ def edit(id):
     locked = len(pf.responses) > 0
     pending = FieldProposal.query.filter_by(form_id=pf.id, status='pending').count()
     fiche_block = next((b for b in pf.blocks if b.type == 'fiche'), None)
+    sondage_block = next((b for b in pf.blocks if b.type == 'sondage'), None)
     return render_template('formulaire_edit.html', form=pf, listes=listes, locked=locked,
                            now=datetime.utcnow(), pending=pending,
                            field_groups=fields_registry.fields_by_group(),
                            editable_keys=_editable_field_keys(),
                            fiche_selected=((fiche_block.config or {}).get('fields', []) if fiche_block else []),
-                           has_fiche=bool(fiche_block))
+                           has_fiche=bool(fiche_block),
+                           sondage_block=sondage_block, has_sondage=bool(sondage_block))
 
 
 @bp.route('/formulaires/<int:id>/delete', methods=['POST'])
@@ -229,6 +232,21 @@ def _save_blocks(pf, form_data):
             allowed = _editable_field_keys()
             keys = [k for k in form_data.getlist('fiche_fields') if k in allowed]
             blk.config = {'fields': keys}
+        elif t == 'sondage':
+            for q in list(blk.questions):
+                db.session.delete(q)
+            db.session.flush()
+            labels = form_data.getlist('q_label')
+            types = form_data.getlist('q_type')
+            o = 0
+            for label, qtype in zip(labels, types):
+                label = (label or '').strip()
+                if not label:
+                    continue
+                if qtype not in ('oui_non', 'texte_court', 'texte_long'):
+                    qtype = 'texte_court'
+                db.session.add(SurveyQuestion(block_id=blk.id, ordre=o, label=label, type=qtype))
+                o += 1
     for t, blk in list(existing.items()):
         if t not in order:
             db.session.delete(blk)   # cascade : questions ; les lignes de listes suivent l'ordre plus bas
