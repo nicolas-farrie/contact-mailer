@@ -4,9 +4,11 @@ page publique de gestion des préférences par contact (/p/<token>/<uid>).
 Endpoints : formulaires.index, formulaires.new, formulaires.detail,
 formulaires.edit, formulaires.delete, formulaires.public.
 """
+import io
+import csv
 from datetime import datetime
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
 
 from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
@@ -92,10 +94,58 @@ def detail(id):
     proposal_groups = [{'contact': items[0].contact,
                         'proposed_at': max(i.proposed_at for i in items),
                         'items': items} for items in grouped.values()]
+    liste_names = {l.id: l.nom for l in Liste.query.all()}
+    question_labels = {}
+    for b in pf.blocks:
+        if b.type == 'sondage':
+            for q in b.questions:
+                question_labels[str(q.id)] = q.label
     return render_template('formulaire_detail.html', form=pf,
                            link_template=link_template, responses=responses,
                            tab=tab, proposal_groups=proposal_groups, pending=len(props),
-                           field_map=fields_registry.field_map(), now=datetime.utcnow())
+                           field_map=fields_registry.field_map(),
+                           liste_names=liste_names, question_labels=question_labels,
+                           now=datetime.utcnow())
+
+
+def _csv_safe(val):
+    """Anti-injection de formules (Excel/Sheets) : préfixe d'un ' les valeurs
+    commençant par = + - @ (ou tab/CR). Point « auth ≠ sanitisation » du TODO."""
+    s = '' if val is None else str(val)
+    if s and s[0] in ('=', '+', '-', '@', '\t', '\r'):
+        return "'" + s
+    return s
+
+
+@bp.route('/formulaires/<int:id>/reponses/export')
+@login_required
+def export_responses(id):
+    """Export CSV des réponses d'un formulaire (listes choisies + réponses de sondage), échappé."""
+    pf = PreferenceForm.query.get_or_404(id)
+    responses = (PreferenceResponse.query.filter_by(form_id=pf.id)
+                 .order_by(PreferenceResponse.submitted_at.desc()).all())
+    liste_names = {l.id: l.nom for l in Liste.query.all()}
+    questions = []
+    for b in sorted(pf.blocks, key=lambda x: x.ordre):
+        if b.type == 'sondage':
+            questions += sorted(b.questions, key=lambda x: x.ordre)
+
+    out = io.StringIO()
+    w = csv.writer(out)
+    header = ['Nom', 'Prénom', 'Email', 'Répondu le', 'Listes choisies'] + [q.label for q in questions]
+    w.writerow([_csv_safe(h) for h in header])
+    for r in responses:
+        ct = r.contact
+        data = r.data or {}
+        listes = ', '.join(liste_names.get(i, '#' + str(i)) for i in (data.get('listes') or []))
+        survey = data.get('survey') or {}
+        row = [ct.nom if ct else '', ct.prenom if ct else '', ct.email if ct else '',
+               r.submitted_at.strftime('%d/%m/%Y %H:%M') if r.submitted_at else '', listes]
+        row += [survey.get(str(q.id), '') for q in questions]
+        w.writerow([_csv_safe(v) for v in row])
+
+    return Response(out.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename=reponses_form{pf.id}.csv'})
 
 
 @bp.route('/formulaires/<int:id>/edit', methods=['GET', 'POST'])

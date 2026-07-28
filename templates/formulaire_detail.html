@@ -39,24 +39,30 @@
 {% elif tab == 'reponses' %}
 <section class="card settings-section">
     <div class="detail-link-head">
-        <h2 style="margin:0;">Réponses reçues <span class="badge badge-gray">{{ responses|length }}</span></h2>
-        {% if responses and current_user.is_admin %}
-        <a href="{{ url_for('imports.export_contacts') }}" class="btn btn-small btn-secondary">↓ Exporter (CSV)</a>
-        {% endif %}
+        <div>
+            <h2 style="margin:0 0 0.1rem;">Réponses reçues <span class="badge badge-gray">{{ responses|length }}</span></h2>
+            <p class="settings-hint" style="margin:0;">Contacts ayant répondu et ce qu'ils ont choisi.</p>
+        </div>
+        {% if responses %}<a href="{{ url_for('formulaires.export_responses', id=form.id) }}" class="btn btn-small btn-secondary">↓ Exporter (CSV)</a>{% endif %}
     </div>
     {% if responses %}
-    <table class="data-table">
-        <thead><tr><th data-sort>Contact</th><th data-sort>Email</th><th data-sort>Répondu le</th></tr></thead>
-        <tbody>
-            {% for r in responses %}
-            <tr>
-                <td>{% if r.contact %}<a href="{{ url_for('contacts.edit', id=r.contact.id) }}">{{ r.contact.prenom }} {{ r.contact.nom }}</a>{% else %}—{% endif %}</td>
-                <td class="text-muted">{{ r.contact.email if r.contact else '—' }}</td>
-                <td class="text-muted">{{ r.submitted_at.strftime('%d/%m/%Y %H:%M') }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="response-list">
+        {% for r in responses %}
+        <div class="response-row">
+            <span class="avatar-sm">{{ ((r.contact.prenom or ' ')[0] ~ (r.contact.nom or ' ')[0])|upper if r.contact else '?' }}</span>
+            <div class="response-ident">
+                {% if r.contact %}<a href="{{ url_for('contacts.edit', id=r.contact.id) }}"><strong>{{ r.contact.prenom }} {{ r.contact.nom }}</strong></a>{% else %}<strong>—</strong>{% endif %}
+                <div class="recip-mail">{{ r.contact.email if r.contact else '—' }}</div>
+            </div>
+            <div class="response-data">
+                {% set data = r.data or {} %}
+                {% for lid in (data.get('listes') or []) %}<span class="tag">{{ liste_names.get(lid, '#' ~ lid) }}</span>{% endfor %}
+                {% if data.get('survey') %}{% for qid, ans in data.survey.items() %}<span class="survey-answer">{{ question_labels.get(qid, 'Question') }} : <strong>{{ ans }}</strong></span>{% endfor %}{% endif %}
+            </div>
+            <span class="response-date text-muted">{{ r.submitted_at.strftime('%d/%m/%Y') }}</span>
+        </div>
+        {% endfor %}
+    </div>
     {% else %}
     <p class="empty-state-text">Aucune réponse reçue pour l'instant.</p>
     {% endif %}
