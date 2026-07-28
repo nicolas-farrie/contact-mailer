@@ -61,8 +61,13 @@ def new():
         _save_form_listes(pf, request.form, listes)
         db.session.commit()
         flash(f'Formulaire "{pf.nom}" créé.', 'success')
-        return redirect(url_for('formulaires.detail', id=pf.id))
-    return render_template('formulaire_edit.html', form=None, listes=listes)
+        return redirect(url_for('formulaires.detail', id=pf.id, tab='lien'))
+    return render_template('formulaire_edit.html', form=None, listes=listes, locked=False,
+                           now=datetime.utcnow(), pending=0,
+                           field_groups=fields_registry.fields_by_group(),
+                           editable_keys=_editable_field_keys(),
+                           fiche_selected=[], has_fiche=False,
+                           sondage_block=None, has_sondage=False)
 
 
 @bp.route('/formulaires/<int:id>', methods=['GET'])
@@ -137,7 +142,7 @@ def edit(id):
             _save_form_listes(pf, request.form, listes)
         db.session.commit()
         flash('Formulaire mis à jour.' + (' Groupes verrouillés (des réponses existent) : seuls libellés, aides et ordre ont été enregistrés.' if was_locked else ''), 'success')
-        return redirect(url_for('formulaires.detail', id=pf.id))
+        return redirect(url_for('formulaires.detail', id=pf.id, tab='lien'))
     locked = len(pf.responses) > 0
     pending = FieldProposal.query.filter_by(form_id=pf.id, status='pending').count()
     fiche_block = next((b for b in pf.blocks if b.type == 'fiche'), None)
@@ -178,10 +183,11 @@ def archive(id):
     d'un formulaire encore en cours de collecte."""
     pf = PreferenceForm.query.get_or_404(id)
     now = datetime.utcnow()
-    if not (pf.expires_at and pf.expires_at < now):
-        flash("Seuls les formulaires dont la date de clôture est dépassée peuvent être "
-              "archivés. Fixez d'abord une date de clôture passée (Modifier) pour clore "
-              "le formulaire, puis archivez-le.", 'error')
+    still_online = pf.is_active and (pf.expires_at is None or pf.expires_at > now)
+    if still_online:
+        flash("Un formulaire actif et en ligne ne peut pas être archivé (il peut encore être "
+              "utilisé). Clôturez-le d'abord — date de clôture passée, ou décochez « actif » "
+              "dans Modifier — puis archivez-le.", 'error')
         return redirect(url_for('formulaires.index'))
     pf.is_archived = True
     db.session.commit()

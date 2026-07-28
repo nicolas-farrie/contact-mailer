@@ -63,6 +63,12 @@
             <a href="{{ url_for('formulaires.detail', id=f.id, tab='lien') }}" class="icon-btn" title="Lien">
                 <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </a>
+            {% if status in ['clos', 'inactif'] %}
+            <form method="POST" action="{{ url_for('formulaires.archive', id=f.id) }}" style="display:inline"
+                  onsubmit="return confirm('Archiver « {{ f.nom }} » ? (réversible, réponses conservées)');">
+                <button type="submit" class="icon-btn" title="Archiver (formulaire clos/inactif)">{{ ico.archive() }}</button>
+            </form>
+            {% endif %}
         </div>
         {% endif %}
     </div>

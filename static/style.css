@@ -146,7 +146,7 @@ a:hover {
 .form-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
 .form-card-title { font-weight: 700; font-size: 1.02rem; color: var(--text); }
 .form-card-title:hover { color: var(--primary); }
-.form-card-desc { color: var(--text-secondary); font-size: 0.88rem; margin: 0; }
+.form-card-desc { color: var(--text-secondary); font-size: 0.88rem; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .form-card-meta { display: flex; flex-direction: column; gap: 0.3rem; border-top: 1px solid var(--divider); padding-top: 0.6rem; margin-top: auto; }
 .form-card-meta > div { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: 0.88rem; }
 .form-card-meta .k { color: var(--text-muted); }
