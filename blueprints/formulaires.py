@@ -76,12 +76,18 @@ def detail(id):
     tab = request.args.get('tab', 'reponses')
     if tab not in ('lien', 'reponses', 'valider'):
         tab = 'reponses'
-    proposals = (FieldProposal.query.filter_by(form_id=pf.id, status='pending')
-                 .order_by(FieldProposal.proposed_at.desc()).all())
+    props = (FieldProposal.query.filter_by(form_id=pf.id, status='pending')
+             .order_by(FieldProposal.contact_id, FieldProposal.proposed_at).all())
+    grouped = {}
+    for p in props:
+        grouped.setdefault(p.contact_id, []).append(p)
+    proposal_groups = [{'contact': items[0].contact,
+                        'proposed_at': max(i.proposed_at for i in items),
+                        'items': items} for items in grouped.values()]
     return render_template('formulaire_detail.html', form=pf,
                            link_template=link_template, responses=responses,
-                           tab=tab, proposals=proposals, pending=len(proposals),
-                           now=datetime.utcnow())
+                           tab=tab, proposal_groups=proposal_groups, pending=len(props),
+                           field_map=fields_registry.field_map(), now=datetime.utcnow())
 
 
 @bp.route('/formulaires/<int:id>/edit', methods=['GET', 'POST'])
@@ -292,6 +298,60 @@ def _contact_field_value(contact, key):
     if fdef and fdef.source == 'custom':
         return (contact.custom_fields or {}).get(key)
     return getattr(contact, key, None)
+
+
+def _set_contact_field(contact, key, value):
+    """Écrit une valeur sur un champ de contact (colonne ou champ perso)."""
+    fdef = fields_registry.field_map().get(key)
+    if fdef and fdef.source == 'custom':
+        cf = dict(contact.custom_fields or {})
+        if value:
+            cf[key] = value
+        else:
+            cf.pop(key, None)
+        contact.custom_fields = cf or None
+    else:
+        setattr(contact, key, value)
+
+
+@bp.route('/formulaires/<int:id>/valider/appliquer', methods=['POST'])
+@login_required
+def proposal_apply(id):
+    """Applique à la fiche toutes les propositions en attente d'un contact (après relecture)."""
+    PreferenceForm.query.get_or_404(id)
+    contact_id = request.form.get('contact_id', type=int)
+    contact = Contact.query.get(contact_id)
+    props = FieldProposal.query.filter_by(form_id=id, contact_id=contact_id, status='pending').all()
+    if not contact or not props:
+        flash('Rien à appliquer.', 'error')
+        return redirect(url_for('formulaires.detail', id=id, tab='valider'))
+    now = datetime.utcnow()
+    for p in props:
+        _set_contact_field(contact, p.field_key, p.new_value)
+        p.status = 'applied'
+        p.reviewed_by_id = current_user.id
+        p.reviewed_at = now
+    contact.updated_by_id = current_user.id   # trace de l'application
+    db.session.commit()
+    flash(f'{len(props)} modification(s) appliquée(s) à la fiche de {contact.prenom} {contact.nom}.', 'success')
+    return redirect(url_for('formulaires.detail', id=id, tab='valider'))
+
+
+@bp.route('/formulaires/<int:id>/valider/rejeter', methods=['POST'])
+@login_required
+def proposal_reject(id):
+    """Rejette (sans écrire) toutes les propositions en attente d'un contact."""
+    PreferenceForm.query.get_or_404(id)
+    contact_id = request.form.get('contact_id', type=int)
+    props = FieldProposal.query.filter_by(form_id=id, contact_id=contact_id, status='pending').all()
+    now = datetime.utcnow()
+    for p in props:
+        p.status = 'rejected'
+        p.reviewed_by_id = current_user.id
+        p.reviewed_at = now
+    db.session.commit()
+    flash(f'{len(props)} modification(s) rejetée(s).', 'info')
+    return redirect(url_for('formulaires.detail', id=id, tab='valider'))
 
 
 @bp.route('/formulaires/<int:id>/apercu')

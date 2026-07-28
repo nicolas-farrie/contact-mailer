@@ -64,22 +64,43 @@
 
 {# ===================== Onglet À VALIDER ===================== #}
 {% elif tab == 'valider' %}
-<section class="card settings-section">
-    <h2 style="margin-bottom:0.15rem;">Modifications proposées</h2>
-    <p class="settings-hint">Corrections saisies par les contacts via un bloc « Champs de fiche ». Rien n'est enregistré tant qu'un administrateur n'a pas validé.</p>
-    {% if proposals %}
-    {# Regroupées par contact — application/rejet câblés en M6 #}
-    <p class="hint">{{ proposals|length }} modification(s) en attente. <em>(Validation/rejet : à venir — M6.)</em></p>
-    <ul class="detail-groups">
-        {% for p in proposals %}
-        <li><strong>{{ p.contact.prenom if p.contact else '' }} {{ p.contact.nom if p.contact else '?' }}</strong>
-            — {{ p.field_key }} : <span class="text-muted">{{ p.old_value or '—' }}</span> → <strong>{{ p.new_value or '—' }}</strong></li>
+<h2 style="margin-bottom:0.15rem;">Modifications proposées</h2>
+<p class="settings-hint">Corrections saisies par les contacts via un bloc « Champs de fiche ». Rien n'est enregistré tant qu'un administrateur n'a pas validé. Vérifiez chaque changement avant de l'appliquer à la fiche.</p>
+{% if proposal_groups %}
+{% for g in proposal_groups %}
+<section class="card proposal-card">
+    <div class="proposal-head">
+        <strong>{{ g.contact.prenom }} {{ g.contact.nom }}</strong>
+        <span class="text-muted">· {{ g.contact.email or '—' }} · proposé le {{ g.proposed_at.strftime('%d/%m/%Y') }}</span>
+    </div>
+    <div class="proposal-diffs">
+        {% for p in g['items'] %}
+        {% set fd = field_map.get(p.field_key) %}
+        <div class="proposal-diff">
+            <span class="pd-field">{{ fd.label if fd else p.field_key }}</span>
+            <span class="pd-old">{{ p.old_value or '—' }}</span>
+            <span class="pd-arrow">→</span>
+            <span class="pd-new">{{ p.new_value or '—' }}</span>
+        </div>
         {% endfor %}
-    </ul>
-    {% else %}
-    <p class="empty-state-text">Aucune modification en attente de validation.</p>
-    {% endif %}
+    </div>
+    <div class="proposal-actions">
+        <form method="POST" action="{{ url_for('formulaires.proposal_reject', id=form.id) }}" style="display:inline"
+              onsubmit="return confirm('Rejeter les modifications proposées par {{ g.contact.prenom }} {{ g.contact.nom }} ?');">
+            <input type="hidden" name="contact_id" value="{{ g.contact.id }}">
+            <button type="submit" class="btn btn-small btn-danger-outline">Rejeter</button>
+        </form>
+        <form method="POST" action="{{ url_for('formulaires.proposal_apply', id=form.id) }}" style="display:inline"
+              onsubmit="return confirm('Appliquer ces modifications à la fiche de {{ g.contact.prenom }} {{ g.contact.nom }} ?');">
+            <input type="hidden" name="contact_id" value="{{ g.contact.id }}">
+            <button type="submit" class="btn btn-small btn-action">Appliquer à la fiche</button>
+        </form>
+    </div>
 </section>
+{% endfor %}
+{% else %}
+<section class="card settings-section"><p class="empty-state-text">Aucune modification en attente de validation.</p></section>
+{% endif %}
 {% endif %}
 
 <script>

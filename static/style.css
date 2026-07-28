@@ -229,6 +229,17 @@ a:hover {
 .survey-q-remove { border: none; background: none; font-size: 1.35rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0 0.3rem; }
 .survey-q-remove:hover { color: var(--danger); }
 
+/* Onglet « À valider » — cartes de modération (diff) */
+.proposal-card { margin-bottom: 1rem; }
+.proposal-head { margin-bottom: 0.6rem; }
+.proposal-diffs { display: flex; flex-direction: column; gap: 0.4rem; border-top: 1px solid var(--divider); padding-top: 0.6rem; }
+.proposal-diff { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; font-size: 0.9rem; }
+.pd-field { min-width: 120px; color: var(--text-muted); }
+.pd-old { text-decoration: line-through; color: var(--danger); }
+.pd-new { font-weight: 600; color: var(--success-text); background: var(--success-bg); padding: 0.05rem 0.45rem; border-radius: 4px; }
+.pd-arrow { color: var(--text-muted); }
+.proposal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.8rem; }
+
 .sidebar-user {
     border-top: 1px solid var(--divider);
     padding: 0.7rem 0.85rem; display: flex; align-items: center; gap: 0.6rem;
