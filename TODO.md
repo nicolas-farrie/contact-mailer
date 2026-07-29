@@ -129,6 +129,8 @@
   **manipulables par l'utilisateur**, pas seulement internes. (Version ultérieure, validé.)
 - [ ] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
+- [ ] **Stats de formulaires (ouverts / répondus)** — la seule métrique « ouverture/clic » qui a du sens en non-marchand, et quasi gratuite : le clic atterrit chez nous. GET page publique = **ouvert**, POST = **répondu**. Compter/afficher par formulaire (taux de réponse). Pas de tracker externe, pas de pixel — respectueux.
+- [ ] **Garde-fou volume d'envoi** — le vrai plafond = quota du serveur mail (`mail.aubaygues.fr`), pas la réputation (base 100 % opt-in). Ajouter : **cap quotidien configurable** + **avertissement au-delà d'un seuil** (ex. > 500 en un envoi) + conseil de **montée en charge progressive** (warm-up). Le pacing existe déjà (`MAIL_RATE_PER_MINUTE=20` → 3 s/email) + file d'attente. Pré-requis délivrabilité à vérifier : **SPF/DKIM/DMARC** sur aubaygues.fr.
 - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
 
 ## RGPD / données personnelles (à traiter avec soin)
