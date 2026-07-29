@@ -276,6 +276,14 @@ Aujourd'hui l'onglet « À valider » applique/rejette **par contact** (globalem
 - **Piste retenue à valider** : **individuelle par champ** (Accepter ✓ / Refuser ✗ sur chaque ligne de diff) **+** un « tout appliquer / tout rejeter » de repli sur la carte contact → couvre les deux besoins. Contexte associatif/sensible = mieux vaut pouvoir trier finement.
 - Impact technique : `proposal_apply`/`proposal_reject` doivent accepter un **id de FieldProposal** (pas seulement `contact_id`) ; statut par proposition (déjà le cas — chaque `FieldProposal` a son `status`).
 
+### 🧪 Retours test prod v2.0.0-rc1 (2026-07-29)
+- ✅ **Test 1** : mailing avec OTP + formulaire aux 3 blocs (listes/sondage/fiche) → **tout fonctionne en conditions réelles**.
+- [ ] **« Revoir mes choix » (page de confirmation) — round-trip incohérent + doublons** :
+  - Le lien rouvre le formulaire public. **Listes** re-cochées (appliquées en direct) ✓ ; **sondage** NON réaffiché (stockage isolé, jamais relu dans le form) ; **fiche** pré-remplie avec les valeurs **canoniques (anciennes)**, pas la proposition en attente → on ne voit pas ce qu'on vient de proposer.
+  - **🐛 Bug réel : doublons de propositions** — re-soumettre recrée des `FieldProposal` pending pour les mêmes champs → « À valider » se remplit de doublons. **Fix = upsert** par (form_id, contact_id, field_key, status='pending') : mettre à jour la proposition existante au lieu d'en créer une nouvelle.
+  - **Décision à prendre** (le retour reste valable le temps du code OTP, ~20 min ; au-delà, rouvrir re-déclenche le gate) : soit **(a)** confirmation terminale (retirer/requalifier « Revoir mes choix ») ; soit **(b)** garder le retour mais le rendre honnête → pré-remplir le sondage depuis `PreferenceResponse.data`, afficher la fiche comme « proposé : X (en attente de validation) », **et** dédupliquer.
+- [ ] **Compteur « À valider »** : compte le **nombre total de propositions** (2 champs + 4 champs = 6) au lieu du **nombre de fiches/contacts** à traiter (= 2), plus lisible. Passer au comptage par contact. Mineur — à discuter.
+
 **Phasage** :
 - **Phase 1 (MVP livrable)** = M1(sans OTP) → M2 → M3 → M4 → M5 → M6(sans badge OTP) → M7 → M8(write-only). Assembleur complet + sondage + file de validation + liste enrichie, **sans OTP/pré-remplissage**.
 - **Phase 2** = M9 (OTP + pré-remplissage) + badge email-vérifié.
