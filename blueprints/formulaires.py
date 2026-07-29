@@ -119,7 +119,7 @@ def _csv_safe(val):
 
 
 @bp.route('/formulaires/<int:id>/reponses/export')
-@login_required
+@admin_required
 def export_responses(id):
     """Export CSV des réponses d'un formulaire (listes choisies + réponses de sondage), échappé."""
     pf = PreferenceForm.query.get_or_404(id)

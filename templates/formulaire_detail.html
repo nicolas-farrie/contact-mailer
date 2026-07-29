@@ -43,7 +43,7 @@
             <h2 style="margin:0 0 0.1rem;">Réponses reçues <span class="badge badge-gray">{{ responses|length }}</span></h2>
             <p class="settings-hint" style="margin:0;">Contacts ayant répondu et ce qu'ils ont choisi.</p>
         </div>
-        {% if responses %}<a href="{{ url_for('formulaires.export_responses', id=form.id) }}" class="btn btn-small btn-secondary">↓ Exporter (CSV)</a>{% endif %}
+        {% if responses and current_user.is_admin %}<a href="{{ url_for('formulaires.export_responses', id=form.id) }}" class="btn btn-small btn-secondary">↓ Exporter (CSV)</a>{% endif %}
     </div>
     {% if responses %}
     <div class="response-list">

@@ -206,6 +206,10 @@
 
 ### À faire — Refonte v2 (backlog accumulé, à traiter plus tard)
 **Écrans restants (dans l'ordre) :**
+- [ ] **C. Fiche contact — sécurité & navigation (retours #24)** :
+  - (a) **Ouverture en VISION (lecture seule) + bouton « Modifier »** au lieu d'ouvrir direct en édition. Motif : un utilisateur lambda qui suit un lien (ex. depuis l'onglet Réponses d'un formulaire) ne doit pas atterrir en mode édition. → nouvelle route `contacts.view(id)` (lecture seule, rend la même fiche pilotée par `fields.py`) ; le clic sur le **nom** → vision ; l'icône **✎** → édition directe.
+  - (b) **Précédent / Suivant** sur la fiche ouverte (parcourir sans revenir à la liste). Question de conception = **d'où vient la séquence ?** → porter l'ordre/les filtres de la liste (IDs ordonnés en session ou via l'URL) ; réutilisable **aussi en édition** (le même widget prev/next). À cadrer.
+  - [x] **Export CSV réponses = `@admin_required`** (était `@login_required` — incohérence vs exports Contacts) + bouton masqué pour non-admin. **Fait (#24).**
 - [ ] **E. Mailing — historique + file globale** (polish) : passer les actions de l'historique en **icônes** (homogène Contacts/Listes/Users) ; **sécuriser le « Supprimer campagne »** de l'historique (efface aussi l'historique = piège) — mettre Archiver en avant / confirmation renforcée
 - [ ] **F. Formulaires** — refonte cartes (statut Actif/Expire/Archivé, validité, nb réponses) + net-new (RGPD, apparence, aperçu) — cf. gros sujets Formulaires plus haut
   - [x] **F1** liste en cartes · [x] **F2** édition en sections + verrou structurel + ordre des groupes (droplist + ↑/↓) — commités
