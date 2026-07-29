@@ -78,6 +78,7 @@
     <div class="proposal-head">
         <strong>{{ g.contact.prenom }} {{ g.contact.nom }}</strong>
         <span class="text-muted">· {{ g.contact.email or '—' }} · proposé le {{ g.proposed_at.strftime('%d/%m/%Y') }}</span>
+        {% if g['items']|selectattr('otp_verified')|list|length > 0 %}<span class="otp-badge" title="Le contact a confirmé son adresse email par un code avant de proposer ces corrections">✅ email vérifié</span>{% endif %}
     </div>
     <div class="proposal-diffs">
         {% for p in g['items'] %}

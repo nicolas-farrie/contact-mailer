@@ -15,6 +15,7 @@
         .block-section { margin: 0 0 1.5rem; }
         .block-heading { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: #6b7280; margin: 0 0 0.6rem; font-weight: 700; }
         .block-note { font-size: 0.82rem; color: #6b7280; margin: -0.3rem 0 0.75rem; }
+        .verified-tag { display: inline-block; margin-left: 0.4rem; font-size: 0.68rem; color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 999px; padding: 0.05rem 0.5rem; letter-spacing: 0; text-transform: none; font-weight: 600; }
         .choice-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
         .choice-item { display: flex; align-items: flex-start; gap: 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 0.75rem 1rem; cursor: pointer; }
         .choice-item:has(input:checked) { border-color: #2563eb; background: #eff6ff; }
@@ -82,19 +83,20 @@
         {% set fkeys = (block.config or {}).get('fields', []) %}
         {% if fkeys %}
         <div class="block-section">
-            <div class="block-heading">Vos informations</div>
-            <p class="block-note">🔒 Vos corrections seront <strong>relues par un administrateur</strong> avant d'être appliquées. Laissez vide ce que vous ne souhaitez pas modifier.</p>
+            <div class="block-heading">Vos informations {% if email_verified and not preview %}<span class="verified-tag">✅ email vérifié</span>{% endif %}</div>
+            <p class="block-note">🔒 Vos corrections seront <strong>relues par un administrateur</strong> avant d'être appliquées à votre fiche.</p>
             {% for key in fkeys %}
             {% set f = field_map.get(key) %}
             {% if f %}
+            {% set cur = fiche_values.get(key, '') %}
             <div class="field-block">
                 <label>{{ f.label }}</label>
                 {% if f.type == 'textarea' %}
-                <textarea name="fiche_{{ key }}" rows="2"></textarea>
+                <textarea name="fiche_{{ key }}" rows="2">{{ cur }}</textarea>
                 {% elif f.type == 'select' %}
-                <select name="fiche_{{ key }}"><option value="">— inchangé —</option>{% for opt in field_options(f) %}{% if opt %}<option value="{{ opt }}">{{ opt }}</option>{% endif %}{% endfor %}</select>
+                <select name="fiche_{{ key }}"><option value="">— non précisé —</option>{% for opt in field_options(f) %}{% if opt %}<option value="{{ opt }}"{% if opt == cur %} selected{% endif %}>{{ opt }}</option>{% endif %}{% endfor %}</select>
                 {% else %}
-                <input type="{{ f.type if f.type in ['email','tel','number','date'] else 'text' }}" name="fiche_{{ key }}">
+                <input type="{{ f.type if f.type in ['email','tel','number','date'] else 'text' }}" name="fiche_{{ key }}" value="{{ cur }}">
                 {% endif %}
             </div>
             {% endif %}

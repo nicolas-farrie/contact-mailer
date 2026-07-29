@@ -257,7 +257,7 @@
 
 **Public + sécurité**
 - [x] **M8 — Page publique multi-blocs** + Aperçu admin : rendu listes + sondage ; bloc fiche en **write-only** (Phase 1) → crée des `FieldProposal` (pending), **sans OTP**. Sanitisation en sortie.
-- [ ] **M9 (Phase 2) — OTP + pré-remplissage** : flux 2 temps (ouverture → « code envoyé par email » → saisie → session courte → édition **pré-remplie**) ; rate-limit envoi OTP ; badge « email vérifié ».
+- [x] **M9 (Phase 2) — OTP + pré-remplissage** : **gate complet** dès qu'un bloc `fiche` est présent. Flux 2 temps (ouverture → code envoyé à l'email masqué → saisie → session courte 20 min → page complète **pré-remplie**). `FormAccessCode` (hash scrypt, jamais le code clair) + TTL 10 min + cooldown 60 s (anti-flood) + 5 essais max ; renvoi de code manuel. Propositions marquées `otp_verified` → **badge « ✅ email vérifié »** dans « À valider ». Migration `tools/migrate_add_form_access_code.py` (appliquée en dev). ⚠️ **à lancer sur prod (lfll) au déploiement.**
 
 **⚠️ Transverse (dès qu'un contact écrit)** : échappement à TOUS les points de sortie (mailer HTML, export TSV `= + - @`, vCard, admin) ; CSRF (Flask-WTF) sur POST publics + session OTP.
 

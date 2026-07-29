@@ -235,6 +235,22 @@ class FieldProposal(db.Model):
     reviewed_by = db.relationship('User', foreign_keys=[reviewed_by_id])
 
 
+class FormAccessCode(db.Model):
+    """Code à usage unique (OTP) pour sécuriser le PRÉ-REMPLISSAGE d'un formulaire
+    contenant un bloc « fiche » (Phase 2 / M9). Le code n'est JAMAIS transmis dans le
+    mail du lien : il est envoyé à la demande, à l'ouverture de la page publique.
+    Seul le hash est stocké."""
+    __tablename__ = 'form_access_code'
+    id = db.Column(db.Integer, primary_key=True)
+    form_id = db.Column(db.Integer, db.ForeignKey('preference_form.id'), nullable=False, index=True)
+    contact_uid = db.Column(db.String(64), nullable=False, index=True)
+    code_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)  # anti-flood (rate-limit)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    attempts = db.Column(db.Integer, default=0, nullable=False)   # essais erronés (blocage au-delà d'un seuil)
+    consumed = db.Column(db.Boolean, default=False, nullable=False)
+
+
 class BookstackRole(db.Model):
     """Rôle importé depuis BookStack (référence locale)"""
     id = db.Column(db.Integer, primary_key=True, autoincrement=False)  # ID venant de BS

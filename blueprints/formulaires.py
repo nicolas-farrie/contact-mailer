@@ -7,18 +7,27 @@ formulaires.edit, formulaires.delete, formulaires.public.
 import io
 import csv
 import re
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session
 from flask_login import login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
-                    PreferenceResponse, FieldProposal, FormBlock, SurveyQuestion)
+                    PreferenceResponse, FieldProposal, FormBlock, SurveyQuestion,
+                    FormAccessCode)
 from config import Config
 from helpers import admin_required
 import fields as fields_registry
 
 bp = Blueprint('formulaires', __name__)
+
+# --- OTP (M9, Phase 2) : code par email sécurisant le pré-remplissage d'un bloc « fiche » ---
+OTP_TTL_MIN = 10          # durée de validité d'un code
+OTP_COOLDOWN_S = 60       # délai mini entre deux envois (anti-flood boîte)
+OTP_MAX_ATTEMPTS = 5      # essais erronés avant invalidation du code
+OTP_SESSION_MIN = 20      # durée de la session « email vérifié »
 
 
 @bp.route('/formulaires')
@@ -427,7 +436,144 @@ def apercu(id):
     return render_template('preferences_public.html', form=pf, contact=dummy,
                            contact_liste_ids=set(), blocks=blocks,
                            field_map=fields_registry.field_map(),
-                           field_options=fields_registry.field_options, preview=True)
+                           field_options=fields_registry.field_options, preview=True,
+                           fiche_values={}, email_verified=False)
+
+
+# ─────────────────────────── OTP (bloc « fiche ») ───────────────────────────
+
+def _form_has_fiche(pf):
+    return any(b.type == 'fiche' for b in pf.blocks)
+
+
+def _otp_skey(pf, uid):
+    return f'otpok:{pf.id}:{uid}'
+
+
+def _otp_verified(pf, uid):
+    """La session porte-t-elle une vérification email encore valide pour ce (formulaire, contact) ?"""
+    exp = session.get(_otp_skey(pf, uid))
+    return bool(exp and exp > datetime.utcnow().timestamp())
+
+
+def _set_otp_verified(pf, uid):
+    session[_otp_skey(pf, uid)] = (datetime.utcnow() + timedelta(minutes=OTP_SESSION_MIN)).timestamp()
+
+
+def _mask_email(email):
+    if not email or '@' not in email:
+        return '—'
+    local, _, domain = email.partition('@')
+    lead = local[0] if local else ''
+    dparts = domain.split('.')
+    dmask = (dparts[0][0] if dparts[0] else '') + '***'
+    return f'{lead}***@{dmask}.{dparts[-1]}' if len(dparts) > 1 else f'{lead}***@{dmask}'
+
+
+def _latest_code(pf, uid):
+    return (FormAccessCode.query
+            .filter_by(form_id=pf.id, contact_uid=uid)
+            .order_by(FormAccessCode.created_at.desc()).first())
+
+
+def _has_valid_code(pf, uid):
+    now = datetime.utcnow()
+    return (FormAccessCode.query
+            .filter(FormAccessCode.form_id == pf.id, FormAccessCode.contact_uid == uid,
+                    FormAccessCode.consumed.is_(False), FormAccessCode.expires_at > now)
+            .count() > 0)
+
+
+def _mail_otp(contact, pf, code):
+    """Envoie le code par email. Retourne True si l'envoi a réussi."""
+    if not contact.email:
+        return False
+    try:
+        from mailer import Mailer
+        mailer = Mailer(Config.SMTP_HOST, Config.SMTP_PORT, Config.SMTP_USER,
+                        Config.SMTP_PASSWORD, Config.SMTP_SENDER_EMAIL,
+                        Config.SMTP_SENDER_NAME, Config.SMTP_USE_TLS)
+        subject = f'Votre code de vérification — {pf.nom}'
+        body = (
+            f"Bonjour,\n\n"
+            f"Voici votre code pour accéder au formulaire « {pf.nom} » et vérifier vos informations :\n\n"
+            f"    {code}\n\n"
+            f"Ce code est valable {OTP_TTL_MIN} minutes. Ne le communiquez à personne.\n\n"
+            f"Si vous n'êtes pas à l'origine de cette demande, ignorez simplement ce message."
+        )
+        return mailer.send_single(contact.email, subject, body)
+    except Exception:
+        return False
+
+
+def _send_otp(pf, contact):
+    """Génère + envoie un code (anti-flood). Retourne 'sent' | 'cooldown' | 'error'."""
+    now = datetime.utcnow()
+    latest = _latest_code(pf, contact.uid)
+    if latest and (now - latest.created_at).total_seconds() < OTP_COOLDOWN_S:
+        return 'cooldown'
+    code = f'{secrets.randbelow(1000000):06d}'
+    rec = FormAccessCode(
+        form_id=pf.id, contact_uid=contact.uid,
+        code_hash=generate_password_hash(code),
+        created_at=now, expires_at=now + timedelta(minutes=OTP_TTL_MIN),
+        attempts=0, consumed=False)
+    db.session.add(rec)
+    db.session.commit()
+    return 'sent' if _mail_otp(contact, pf, code) else 'error'
+
+
+@bp.route('/p/<form_token>/<contact_uid>/code', methods=['POST'])
+def request_code(form_token, contact_uid):
+    """(Re)envoi d'un code à la demande depuis l'écran de vérification."""
+    pf = PreferenceForm.query.filter_by(token=form_token).first_or_404()
+    if not pf.is_active or (pf.expires_at and pf.expires_at < datetime.utcnow()):
+        return render_template('preferences_expired.html', form=pf)
+    contact = Contact.query.filter_by(uid=contact_uid, is_deleted=False).first_or_404()
+    status = _send_otp(pf, contact)
+    if status == 'sent':
+        flash(f'Un nouveau code a été envoyé à {_mask_email(contact.email)}.', 'success')
+    elif status == 'cooldown':
+        flash('Un code vient d\'être envoyé. Patientez une minute avant d\'en demander un autre.', 'error')
+    else:
+        flash('L\'envoi du code a échoué. Réessayez dans un instant.', 'error')
+    return redirect(url_for('formulaires.public', form_token=form_token, contact_uid=contact_uid))
+
+
+@bp.route('/p/<form_token>/<contact_uid>/verify', methods=['POST'])
+def verify_code(form_token, contact_uid):
+    """Vérifie le code saisi ; ouvre la session « email vérifié » en cas de succès."""
+    pf = PreferenceForm.query.filter_by(token=form_token).first_or_404()
+    if not pf.is_active or (pf.expires_at and pf.expires_at < datetime.utcnow()):
+        return render_template('preferences_expired.html', form=pf)
+    contact = Contact.query.filter_by(uid=contact_uid, is_deleted=False).first_or_404()
+    entered = re.sub(r'\D', '', request.form.get('code', ''))[:6]
+
+    now = datetime.utcnow()
+    rec = (FormAccessCode.query
+           .filter(FormAccessCode.form_id == pf.id, FormAccessCode.contact_uid == contact.uid,
+                   FormAccessCode.consumed.is_(False), FormAccessCode.expires_at > now)
+           .order_by(FormAccessCode.created_at.desc()).first())
+
+    if not rec:
+        flash('Ce code a expiré. Nous vous en avons envoyé un nouveau.', 'error')
+        _send_otp(pf, contact)
+    elif rec.attempts >= OTP_MAX_ATTEMPTS:
+        rec.consumed = True
+        db.session.commit()
+        flash('Trop d\'essais. Un nouveau code vient de vous être envoyé.', 'error')
+        _send_otp(pf, contact)
+    elif entered and check_password_hash(rec.code_hash, entered):
+        rec.consumed = True
+        db.session.commit()
+        _set_otp_verified(pf, contact.uid)
+        flash('Email vérifié. Vous pouvez consulter et corriger vos informations.', 'success')
+    else:
+        rec.attempts += 1
+        db.session.commit()
+        left = max(0, OTP_MAX_ATTEMPTS - rec.attempts)
+        flash(f'Code incorrect. Il vous reste {left} essai(s).', 'error')
+    return redirect(url_for('formulaires.public', form_token=form_token, contact_uid=contact_uid))
 
 
 @bp.route('/p/<form_token>/<contact_uid>', methods=['GET', 'POST'])
@@ -437,6 +583,15 @@ def public(form_token, contact_uid):
         return render_template('preferences_expired.html', form=pf)
     contact = Contact.query.filter_by(uid=contact_uid, is_deleted=False).first_or_404()
     blocks = sorted(pf.blocks, key=lambda b: b.ordre)
+    needs_otp = _form_has_fiche(pf)
+
+    # Bloc « fiche » présent → barrière OTP (gate complet) tant que l'email n'est pas vérifié.
+    if needs_otp and not _otp_verified(pf, contact.uid):
+        if request.method == 'GET' and not _has_valid_code(pf, contact.uid):
+            _send_otp(pf, contact)   # 1er envoi automatique à l'ouverture (anti-flood via cooldown)
+        return render_template('preferences_otp.html', form=pf, contact=contact,
+                               masked_email=_mask_email(contact.email),
+                               ttl_min=OTP_TTL_MIN)
 
     if request.method == 'POST':
         data = {}
@@ -460,7 +615,9 @@ def public(form_token, contact_uid):
                         survey[str(q.id)] = val
         if survey:
             data['survey'] = survey
-        # --- Bloc fiche : WRITE-ONLY → propositions en attente de validation (pas d'écriture directe) ---
+        # --- Bloc fiche : propositions en attente de validation (jamais d'écriture directe) ---
+        # On n'atteint ce POST QUE si l'email est vérifié (gate OTP en amont) → otp_verified.
+        otp_ok = _otp_verified(pf, contact.uid)
         allowed = _editable_field_keys()
         for b in blocks:
             if b.type == 'fiche':
@@ -470,7 +627,7 @@ def public(form_token, contact_uid):
                     if newv and newv != (curv or ''):
                         db.session.add(FieldProposal(
                             form_id=pf.id, contact_id=contact.id, field_key=k,
-                            old_value=curv, new_value=newv, status='pending', otp_verified=False))
+                            old_value=curv, new_value=newv, status='pending', otp_verified=otp_ok))
         # Trace / met à jour la réponse (payload isolé)
         resp = PreferenceResponse.query.filter_by(contact_id=contact.id, form_id=pf.id).first()
         if resp:
@@ -480,8 +637,18 @@ def public(form_token, contact_uid):
         db.session.commit()
         return render_template('preferences_confirm.html', form=pf, contact=contact)
 
+    # Pré-remplissage des champs de fiche (uniquement en session vérifiée — on n'arrive
+    # ici avec un bloc fiche que si l'OTP est validé).
+    allowed = _editable_field_keys()
+    fiche_values = {}
+    for b in blocks:
+        if b.type == 'fiche':
+            for k in [k for k in (b.config or {}).get('fields', []) if k in allowed]:
+                fiche_values[k] = _contact_field_value(contact, k) or ''
+
     contact_liste_ids = {l.id for l in contact.listes}
     return render_template('preferences_public.html', form=pf, contact=contact,
                            contact_liste_ids=contact_liste_ids, blocks=blocks,
                            field_map=fields_registry.field_map(),
-                           field_options=fields_registry.field_options, preview=False)
+                           field_options=fields_registry.field_options, preview=False,
+                           fiche_values=fiche_values, email_verified=needs_otp)
