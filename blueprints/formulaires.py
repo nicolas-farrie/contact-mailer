@@ -228,7 +228,10 @@ def delete(id):
         flash("Un formulaire doit d'abord être archivé avant de pouvoir être supprimé.", 'error')
         return redirect(url_for('formulaires.index'))
     nom = pf.nom
-    db.session.delete(pf)
+    # Nettoyage des enregistrements form-scopés sans cascade relationnelle (sinon orphelins).
+    FormAccessCode.query.filter_by(form_id=pf.id).delete(synchronize_session=False)
+    FieldProposal.query.filter_by(form_id=pf.id).delete(synchronize_session=False)
+    db.session.delete(pf)   # cascade : listes, blocs, réponses
     db.session.commit()
     flash(f'Formulaire "{nom}" supprimé définitivement.', 'success')
     return redirect(url_for('formulaires.index'))
@@ -506,12 +509,26 @@ def _mail_otp(contact, pf, code):
         return False
 
 
+def _purge_access_codes(pf, uid, now):
+    """Hygiène de la table OTP (minimisation RGPD + table bornée). Les codes morts sont
+    déjà inertes (la vérif exige consumed=False AND expires_at>now) — on les efface pour
+    ne rien conserver d'inutile :
+      1. on ne garde qu'UN code par (formulaire, contact) : les anciens de ce contact
+         partent (on est appelé juste avant d'en créer un nouveau, cooldown déjà évalué) ;
+      2. balayage global des codes oubliés depuis > 24 h (contacts qui ne reviennent pas).
+    Pas de planificateur : le nettoyage se fait à l'occasion de chaque envoi."""
+    FormAccessCode.query.filter_by(form_id=pf.id, contact_uid=uid).delete(synchronize_session=False)
+    FormAccessCode.query.filter(
+        FormAccessCode.expires_at < now - timedelta(hours=24)).delete(synchronize_session=False)
+
+
 def _send_otp(pf, contact):
     """Génère + envoie un code (anti-flood). Retourne 'sent' | 'cooldown' | 'error'."""
     now = datetime.utcnow()
     latest = _latest_code(pf, contact.uid)
     if latest and (now - latest.created_at).total_seconds() < OTP_COOLDOWN_S:
         return 'cooldown'
+    _purge_access_codes(pf, contact.uid, now)   # hygiène : ≤ 1 code/contact + balayage 24 h
     code = f'{secrets.randbelow(1000000):06d}'
     rec = FormAccessCode(
         form_id=pf.id, contact_uid=contact.uid,
