@@ -160,6 +160,38 @@ def export_responses(id):
                     headers={'Content-Disposition': f'attachment; filename={fname}'})
 
 
+def _render_edit_form(pf, listes, form_data):
+    """Ré-affiche l'éditeur en PRÉSERVANT la saisie (échec de validation).
+
+    Évite le piège du `redirect()` qui perdait tout le POST — notamment le bloc
+    « fiche » ajouté côté JS (input `block_types`) et les champs cochés
+    (`fiche_fields`), qui disparaissaient silencieusement. On reflète la saisie dans
+    l'objet `pf` en mémoire (NON commité : annulé au teardown de session) pour un
+    rendu fidèle, et on recalcule l'état des blocs depuis le POST (pas depuis la base)."""
+    block_types = form_data.getlist('block_types')
+    editable = _editable_field_keys()
+    pf.nom = form_data.get('nom', '').strip()
+    pf.description = form_data.get('description', '').strip() or None
+    pf.is_active = form_data.get('is_active') == 'on'
+    raw_exp = form_data.get('expires_at', '').strip()
+    if raw_exp:
+        try:
+            pf.expires_at = datetime.strptime(raw_exp, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        except ValueError:
+            pass
+    else:
+        pf.expires_at = None
+    return render_template('formulaire_edit.html', form=pf, listes=listes,
+                           locked=(len(pf.responses) > 0), now=datetime.utcnow(),
+                           pending=FieldProposal.query.filter_by(form_id=pf.id, status='pending').count(),
+                           field_groups=fields_registry.fields_by_group(),
+                           editable_keys=editable,
+                           fiche_selected=[k for k in form_data.getlist('fiche_fields') if k in editable],
+                           has_fiche=('fiche' in block_types),
+                           sondage_block=next((b for b in pf.blocks if b.type == 'sondage'), None),
+                           has_sondage=('sondage' in block_types))
+
+
 @bp.route('/formulaires/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit(id):
@@ -169,15 +201,14 @@ def edit(id):
         nom = request.form.get('nom', '').strip()
         if not nom:
             flash('Le nom du formulaire est requis.', 'error')
-            return render_template('formulaire_edit.html', form=pf, listes=listes,
-                                   locked=(len(pf.responses) > 0), now=datetime.utcnow(),
-                                   pending=FieldProposal.query.filter_by(form_id=pf.id, status='pending').count())
+            return _render_edit_form(pf, listes, request.form)
         # Garde-fou : une date de clôture est obligatoire dès qu'un bloc « fiche »
         # est exposé (limite la fenêtre de fuite du lien d'accès).
+        # ⚠️ On RÉ-AFFICHE (pas de redirect) pour ne pas perdre le bloc fiche saisi.
         if 'fiche' in request.form.getlist('block_types') and not request.form.get('expires_at', '').strip():
             flash("Une date de clôture est obligatoire quand un bloc « Champs de fiche » est présent "
                   "(elle limite la durée de vie du lien d'accès).", 'error')
-            return redirect(url_for('formulaires.edit', id=pf.id))
+            return _render_edit_form(pf, listes, request.form)
 
         # Verrou structurel affiné (#21) : le JEU de groupes n'est figé QUE si le
         # formulaire a DÉJÀ des réponses (des contacts y ont répondu). Un formulaire
