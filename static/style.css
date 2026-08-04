@@ -1192,6 +1192,18 @@ select:focus {
 .badge-gray  { background: var(--gray-100); color: var(--gray-500); }
 .badge-pending { background: var(--warning-bg); color: var(--warning-text); }
 .badge-danger  { background: var(--danger-bg); color: var(--danger-dark); }
+.badge-bounce  { background: #fde68a; color: #92400e; }
+.badge-unsub   { background: #dbeafe; color: #1e40af; }
+
+/* Historique des campagnes (mailing) — sorti du <style> inline du template (discipline v2) */
+.campaign-subject { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subject-toggle { cursor: pointer; color: var(--primary); }
+.subject-toggle:hover { color: var(--primary-dark); }
+.content-row td { padding: 0; background: var(--gray-50); border-top: none; }
+.body-text { margin: 0; padding: 1rem; white-space: pre-wrap; font-size: 0.875rem; max-height: 400px; overflow-y: auto; }
+.actions-cell { white-space: nowrap; }
+.actions-cell .btn { margin-right: 0.25rem; }
+.actions-cell .icon-btn { margin-right: 0.2rem; vertical-align: middle; }
 .tag-bounce  { background: #fef3c7; color: #92400e; border-color: #fde68a; }
 .table-actions { display: flex; gap: 0.4rem; white-space: nowrap; }
 

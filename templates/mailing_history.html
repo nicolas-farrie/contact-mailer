@@ -31,11 +31,11 @@
             </td>
             <td style="white-space:nowrap" class="text-muted">{{ d.date }}</td>
             <td class="actions-cell">
-                <a href="{{ url_for('mailing.compose', from_campaign=d.id) }}" class="btn btn-sm btn-primary">Reprendre</a>
+                <a href="{{ url_for('mailing.compose', from_campaign=d.id) }}" class="btn btn-small btn-primary">Reprendre</a>
                 <form method="POST" action="{{ url_for('mailing.discard') }}" style="display:inline"
                       onsubmit="return confirm('Supprimer ce brouillon et ses pièces jointes ?');">
                     <input type="hidden" name="campaign_id" value="{{ d.id }}">
-                    <button type="submit" class="btn btn-sm btn-danger">Supprimer</button>
+                    <button type="submit" class="btn btn-small btn-danger">Supprimer</button>
                 </form>
             </td>
         </tr>
@@ -78,8 +78,8 @@
             </td>
             <td>{{ c.template.sent_by|default('-', true) if c.template else '-' }}</td>
             <td style="white-space:nowrap">
-                <span class="badge badge-sent" title="Envoyés">{{ c.stats.sent }}</span>
-                {% if c.stats.error > 0 %}<span class="badge badge-error" title="Erreurs">{{ c.stats.error }}</span>{% endif %}
+                <span class="badge badge-green" title="Envoyés">{{ c.stats.sent }}</span>
+                {% if c.stats.error > 0 %}<span class="badge badge-danger" title="Erreurs">{{ c.stats.error }}</span>{% endif %}
                 {% if c.stats.pending > 0 %}<span class="badge badge-pending" title="En attente">{{ c.stats.pending }}</span>{% endif %}
                 {% if c.stats.bounced > 0 %}<span class="badge badge-bounce" title="Bounces">{{ c.stats.bounced }}</span>{% endif %}
             </td>
@@ -148,9 +148,9 @@
                 </td>
                 <td>{{ c.template.sent_by|default('-', true) if c.template else '-' }}</td>
                 <td style="white-space:nowrap">
-                    <span class="badge badge-sent" title="Envoyés">{{ c.stats.sent }}</span>
-                    {% if c.stats.error > 0 %}<span class="badge badge-error" title="Erreurs">{{ c.stats.error }}</span>{% endif %}
-                    {% if c.stats.cancelled > 0 %}<span class="badge badge-grey" title="Annulés">{{ c.stats.cancelled }}</span>{% endif %}
+                    <span class="badge badge-green" title="Envoyés">{{ c.stats.sent }}</span>
+                    {% if c.stats.error > 0 %}<span class="badge badge-danger" title="Erreurs">{{ c.stats.error }}</span>{% endif %}
+                    {% if c.stats.cancelled > 0 %}<span class="badge badge-gray" title="Annulés">{{ c.stats.cancelled }}</span>{% endif %}
                     {% if c.stats.bounced > 0 %}<span class="badge badge-bounce" title="Bounces">{{ c.stats.bounced }}</span>{% endif %}
                 </td>
                 <td class="actions-cell">
@@ -196,65 +196,4 @@ function toggleArchived() {
 }
 </script>
 
-<style>
-.campaign-subject {
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.subject-toggle {
-    cursor: pointer;
-    color: var(--primary);
-}
-.subject-toggle:hover {
-    color: var(--primary-dark);
-}
-.content-row td {
-    padding: 0;
-    background: var(--gray-50);
-    border-top: none;
-}
-.body-text {
-    margin: 0;
-    padding: 1rem;
-    white-space: pre-wrap;
-    font-size: 0.875rem;
-    max-height: 400px;
-    overflow-y: auto;
-}
-.badge {
-    display: inline-block;
-    padding: 0.125rem 0.5rem;
-    border-radius: 99px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin-right: 0.125rem;
-}
-.badge-sent { background: #d1fae5; color: #065f46; }
-.badge-error { background: #fee2e2; color: #991b1b; }
-.badge-pending { background: #fef3c7; color: #92400e; }
-.badge-unsub { background: #dbeafe; color: #1e40af; }
-.badge-bounce { background: #fde68a; color: #92400e; }
-.badge-grey { background: #e5e7eb; color: #6b7280; }
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.8rem;
-}
-.actions-cell {
-    white-space: nowrap;
-}
-.actions-cell .btn {
-    margin-right: 0.25rem;
-}
-.actions-cell .icon-btn { margin-right: 0.2rem; vertical-align: middle; }
-.empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--gray-500);
-}
-.empty-state p {
-    margin-bottom: 1rem;
-}
-</style>
 {% endblock %}
