@@ -299,7 +299,7 @@ Aujourd'hui l'onglet « À valider » applique/rejette **par contact** (globalem
 **Phasage** :
 - **Phase 1 (MVP livrable)** = M1(sans OTP) → M2 → M3 → M4 → M5 → M6(sans badge OTP) → M7 → M8(write-only). Assembleur complet + sondage + file de validation + liste enrichie, **sans OTP/pré-remplissage**.
 - **Phase 2** = M9 (OTP + pré-remplissage) + badge email-vérifié.
-- [ ] **G. Demandes de diffusion** — refonte (aperçu du contenu depuis la liste, UX pièces jointes, vue des archivées) — cf. items « Demandes de diffusion » plus haut
+- [x] **G. Demandes de diffusion** — refonte de l'écran **Fait (08-04)** : aperçu du contenu **inline** (👁 / clic sujet), **PJ soignées** (nom tronqué + taille o/Ko/Mo, date compacte), **vue des archivées** (`?archived=1`, dossier IMAP « Traité »), actions en icônes + « Utiliser » en bouton, polish (`<style>` sorti). *(Reste : la **notification** aux users à réception d'une demande = follow-up backend séparé — nécessite un scan périodique, cf. « Notification des demandes de diffusion » plus haut.)*
 - [x] **H. Paramètres — contenu** — **Fait (08-04)** : section **« Envoi (SMTP) »** + **bouton « Tester la connexion »** (AJAX, ✓/✗) ; section **« Valeurs par défaut »** (éditeur des civilités → `choices.civilite`) ; section **« Gestion du bounce »** toggle ON/OFF (`bounce_enabled` ; OFF = pas de Return-Path bounce → règle le 553). *(Reste optionnel : convertir `titre` en select éditable ; « Expéditeur » éditable en UI plutôt que `.env` ; onglets horizontaux du design CLD au lieu de la sous-nav sidebar.)*
 
 ### 🔭 Révision fonctionnelle par bloc — PHASE 2 (À OUVRIR APRÈS la finition de la spec CLD, cf. [[refonte-v2-phasage]])
