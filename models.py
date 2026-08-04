@@ -364,3 +364,17 @@ class MailQueueItem(db.Model):
             'sent_at': self.sent_at.isoformat() if self.sent_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class ContactSend(db.Model):
+    """Journal d'envoi PAR CONTACT : une ligne par email effectivement ENVOYÉ à un
+    contact, pour une campagne. Fondation des segments « jamais mailé » / « déjà reçu
+    la campagne X » et de l'historique d'envoi par contact.
+    Léger, indexé, portable (pas de matching JSON) ; renseigné dans _run_send au moment
+    de l'envoi réussi."""
+    __tablename__ = 'contact_send'
+    id = db.Column(db.Integer, primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=False, index=True)
+    campaign_id = db.Column(db.String(255), nullable=False, index=True)
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    contact = db.relationship('Contact')
