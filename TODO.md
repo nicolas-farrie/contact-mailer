@@ -299,14 +299,19 @@ Aujourd'hui l'onglet « À valider » applique/rejette **par contact** (globalem
 - [x] **G. Demandes de diffusion** — refonte de l'écran **Fait (08-04)** : aperçu du contenu **inline** (👁 / clic sujet), **PJ soignées** (nom tronqué + taille o/Ko/Mo, date compacte), **vue des archivées** (`?archived=1`, dossier IMAP « Traité »), actions en icônes + « Utiliser » en bouton, polish (`<style>` sorti). *(Reste : la **notification** aux users à réception d'une demande = follow-up backend séparé — nécessite un scan périodique, cf. « Notification des demandes de diffusion » plus haut.)*
 - [x] **H. Paramètres — contenu** — **Fait (08-04)** : section **« Envoi (SMTP) »** + **bouton « Tester la connexion »** (AJAX, ✓/✗) ; section **« Valeurs par défaut »** (éditeur des civilités → `choices.civilite`) ; section **« Gestion du bounce »** toggle ON/OFF (`bounce_enabled` ; OFF = pas de Return-Path bounce → règle le 553). *(Reste optionnel : convertir `titre` en select éditable ; « Expéditeur » éditable en UI plutôt que `.env` ; onglets horizontaux du design CLD au lieu de la sous-nav sidebar.)*
 
-### 🔭 Révision fonctionnelle par bloc — PHASE 2 (À OUVRIR APRÈS la finition de la spec CLD, cf. [[refonte-v2-phasage]])
-Fonctions issues du béta-test, jugées **indispensables à l'utilisabilité** (à concevoir à froid) :
-- [ ] **Contacts — filtres personnalisés** : au-delà des filtres auto (Statut/Liste/Source), des filtres définis par l'utilisateur (combinaisons, « sans téléphone », champs perso…).
-- [ ] **Listes — opérations ensemblistes** : union (∪), intersection (∩), différence, complément entre listes/sélections.
-- [ ] **⭐ Sélection courante / liste temporaire = OUTIL TRANSVERSE (insight user 08-04)** : matérialiser une sélection ou un résultat de filtre en un **objet manipulable**, **partagé et accessible d'un bloc fonctionnel à l'autre** (Contacts → Mailing → Formulaires…), pas un état par écran.
-  - **Implication d'archi** : doit vivre **côté serveur** pour être consommable par les autres blocs (Mailing envoie à la sélection courante, etc.) → **session serveur** (petites sélections) ou **objet DB par utilisateur** (`selection courante`, promue en vraie `Liste` à la demande ; survit au refresh ; volumes importants). PAS uniquement du `sessionStorage` client.
-  - **À distinguer** de la séquence Précédent/Suivant de la fiche (Lot C) : celle-ci est **client, éphémère, navigation seule** (`sessionStorage.contactNavSeq`) — un cas d'usage étroit, pas l'outil transverse.
-  - Relié aux « segments dynamiques » (bounces / jamais-mailés / désabonnés) déjà pointés comme futurs **filtres/vues** côté Contacts.
+### 🔭 PHASE 2 — EPIC « Sélection & Segments » (ciblage/gestion des contacts, retours béta) — EN COURS
+**Design validé (08-04)** — v. la discussion socle :
+- **Sélection courante = objet DÉDIÉ** (pas de réutilisation de `Liste` : éviter l'erreur de catégorie transitoire/durable + la taxe « exclure is_temporary partout »). Forme légère **`selection_member(user_id, contact_id)`** (singleton par user), set-algebra en SQL pur, portable. « Enregistrer comme liste » = copie vers une vraie `Liste` (`created_by_id` → futur « mes listes »). Évolutif : entête `Selection(id,user,name)` si sélections nommées un jour.
+- **Filtres = ad-hoc** (calculés à la volée) pour commencer ; segments nommés plus tard.
+- **« Pas répondu au formulaire X » v1** = *base choisie ∖ répondants(form)* (différence ensembliste) ; ciblage auto « qui a reçu ce form » = plus tard.
+
+**Staging :**
+- [x] **S1 — Journal `ContactSend(contact_id, campaign_id, sent_at)`** + backfill + écriture dans `_run_send`. Débloque « jamais mailé » / « déjà reçu campagne X » / histo contact. **Fait (08-04).** ⚠️ migration `migrate_add_contact_send.py` au prochain déploiement.
+- [ ] **S2 — Sélection courante** (`selection_member`, singleton/user) + **chip transverse** (Voir · Envoyer un mailing · Enregistrer comme liste · Vider) + → sélection / vider.
+- [ ] **S3 — Filtres dynamiques Contacts** : dates (`created_at`), membre/non-membre liste, **répondu/pas-répondu formulaire**, jamais-mailé, désabonnés/bounces (déjà partiels) → chacun alimente la sélection.
+- [ ] **S4 — Opérations ensemblistes** sur la sélection (Ajouter ∪ / Retirer ∖ / Intersecter ∩ / Remplacer).
+- [ ] **S5 — Mailing** : cibler la **sélection courante** + option **exclure « déjà reçu »** (via `ContactSend`).
+- Relié : « segments dynamiques » (bounces/jamais-mailés/désabonnés) + « Modèles » (Tier 2) + « Réutiliser → nouvelle campagne » (à traiter avec les Modèles). À distinguer de la nav Précédent/Suivant fiche (client, éphémère).
 
 **Composants / UX transverses :**
 - [ ] **Modale de confirmation réutilisable et unique** (remplacer les `confirm()` natifs : corbeille contacts, suppression utilisateur, suppression campagne…)
