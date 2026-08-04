@@ -1204,6 +1204,8 @@ select:focus {
 .actions-cell { white-space: nowrap; }
 .actions-cell .btn { margin-right: 0.25rem; }
 .actions-cell .icon-btn { margin-right: 0.2rem; vertical-align: middle; }
+.stats-link { display: inline-block; text-decoration: none; color: inherit; cursor: pointer; }
+.stats-link:hover { opacity: 0.75; }
 .tag-bounce  { background: #fef3c7; color: #92400e; border-color: #fde68a; }
 .table-actions { display: flex; gap: 0.4rem; white-space: nowrap; }
 

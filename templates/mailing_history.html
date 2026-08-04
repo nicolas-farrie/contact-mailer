@@ -47,20 +47,23 @@
 
 {% if campaigns %}
 <div class="table-responsive">
-<table class="data-table">
+<table class="data-table" id="history-table">
     <thead>
         <tr>
-            <th data-sort>Date</th>
-            <th data-sort>Mailing</th>
-            <th data-sort>Format</th>
-            <th data-sort>Envoyé par</th>
-            <th>Stats</th>
+            <th class="th-sort" data-k="date">Date</th>
+            <th>Mailing</th>
+            <th>Format</th>
+            <th class="th-sort" data-k="sentby">Envoyé par</th>
+            <th class="th-sort" data-k="sent">Stats</th>
             <th>Actions</th>
         </tr>
     </thead>
     <tbody>
         {% for c in campaigns %}
-        <tr>
+        <tr class="campaign-row"
+            data-k-date="{{ c.id }}"
+            data-k-sentby="{{ (c.template.sent_by if c.template else '')|lower }}"
+            data-k-sent="{{ c.stats.sent }}">
             <td style="white-space:nowrap">{{ c.date or '-' }}</td>
             <td class="campaign-subject" title="Cliquer pour afficher le contenu">
                 <span class="subject-toggle" onclick="toggleContent('content-{{ loop.index }}')">
@@ -78,10 +81,12 @@
             </td>
             <td>{{ c.template.sent_by|default('-', true) if c.template else '-' }}</td>
             <td style="white-space:nowrap">
-                <span class="badge badge-green" title="Envoyés">{{ c.stats.sent }}</span>
-                {% if c.stats.error > 0 %}<span class="badge badge-danger" title="Erreurs">{{ c.stats.error }}</span>{% endif %}
-                {% if c.stats.pending > 0 %}<span class="badge badge-pending" title="En attente">{{ c.stats.pending }}</span>{% endif %}
-                {% if c.stats.bounced > 0 %}<span class="badge badge-bounce" title="Bounces">{{ c.stats.bounced }}</span>{% endif %}
+                <a href="{{ url_for('mailing.queue', campaign=c.id) }}" class="stats-link" title="Voir les destinataires et le détail des envois">
+                    <span class="badge badge-green" title="Envoyés">{{ c.stats.sent }}</span>
+                    {% if c.stats.error > 0 %}<span class="badge badge-danger" title="Erreurs">{{ c.stats.error }}</span>{% endif %}
+                    {% if c.stats.pending > 0 %}<span class="badge badge-pending" title="En attente">{{ c.stats.pending }}</span>{% endif %}
+                    {% if c.stats.bounced > 0 %}<span class="badge badge-bounce" title="Bounces">{{ c.stats.bounced }}</span>{% endif %}
+                </a>
             </td>
             <td class="actions-cell">
                 {% if c.template %}
@@ -89,10 +94,8 @@
                     <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
                 </a>
                 {% endif %}
-                {% if c.stats.pending > 0 or c.stats.error > 0 %}
                 <a href="{{ url_for('mailing.queue', campaign=c.id) }}" class="icon-btn"
-                   title="{% if c.stats.error > 0 and c.stats.pending == 0 %}Erreurs à réessayer — voir la file{% else %}Voir la file d'attente{% endif %}">{{ ico.eye() }}</a>
-                {% endif %}
+                   title="Voir les destinataires / le détail des envois">{{ ico.eye() }}</a>
                 <form method="POST" action="{{ url_for('mailing.history_archive', campaign_id=c.id) }}" style="display:inline">
                     <button type="submit" class="icon-btn" title="Archiver (retirer de l'historique — réversible)"
                             onclick="return confirm('Archiver cette campagne ? Elle disparaîtra de l\'historique (récupérable dans les archivées).')">{{ ico.archive() }}</button>
@@ -194,6 +197,37 @@ function toggleArchived() {
     const section = document.getElementById('archived-section');
     if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
 }
+
+// ---------- Tri des colonnes (Date / Envoyé par / Stats) ----------
+(function(){
+    var table = document.getElementById('history-table');
+    if (!table) return;
+    var tbody = table.querySelector('tbody');
+    function contentRowOf(row){
+        var n = row.nextElementSibling;
+        return (n && n.classList.contains('content-row')) ? n : null;
+    }
+    table.querySelectorAll('th.th-sort').forEach(function(th){
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', function(){
+            var key = th.dataset.k, numeric = (key === 'sent');
+            var asc = th.dataset.sortDir !== 'asc';
+            th.dataset.sortDir = asc ? 'asc' : 'desc';
+            table.querySelectorAll('th.th-sort').forEach(function(t){ t.classList.remove('sort-asc','sort-desc'); });
+            th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+            // Apparier chaque ligne à son aperçu AVANT de déplacer (sinon les voisins changent)
+            var pairs = Array.from(tbody.querySelectorAll('tr.campaign-row')).map(function(row){
+                return { row: row, content: contentRowOf(row) };
+            });
+            pairs.sort(function(a, b){
+                var av = a.row.getAttribute('data-k-'+key) || '', bv = b.row.getAttribute('data-k-'+key) || '';
+                var r = numeric ? (parseFloat(av||0) - parseFloat(bv||0)) : av.localeCompare(bv, 'fr', {numeric:true});
+                return asc ? r : -r;
+            });
+            pairs.forEach(function(p){ tbody.appendChild(p.row); if (p.content) tbody.appendChild(p.content); });
+        });
+    });
+})();
 </script>
 
 {% endblock %}

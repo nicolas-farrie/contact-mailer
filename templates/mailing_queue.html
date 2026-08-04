@@ -72,8 +72,8 @@
     <a href="{{ url_for('mailing.history') }}" class="btn btn-secondary">← Retour aux mailings</a>
 </div>
 
-<!-- Détail des envois (repliable) -->
-<details class="card send-detail">
+<!-- Détail des envois (destinataires + statut) — déplié par défaut pour la revue -->
+<details class="card send-detail" open>
     <summary>Détail des envois ({{ items|length }})</summary>
 
     {% if template %}
@@ -116,34 +116,34 @@
 </details>
 
 {% else %}
-{# --- Vue globale : toutes campagnes confondues --- #}
+{# --- Vue globale : uniquement le NON-expédié, groupé PAR CAMPAGNE --- #}
 <div class="page-header">
-    <h1>File d'attente <span class="text-muted" style="font-weight:400;">· toutes campagnes</span></h1>
+    <h1>File d'attente <span class="text-muted" style="font-weight:400;">· à envoyer</span></h1>
     <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
 </div>
-{% if stats.pending > 0 %}
-<div class="alert alert-info">{{ stats.pending }} email(s) en attente — ouvrez une campagne depuis l'historique pour lancer l'envoi.</div>
-{% endif %}
+{% if queue_campaigns %}
+<p class="settings-hint" style="margin-top:-0.5rem;">Campagnes qui ont encore des emails <strong>à envoyer</strong> ou <strong>en erreur</strong>. Une campagne entièrement envoyée n'apparaît plus ici — retrouvez-la dans l'<a href="{{ url_for('mailing.history') }}">historique</a>.</p>
 <div class="table-responsive">
 <table class="data-table">
-    <thead><tr><th>Campagne</th><th>Contact</th><th>Email</th><th>Statut</th></tr></thead>
+    <thead><tr><th>Campagne</th><th>En attente</th><th>Erreurs</th><th>Action</th></tr></thead>
     <tbody>
-        {% for item in items %}
+        {% for c in queue_campaigns %}
         <tr>
-            <td style="font-size:0.78rem;"><a href="{{ url_for('mailing.queue', campaign=item.campaign_id) }}" title="{{ item.campaign_id }}">{{ item.campaign_id[-22:] }}</a></td>
-            <td>{{ item.contact.prenom }} {{ item.contact.nom }}</td>
-            <td>{{ item.contact.email }}</td>
-            <td>
-                {% if item.status == 'pending' %}<span class="badge badge-pending">En attente</span>
-                {% elif item.status == 'sent' %}<span class="badge badge-green">Envoyé</span>
-                {% elif item.status == 'cancelled' %}<span class="badge badge-gray">Annulé</span>
-                {% else %}<span class="badge badge-danger">Erreur</span>{% endif %}
-            </td>
+            <td><a href="{{ url_for('mailing.queue', campaign=c.campaign_id) }}"><strong>{{ c.name }}</strong></a></td>
+            <td>{% if c.pending %}<span class="badge badge-pending">{{ c.pending }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if c.error %}<span class="badge badge-danger">{{ c.error }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td><a href="{{ url_for('mailing.queue', campaign=c.campaign_id) }}" class="btn btn-small btn-primary">Reprendre l'envoi</a></td>
         </tr>
-        {% else %}<tr><td colspan="4" class="text-muted">File d'attente vide</td></tr>{% endfor %}
+        {% endfor %}
     </tbody>
 </table>
 </div>
+{% else %}
+<div class="empty-state">
+    <p>✓ File d'attente vide — rien à envoyer.</p>
+    <a href="{{ url_for('mailing.history') }}" class="btn btn-secondary">Voir l'historique</a>
+</div>
+{% endif %}
 {% endif %}
 
 <!-- Overlay spinner envoi -->

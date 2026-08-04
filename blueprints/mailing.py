@@ -700,21 +700,41 @@ def discard():
 @bp.route('/mailing/queue')
 @login_required
 def queue():
-    """Affiche la file d'attente"""
+    """File d'attente.
+    - Vue campagne (?campaign=…) : détail/revue de la campagne (tous les items).
+    - Vue globale : UNIQUEMENT le NON-expédié (en attente + erreurs), groupé PAR
+      CAMPAGNE. Une campagne 100 % envoyée n'a plus rien à faire ici → elle
+      disparaît de la file (elle reste consultable dans l'historique)."""
     from mailer import MailQueue
+    from collections import defaultdict
 
     campaign = request.args.get('campaign')
     queue = MailQueue()
     stats = queue.get_stats(campaign)
-    template = queue.get_campaign_template(campaign) if campaign else {}
 
-    # Récupérer les items de la file
-    items = queue.queue
     if campaign:
-        items = [i for i in items if i['campaign_id'] == campaign]
+        template = queue.get_campaign_template(campaign) or {}
+        items = [i for i in queue.queue if i['campaign_id'] == campaign]
+        return render_template('mailing_queue.html', items=items, stats=stats,
+                               campaign=campaign, template=template, queue_campaigns=None)
 
-    return render_template('mailing_queue.html', items=items, stats=stats,
-                           campaign=campaign, template=template)
+    # Vue globale : regrouper le non-expédié par campagne
+    groups = defaultdict(lambda: {'pending': 0, 'error': 0})
+    for it in queue.queue:
+        if it['status'] in ('pending', 'error'):
+            groups[it['campaign_id']][it['status']] += 1
+    queue_campaigns = []
+    for cid, g in groups.items():
+        tpl = queue.get_campaign_template(cid) or {}
+        queue_campaigns.append({
+            'campaign_id': cid,
+            'name': tpl.get('name') or tpl.get('subject') or cid,
+            'pending': g['pending'], 'error': g['error'],
+            'remaining': g['pending'] + g['error']})
+    queue_campaigns.sort(key=lambda c: (-c['remaining'], c['name'].lower()))
+
+    return render_template('mailing_queue.html', items=None, stats=stats,
+                           campaign=None, template={}, queue_campaigns=queue_campaigns)
 
 
 @bp.route('/mailing/process', methods=['POST'])
