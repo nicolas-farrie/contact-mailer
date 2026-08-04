@@ -30,6 +30,14 @@ OTP_MAX_ATTEMPTS = 5      # essais erronés avant invalidation du code
 OTP_SESSION_MIN = 20      # durée de la session « email vérifié »
 
 
+def _pending_contacts_count(form_id):
+    """Nombre de CONTACTS (fiches) ayant des propositions en attente — pas le nombre
+    total de champs. Plus lisible pour l'admin : « 2 fiches à traiter », pas « 6 champs »."""
+    return (db.session.query(FieldProposal.contact_id)
+            .filter_by(form_id=form_id, status='pending', is_test=False)
+            .distinct().count())
+
+
 @bp.route('/formulaires')
 @login_required
 def index():
@@ -37,7 +45,8 @@ def index():
              .order_by(PreferenceForm.created_at.desc()).all())
     archived = (PreferenceForm.query.filter_by(is_archived=True)
                 .order_by(PreferenceForm.created_at.desc()).all())
-    pending_by_form = dict(db.session.query(FieldProposal.form_id, db.func.count())
+    pending_by_form = dict(db.session.query(FieldProposal.form_id,
+                                            db.func.count(db.distinct(FieldProposal.contact_id)))
                            .filter(FieldProposal.status == 'pending', FieldProposal.is_test == False)
                            .group_by(FieldProposal.form_id).all())
     return render_template('formulaires.html', forms=forms, archived=archived,
@@ -112,7 +121,7 @@ def detail(id):
                 question_labels[str(q.id)] = q.label
     return render_template('formulaire_detail.html', form=pf,
                            link_template=link_template, responses=responses,
-                           tab=tab, proposal_groups=proposal_groups, pending=len(props),
+                           tab=tab, proposal_groups=proposal_groups, pending=len(proposal_groups),
                            field_map=fields_registry.field_map(),
                            liste_names=liste_names, question_labels=question_labels,
                            now=datetime.utcnow())
@@ -183,7 +192,7 @@ def _render_edit_form(pf, listes, form_data):
         pf.expires_at = None
     return render_template('formulaire_edit.html', form=pf, listes=listes,
                            locked=(len(pf.real_responses) > 0), now=datetime.utcnow(),
-                           pending=FieldProposal.query.filter_by(form_id=pf.id, status='pending', is_test=False).count(),
+                           pending=_pending_contacts_count(pf.id),
                            field_groups=fields_registry.fields_by_group(),
                            editable_keys=editable,
                            fiche_selected=[k for k in form_data.getlist('fiche_fields') if k in editable],
@@ -237,7 +246,7 @@ def edit(id):
         flash('Formulaire mis à jour.' + (' Groupes verrouillés (des réponses existent) : seuls libellés, aides et ordre ont été enregistrés.' if was_locked else ''), 'success')
         return redirect(url_for('formulaires.detail', id=pf.id, tab='lien'))
     locked = len(pf.real_responses) > 0
-    pending = FieldProposal.query.filter_by(form_id=pf.id, status='pending', is_test=False).count()
+    pending = _pending_contacts_count(pf.id)
     fiche_block = next((b for b in pf.blocks if b.type == 'fiche'), None)
     sondage_block = next((b for b in pf.blocks if b.type == 'sondage'), None)
     return render_template('formulaire_edit.html', form=pf, listes=listes, locked=locked,
