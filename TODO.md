@@ -299,6 +299,15 @@ Aujourd'hui l'onglet « À valider » applique/rejette **par contact** (globalem
 - [ ] **G. Demandes de diffusion** — refonte (aperçu du contenu depuis la liste, UX pièces jointes, vue des archivées) — cf. items « Demandes de diffusion » plus haut
 - [ ] **H. Paramètres — contenu** : onglet/section **« Valeurs par défaut »** (éditer `choices.civilite`/`choices.titre` via `options_source`) ; **câbler le test SMTP** ; **toggle « Gestion du Bounce »** (ON/OFF)
 
+### 🔭 Révision fonctionnelle par bloc — PHASE 2 (À OUVRIR APRÈS la finition de la spec CLD, cf. [[refonte-v2-phasage]])
+Fonctions issues du béta-test, jugées **indispensables à l'utilisabilité** (à concevoir à froid) :
+- [ ] **Contacts — filtres personnalisés** : au-delà des filtres auto (Statut/Liste/Source), des filtres définis par l'utilisateur (combinaisons, « sans téléphone », champs perso…).
+- [ ] **Listes — opérations ensemblistes** : union (∪), intersection (∩), différence, complément entre listes/sélections.
+- [ ] **⭐ Sélection courante / liste temporaire = OUTIL TRANSVERSE (insight user 08-04)** : matérialiser une sélection ou un résultat de filtre en un **objet manipulable**, **partagé et accessible d'un bloc fonctionnel à l'autre** (Contacts → Mailing → Formulaires…), pas un état par écran.
+  - **Implication d'archi** : doit vivre **côté serveur** pour être consommable par les autres blocs (Mailing envoie à la sélection courante, etc.) → **session serveur** (petites sélections) ou **objet DB par utilisateur** (`selection courante`, promue en vraie `Liste` à la demande ; survit au refresh ; volumes importants). PAS uniquement du `sessionStorage` client.
+  - **À distinguer** de la séquence Précédent/Suivant de la fiche (Lot C) : celle-ci est **client, éphémère, navigation seule** (`sessionStorage.contactNavSeq`) — un cas d'usage étroit, pas l'outil transverse.
+  - Relié aux « segments dynamiques » (bounces / jamais-mailés / désabonnés) déjà pointés comme futurs **filtres/vues** côté Contacts.
+
 **Composants / UX transverses :**
 - [ ] **Modale de confirmation réutilisable et unique** (remplacer les `confirm()` natifs : corbeille contacts, suppression utilisateur, suppression campagne…)
 - [ ] **Assistant variables** dans l'éditeur mailing + gestion propre de l'absence de **civilité** (éviter « Bonjour ,  Nom »)
