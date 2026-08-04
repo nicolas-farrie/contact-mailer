@@ -87,10 +87,7 @@
 
 ## Correction Bug ou pb interface - Prioritaire
 
-- [ ] **🔴 URGENT — Mailing : séquence d'envoi phase 3 → phase 4 incohérente et piégeuse** (remonté du terrain, existe déjà en v1.2.12) :
-  - Symptôme : en phase 3 « Destinataires », une **modale** demande en **gras rouge** « Confirmez-vous l'envoi ? » → l'utilisateur (stressé) clique **Oui** → il arrive en **phase 4** où **RIEN n'est parti** : il faut **encore** cliquer le bouton bleu « Envoyer X emails », **puis** re-confirmer via une **2ᵉ boîte JS**. Triple confirmation.
-  - **Risque réel** : des envois sont **restés bloqués en phase 4**, jamais partis, l'utilisateur **croyant le process terminé** (la modale « Confirmez-vous l'envoi ? » laisse penser que c'est fait). Des mails attendus ne sont jamais partis.
-  - **À revoir** : une seule confirmation claire, au bon endroit, avec un état finalité sans ambiguïté (« ✅ Envoi lancé / en cours » vs « ⏳ En attente de votre validation »). La modale de phase 3 ne doit pas ressembler à la validation finale si l'envoi n'est pas encore déclenché. Repenser le libellé + le flux 3→4 (idéalement : la confirmation DÉCLENCHE l'envoi, pas juste une navigation).
+- [x] **🔴 Mailing : séquence d'envoi phase 3 → phase 4 — CORRIGÉ (08-04, Tier 0)**. La confirmation de l'étape Destinataires **déclenche réellement l'envoi** : `add_to_queue` met en file **puis** `_run_send()` (envoi immédiat) → on arrive en phase Envoi sur un **état résultat**. `process()` devient « Reprendre l'envoi » (file d'attente, cas interrompu/erreurs). Modale unique « Envoyer maintenant » + overlay. Prépare l'asynchrone (confirmer = file + armer le déclencheur). *(Fini le « resté en file, jamais parti ».)*
 
 ## A faire - Prioritaire
 ### Formulaires — 2 gros sujets liés (analyse cadrée le 6/07, à traiter ensemble, sécurité intégrée dès la conception)
