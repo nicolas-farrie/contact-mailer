@@ -672,10 +672,24 @@ def public(form_token, contact_uid):
                 for k in [k for k in (b.config or {}).get('fields', []) if k in allowed]:
                     newv = (request.form.get(f'fiche_{k}', '') or '').strip()
                     curv = _contact_field_value(contact, k)
+                    # Dédup : une seule proposition « pending » par (formulaire, contact, champ).
+                    # Re-soumettre MET À JOUR l'existante au lieu d'en créer une nouvelle.
+                    existing = FieldProposal.query.filter_by(
+                        form_id=pf.id, contact_id=contact.id, field_key=k, status='pending').first()
                     if newv and newv != (curv or ''):
-                        db.session.add(FieldProposal(
-                            form_id=pf.id, contact_id=contact.id, field_key=k,
-                            old_value=curv, new_value=newv, status='pending', otp_verified=otp_ok))
+                        if existing:
+                            existing.old_value = curv
+                            existing.new_value = newv
+                            existing.otp_verified = otp_ok
+                            existing.proposed_at = datetime.utcnow()
+                        else:
+                            db.session.add(FieldProposal(
+                                form_id=pf.id, contact_id=contact.id, field_key=k,
+                                old_value=curv, new_value=newv, status='pending', otp_verified=otp_ok))
+                    elif existing:
+                        # Le contact est revenu à la valeur canonique (ou a vidé le champ) :
+                        # la proposition en attente n'a plus lieu d'être → on la retire.
+                        db.session.delete(existing)
         # Trace / met à jour la réponse (payload isolé)
         resp = PreferenceResponse.query.filter_by(contact_id=contact.id, form_id=pf.id).first()
         if resp:
