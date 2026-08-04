@@ -136,6 +136,10 @@
                     {% else %}<span class="status-dot" title="Abonné"></span>{% endif %}
                 </td>
                 <td class="col-edit">
+                    <a href="{{ url_for('contacts.view', id=c.id, back_liste=liste_filter or '') }}"
+                       class="icon-edit view-link" title="Voir la fiche" onclick="event.stopPropagation()" aria-label="Voir">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
+                    </a>
                     <a href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}"
                        class="icon-edit edit-link" title="Modifier la fiche" onclick="event.stopPropagation()" aria-label="Modifier">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -146,10 +150,6 @@
                 <td></td>
                 <td colspan="5">
                     {{ summary_grid(c, current_user.is_admin) }}
-                    <div class="summary-actions">
-                        <a href="{{ url_for('contacts.view', id=c.id, back_liste=liste_filter or '') }}" class="btn btn-small btn-secondary view-link">Voir la fiche</a>
-                        <a href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}" class="btn btn-small btn-primary edit-link">Modifier la fiche</a>
-                    </div>
                 </td>
             </tr>
             {% else %}
@@ -179,6 +179,9 @@
                     <div class="recip-mail">{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% endif %}</div>
                 </div>
             </div>
+            <a href="{{ url_for('contacts.view', id=c.id, back_liste=liste_filter or '') }}" class="icon-edit view-link" title="Voir">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
+            </a>
             <a href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}" class="icon-edit edit-link" title="Modifier">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </a>
@@ -198,8 +201,6 @@
             <div class="summary-actions">
                 {% if c.telephone %}<a class="btn btn-small btn-secondary" href="{{ tel_uri(c.telephone) }}">📞 Appeler</a>{% endif %}
                 {% if c.email %}<a class="btn btn-small btn-secondary" href="mailto:{{ c.email }}">✉️ Écrire</a>{% endif %}
-                <a class="btn btn-small btn-secondary view-link" href="{{ url_for('contacts.view', id=c.id, back_liste=liste_filter or '') }}">Voir la fiche</a>
-                <a class="btn btn-small btn-primary edit-link" href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}">Modifier la fiche</a>
             </div>
         </div>
     </div>

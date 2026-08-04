@@ -128,6 +128,7 @@ def edit(id):
 
     if request.method == 'POST':
         back_liste = request.form.get('back_liste', '') or None
+        ret_view = request.form.get('ret') == 'view'
         _apply_form(contact, request.form)
         contact.updated_by_id = current_user.id
         _apply_listes(contact, request.form, clear=True)
@@ -135,6 +136,10 @@ def edit(id):
         try:
             db.session.commit()
             flash(f'Contact mis à jour', 'success')
+            # Édition entamée depuis la fiche « vision » → on y retourne (garde la nav
+            # Précédent/Suivant en session) ; sinon retour à la liste (comportement ✎).
+            if ret_view:
+                return redirect(url_for('contacts.view', id=contact.id, back_liste=back_liste or ''))
             return redirect(url_for('contacts.index', liste=back_liste) if back_liste else url_for('contacts.index'))
         except Exception as e:
             db.session.rollback()
@@ -142,7 +147,8 @@ def edit(id):
 
     back_liste = request.args.get('back_liste', '') or None
     listes = Liste.query.order_by(Liste.nom).all()
-    return render_template('contact_form.html', contact=contact, listes=listes, back_liste=back_liste)
+    return render_template('contact_form.html', contact=contact, listes=listes,
+                           back_liste=back_liste, from_view=(request.args.get('ret') == 'view'))
 
 
 @bp.route('/contacts/<int:id>/view')

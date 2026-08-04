@@ -64,16 +64,17 @@
         <span class="fiche-status {{ 'is-unsub' if contact.is_unsubscribed }}">{{ 'Désabonné' if contact.is_unsubscribed else 'Abonné' }}</span>
         {% endif %}
     </div>
-    {# Emplacement Précédent/Suivant (C.2) — rempli côté JS depuis la séquence de la liste #}
-    {% if readonly and contact %}<div class="fiche-nav" id="fiche-nav" hidden>
-        <a class="btn btn-secondary btn-small" id="fiche-prev" href="#" title="Fiche précédente">‹ Précédent</a>
-        <a class="btn btn-secondary btn-small" id="fiche-next" href="#" title="Fiche suivante">Suivant ›</a>
-    </div>{% endif %}
+    {% set from_view = from_view|default(false) %}
     <div class="fiche-actions">
         {% if readonly %}
-        <a href="{{ url_for('contacts.edit', id=contact.id, back_liste=back_liste or '') }}" class="btn btn-primary">✎ Modifier</a>
+        {# Précédent/Suivant collés à Modifier (position fixe) — remplis côté JS depuis la séquence de la liste #}
+        <div class="fiche-nav" id="fiche-nav" hidden>
+            <a class="btn btn-secondary btn-small" id="fiche-prev" href="#" title="Fiche précédente">‹ Précédent</a>
+            <a class="btn btn-secondary btn-small" id="fiche-next" href="#" title="Fiche suivante">Suivant ›</a>
+        </div>
+        <a href="{{ url_for('contacts.edit', id=contact.id, back_liste=back_liste or '', ret='view') }}" class="btn btn-primary">✎ Modifier</a>
         {% else %}
-        <a href="{{ cancel_url }}" class="btn btn-secondary">Annuler</a>
+        <a href="{{ url_for('contacts.view', id=contact.id, back_liste=back_liste or '') if (from_view and contact) else cancel_url }}" class="btn btn-secondary">Annuler</a>
         <button type="submit" form="contact-form" class="btn btn-primary">Enregistrer</button>
         {% endif %}
     </div>
@@ -101,6 +102,7 @@
 
 <form method="POST" id="contact-form" class="fiche-form">
     <input type="hidden" name="back_liste" value="{{ back_liste or '' }}">
+    {% if from_view %}<input type="hidden" name="ret" value="view">{% endif %}
 
     <section class="fiche-card">
         <h3>Identité</h3>
