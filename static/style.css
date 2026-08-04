@@ -1206,6 +1206,9 @@ select:focus {
 .actions-cell .icon-btn { margin-right: 0.2rem; vertical-align: middle; }
 .stats-link { display: inline-block; text-decoration: none; color: inherit; cursor: pointer; }
 .stats-link:hover { opacity: 0.75; }
+.smtp-result { margin-left: 0.6rem; font-size: 0.9rem; font-weight: 600; }
+.smtp-result.is-ok { color: #047857; }
+.smtp-result.is-err { color: #b91c1c; }
 .tag-bounce  { background: #fef3c7; color: #92400e; border-color: #fde68a; }
 .table-actions { display: flex; gap: 0.4rem; white-space: nowrap; }
 

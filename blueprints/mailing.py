@@ -787,6 +787,12 @@ def process():
     sent = 0
     errors = 0
 
+    # Toggle « Gestion du bounce » (Paramètres) : OFF → pas de Return-Path bounce forcé
+    # en enveloppe (évite le rejet SMTP 553 sur les serveurs stricts).
+    from helpers import get_setting
+    bounce_on = get_setting('bounce_enabled', '1') != '0'
+    bounce_return_path = (Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER or None) if bounce_on else None
+
     import time
     for item in pending:
         contact = item['contact']
@@ -798,10 +804,9 @@ def process():
 
         try:
             subj, body_text, body_html = template.render(contact, unsubscribe_url=unsub_url)
-            return_path = Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER or None
             mailer.send_single(contact['email'], subj, body_text, body_html,
                                unsubscribe_url=unsub_url, attachments=attachments,
-                               return_path=return_path)
+                               return_path=bounce_return_path)
             queue.mark_sent(item['id'])
             sent += 1
         except Exception as e:

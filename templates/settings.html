@@ -23,6 +23,52 @@
         </form>
     </section>
 
+    <!-- Envoi des emails (SMTP) -->
+    <section class="card settings-section">
+        <h2>Envoi des emails (SMTP)</h2>
+        <p class="settings-hint">Serveur d'envoi défini côté serveur (fichier <code>.env</code>). Vous pouvez <strong>tester la connexion</strong> sans envoyer de mail.</p>
+        <div class="form-group">
+            <label>Serveur</label>
+            <div class="field-value">{% if smtp_host %}{{ smtp_host }} : {{ smtp_port }} · {{ 'TLS' if smtp_tls else 'SSL' }}{% else %}— non configuré —{% endif %}</div>
+        </div>
+        <div class="form-group">
+            <label>Expéditeur</label>
+            <div class="field-value">{{ smtp_sender or '—' }}</div>
+        </div>
+        <button type="button" class="btn btn-secondary" id="smtp-test-btn" onclick="testSmtp()"{% if not smtp_host %} disabled{% endif %}>Tester la connexion</button>
+        <span id="smtp-test-result" class="smtp-result"></span>
+    </section>
+
+    <!-- Valeurs par défaut -->
+    <section class="card settings-section">
+        <h2>Valeurs par défaut</h2>
+        <p class="settings-hint">Listes de choix proposées dans les fiches contact.</p>
+        <form method="POST" action="{{ url_for('settings.index') }}">
+            <input type="hidden" name="section" value="defaults">
+            <div class="form-group">
+                <label for="civilite_options">Civilités <span class="text-muted">(une par ligne)</span></label>
+                <textarea id="civilite_options" name="civilite_options" rows="5" style="max-width:360px;">{{ civilite_text }}</textarea>
+                <p class="field-help">Ex. Madame, Monsieur, Mx, Autre. L'option « non précisé » reste toujours disponible.</p>
+            </div>
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </form>
+    </section>
+
+    <!-- Gestion du bounce -->
+    <section class="card settings-section">
+        <h2>Gestion du bounce</h2>
+        <p class="settings-hint">Le suivi des retours d'erreur marque automatiquement les adresses invalides.{% if not bounce_configured %} <strong>Aucune adresse de retour n'est configurée côté serveur</strong> — le suivi restera inopérant tant qu'elle n'est pas définie.{% endif %}</p>
+        <form method="POST" action="{{ url_for('settings.index') }}">
+            <input type="hidden" name="section" value="bounce">
+            <label class="checkbox-inline">
+                <input type="checkbox" name="bounce_enabled" value="on"{% if bounce_enabled %} checked{% endif %}>
+                <span>Activer la gestion du bounce</span>
+            </label>
+            <p class="field-help">Désactivé : aucune adresse de retour (Return-Path) n'est imposée à l'envoi — utile si votre serveur mail rejette les envois (erreur SMTP&nbsp;553).</p>
+            <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">Enregistrer</button>
+        </form>
+    </section>
+
     <!-- Apparence de la connexion -->
     <section class="card settings-section">
         <h2>Apparence de la page de connexion</h2>
@@ -79,4 +125,19 @@
     </section>
 
 </div>
+
+<script>
+function testSmtp(){
+    var btn = document.getElementById('smtp-test-btn'), res = document.getElementById('smtp-test-result');
+    btn.disabled = true; res.textContent = '⏳ Test en cours…'; res.className = 'smtp-result';
+    fetch("{{ url_for('mailing.test_smtp') }}", {method: 'POST'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+          if (d.success){ res.textContent = '✓ Connexion réussie'; res.className = 'smtp-result is-ok'; }
+          else { res.textContent = '✗ ' + (d.error || 'Échec de la connexion'); res.className = 'smtp-result is-err'; }
+      })
+      .catch(function(){ res.textContent = '✗ Erreur réseau'; res.className = 'smtp-result is-err'; })
+      .finally(function(){ btn.disabled = false; });
+}
+</script>
 {% endblock settings_content %}

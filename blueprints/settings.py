@@ -13,8 +13,9 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
 from models import db, Contact, CustomFieldDefinition
-from helpers import (admin_required, set_setting, _upload_dir,
+from helpers import (admin_required, set_setting, get_setting, _upload_dir,
                      _delete_current_login_bg, ALLOWED_IMAGE_EXT, MAX_IMAGE_BYTES)
+from config import Config
 import fields
 
 bp = Blueprint('settings', __name__)
@@ -33,6 +34,21 @@ def index():
                 flash('Paramètres généraux enregistrés.', 'success')
             else:
                 flash("Le nom de l'application ne peut pas être vide.", 'error')
+
+        elif section == 'bounce':
+            # Toggle « Gestion du Bounce ». OFF → pas de Return-Path bounce forcé en
+            # enveloppe (évite le rejet SMTP 553 sur les serveurs stricts).
+            set_setting('bounce_enabled', '1' if request.form.get('bounce_enabled') == 'on' else '0')
+            flash('Gestion du bounce mise à jour.', 'success')
+
+        elif section == 'defaults':
+            # « Valeurs par défaut » : liste éditable des civilités (choices.civilite).
+            import json
+            raw = request.form.get('civilite_options', '')
+            vals = [v.strip() for v in raw.splitlines() if v.strip()]
+            # 1re option vide conservée = « non précisé » (défaut sans genre imposé)
+            set_setting('choices.civilite', json.dumps([''] + vals))
+            flash('Valeurs par défaut enregistrées.', 'success')
 
         elif section == 'login_appearance':
             raw = request.form.get('login_overlay')
@@ -74,7 +90,14 @@ def index():
         return redirect(url_for('settings.index'))
 
     deleted_contacts = Contact.query.filter(Contact.is_deleted == True).order_by(Contact.deleted_at.desc()).all()
-    return render_template('settings.html', active_tab='general', deleted_contacts=deleted_contacts)
+    civ = fields.field_map().get('civilite')
+    civilite_values = [o for o in (fields.field_options(civ) if civ else ()) if o]  # sans l'entrée vide
+    return render_template('settings.html', active_tab='general', deleted_contacts=deleted_contacts,
+                           smtp_host=Config.SMTP_HOST, smtp_port=Config.SMTP_PORT,
+                           smtp_sender=Config.SMTP_SENDER_EMAIL, smtp_tls=Config.SMTP_USE_TLS,
+                           bounce_configured=bool(Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER),
+                           bounce_enabled=(get_setting('bounce_enabled', '1') != '0'),
+                           civilite_text='\n'.join(civilite_values))
 
 
 @bp.route('/settings/clear-login-bg', methods=['POST'])
