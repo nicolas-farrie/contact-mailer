@@ -51,7 +51,7 @@
         <div class="response-row">
             <span class="avatar-sm">{{ ((r.contact.prenom or ' ')[0] ~ (r.contact.nom or ' ')[0])|upper if r.contact else '?' }}</span>
             <div class="response-ident">
-                {% if r.contact %}<a href="{{ url_for('contacts.edit', id=r.contact.id) }}"><strong>{{ r.contact.prenom }} {{ r.contact.nom }}</strong></a>{% else %}<strong>—</strong>{% endif %}
+                {% if r.contact %}<a href="{{ url_for('contacts.view', id=r.contact.id) }}"><strong>{{ r.contact.prenom }} {{ r.contact.nom }}</strong></a>{% else %}<strong>—</strong>{% endif %}
                 <div class="recip-mail">{{ r.contact.email if r.contact else '—' }}</div>
             </div>
             <div class="response-data">

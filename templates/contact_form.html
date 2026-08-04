@@ -1,14 +1,25 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Modifier' if contact else 'Nouveau' }} contact - Contact Mailer{% endblock %}
+{% block title %}{% if readonly and contact %}{{ contact.prenom }} {{ contact.nom }}{% elif contact %}Modifier{% else %}Nouveau{% endif %} contact - Contact Mailer{% endblock %}
 
-{# --- Rendu générique d'un champ à partir de sa définition (registre fields.py) --- #}
-{% macro render_field(f, contact) %}
+{# --- Rendu générique d'un champ à partir de sa définition (registre fields.py) ---
+   readonly=True → affichage statique (mode « vision ») au lieu d'un input éditable. #}
+{% macro render_field(f, contact, readonly=False) %}
 {% if f.source == 'custom' %}
     {% set val = (contact.custom_fields or {}).get(f.key, '') if contact else '' %}
 {% else %}
     {% set val = contact[f.key] if contact else '' %}
 {% endif %}
 {% set val = val if val is not none else '' %}
+{% if readonly %}
+<div class="field field--{{ f.width }}">
+    <label>{{ f.label }}</label>
+    {% if f.type == 'checkbox' %}
+    <div class="field-value">{{ 'Oui' if val else 'Non' }}</div>
+    {% else %}
+    <div class="field-value"{% if f.type == 'textarea' %} style="white-space:pre-line"{% endif %}>{{ val if val != '' else '—' }}</div>
+    {% endif %}
+</div>
+{% else %}
 <div class="field field--{{ f.width }}{{ ' field--check' if f.type == 'checkbox' }}">
     {% if f.type == 'checkbox' %}
     <label class="checkbox-inline">
@@ -35,9 +46,11 @@
     {% if f.help %}<p class="hint">{{ f.help }}</p>{% endif %}
     {% endif %}
 </div>
+{% endif %}
 {% endmacro %}
 
 {% block content %}
+{% set readonly = readonly|default(false) %}
 {% set cancel_url = url_for('contacts.index', liste=back_liste) if back_liste else url_for('contacts.index') %}
 
 <div class="fiche-header">
@@ -51,9 +64,18 @@
         <span class="fiche-status {{ 'is-unsub' if contact.is_unsubscribed }}">{{ 'Désabonné' if contact.is_unsubscribed else 'Abonné' }}</span>
         {% endif %}
     </div>
+    {# Emplacement Précédent/Suivant (C.2) — rempli côté JS depuis la séquence de la liste #}
+    {% if readonly and contact %}<div class="fiche-nav" id="fiche-nav" hidden>
+        <a class="btn btn-secondary btn-small" id="fiche-prev" href="#" title="Fiche précédente">‹ Précédent</a>
+        <a class="btn btn-secondary btn-small" id="fiche-next" href="#" title="Fiche suivante">Suivant ›</a>
+    </div>{% endif %}
     <div class="fiche-actions">
+        {% if readonly %}
+        <a href="{{ url_for('contacts.edit', id=contact.id, back_liste=back_liste or '') }}" class="btn btn-primary">✎ Modifier</a>
+        {% else %}
         <a href="{{ cancel_url }}" class="btn btn-secondary">Annuler</a>
         <button type="submit" form="contact-form" class="btn btn-primary">Enregistrer</button>
+        {% endif %}
     </div>
 </div>
 
@@ -83,19 +105,25 @@
     <section class="fiche-card">
         <h3>Identité</h3>
         <div class="field-grid">
-            {% for f in fields_group('identite') if f.editable %}{{ render_field(f, contact) }}{% endfor %}
+            {% for f in fields_group('identite') if f.editable %}{{ render_field(f, contact, readonly) }}{% endfor %}
         </div>
     </section>
 
     <section class="fiche-card">
         <h3>Coordonnées</h3>
         <div class="field-grid">
-            {% for f in fields_group('contact') if f.editable %}{{ render_field(f, contact) }}{% endfor %}
+            {% for f in fields_group('contact') if f.editable %}{{ render_field(f, contact, readonly) }}{% endfor %}
         </div>
     </section>
 
     <section class="fiche-card">
         <h3>Listes</h3>
+        {% if readonly %}
+        <div class="pill-row">
+            {% for liste in (contact.listes if contact else []) %}<span class="tag">{{ liste.nom }}</span>
+            {% else %}<span class="field-value">—</span>{% endfor %}
+        </div>
+        {% else %}
         <div class="checkbox-group">
             {% for liste in listes %}
             <label class="checkbox-label">
@@ -108,12 +136,13 @@
         {% if not listes %}
         <p class="hint">Aucune liste créée. <a href="{{ url_for('listes.new') }}">Créer une liste</a></p>
         {% endif %}
+        {% endif %}
     </section>
 
     <section class="fiche-card">
         <h3>Adresse</h3>
         <div class="field-grid">
-            {% for f in fields_group('adresse') if f.editable %}{{ render_field(f, contact) }}{% endfor %}
+            {% for f in fields_group('adresse') if f.editable %}{{ render_field(f, contact, readonly) }}{% endfor %}
         </div>
     </section>
 
@@ -122,7 +151,7 @@
     <section class="fiche-card">
         <h3>Champs personnalisés</h3>
         <div class="field-grid">
-            {% for f in perso if f.editable %}{{ render_field(f, contact) }}{% endfor %}
+            {% for f in perso if f.editable %}{{ render_field(f, contact, readonly) }}{% endfor %}
         </div>
     </section>
     {% endif %}
@@ -130,7 +159,7 @@
     <section class="fiche-card">
         <h3>Notes</h3>
         <div class="field-grid">
-            {{ render_field(field_def('notes'), contact) }}
+            {{ render_field(field_def('notes'), contact, readonly) }}
         </div>
     </section>
 
@@ -138,12 +167,35 @@
     <section class="fiche-card fiche-card--muted">
         <h3>Informations système</h3>
         <div class="field-grid">
-            <div class="field field--half"><label>UID</label><input type="text" value="{{ contact.uid }}" readonly disabled class="sysinfo"></div>
-            <div class="field field--half"><label>Source</label><input type="text" value="{{ contact.source or '-' }}" readonly disabled class="sysinfo"></div>
-            <div class="field field--half"><label>Créé par</label><input type="text" value="{{ contact.created_by.display_name if contact.created_by else '-' }}" readonly disabled class="sysinfo"></div>
-            <div class="field field--half"><label>Modifié par</label><input type="text" value="{{ contact.updated_by.display_name if contact.updated_by else '-' }}" readonly disabled class="sysinfo"></div>
+            <div class="field field--half"><label>UID</label><div class="field-value">{{ contact.uid }}</div></div>
+            <div class="field field--half"><label>Source</label><div class="field-value">{{ contact.source or '—' }}</div></div>
+            <div class="field field--half"><label>Créé par</label><div class="field-value">{{ contact.created_by.display_name if contact.created_by else '—' }}</div></div>
+            <div class="field field--half"><label>Modifié par</label><div class="field-value">{{ contact.updated_by.display_name if contact.updated_by else '—' }}</div></div>
         </div>
     </section>
     {% endif %}
 </form>
+
+{% if readonly and contact %}
+<script>
+// Précédent/Suivant : la séquence (IDs ordonnés/filtrés) est déposée par la liste
+// dans sessionStorage au moment du clic. Ici on calcule les voisins et on câble les liens.
+(function(){
+    try {
+        var seq = JSON.parse(sessionStorage.getItem('contactNavSeq') || '[]');
+        var id = {{ contact.id }};
+        var i = seq.indexOf(id);
+        if (i === -1 || seq.length < 2) return;
+        var nav = document.getElementById('fiche-nav');
+        var prev = document.getElementById('fiche-prev'), next = document.getElementById('fiche-next');
+        var tmpl = "{{ url_for('contacts.view', id=0) }}";   // .../contacts/0/view
+        function urlFor(cid){ return tmpl.replace('/0/', '/' + cid + '/'); }
+        function pos(n){ return (n + seq.length) % seq.length; }  // cyclique
+        prev.href = urlFor(seq[pos(i-1)]);
+        next.href = urlFor(seq[pos(i+1)]);
+        nav.hidden = false;
+    } catch(e) {}
+})();
+</script>
+{% endif %}
 {% endblock %}

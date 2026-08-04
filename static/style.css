@@ -1211,6 +1211,11 @@ select:focus {
 }
 .fiche-status.is-unsub { background: var(--danger-bg); color: var(--danger-dark); border-color: var(--danger-border); }
 .fiche-actions { margin-left: auto; display: flex; gap: 0.5rem; white-space: nowrap; }
+.fiche-nav { display: flex; gap: 0.4rem; }
+.fiche-nav[hidden] { display: none; }
+/* Mode « vision » (lecture seule) de la fiche */
+.field-value { padding: 0.45rem 0.1rem; min-height: 1.2rem; color: var(--text); font-size: 0.95rem; border-bottom: 1px solid var(--border); }
+.pill-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
 .fiche-form { display: flex; flex-direction: column; gap: 1.1rem; max-width: 920px; }
 .fiche-card {

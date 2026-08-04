@@ -147,6 +147,7 @@
                 <td colspan="5">
                     {{ summary_grid(c, current_user.is_admin) }}
                     <div class="summary-actions">
+                        <a href="{{ url_for('contacts.view', id=c.id, back_liste=liste_filter or '') }}" class="btn btn-small btn-secondary view-link">Voir la fiche</a>
                         <a href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}" class="btn btn-small btn-primary edit-link">Modifier la fiche</a>
                     </div>
                 </td>
@@ -197,6 +198,7 @@
             <div class="summary-actions">
                 {% if c.telephone %}<a class="btn btn-small btn-secondary" href="{{ tel_uri(c.telephone) }}">📞 Appeler</a>{% endif %}
                 {% if c.email %}<a class="btn btn-small btn-secondary" href="mailto:{{ c.email }}">✉️ Écrire</a>{% endif %}
+                <a class="btn btn-small btn-secondary view-link" href="{{ url_for('contacts.view', id=c.id, back_liste=liste_filter or '') }}">Voir la fiche</a>
                 <a class="btn btn-small btn-primary edit-link" href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}">Modifier la fiche</a>
             </div>
         </div>
@@ -417,6 +419,15 @@ function renderPager(){
     if (to < total) btn(String(total), total, false, page === total);
     btn('Suivant ›', page + 1, page === total);
 }
+
+// ---------- Séquence Précédent/Suivant (fiche vision) ----------
+// La liste ne filtre QUE côté serveur ; le client trie/pagine. mainRows = séquence
+// filtrée complète (toutes pages). On la dépose en session au moment où on ouvre une fiche.
+function saveNavSeq(){
+    try { sessionStorage.setItem('contactNavSeq',
+        JSON.stringify(mainRows.map(function(r){ return parseInt(r.dataset.cid, 10); }))); } catch(_){}
+}
+document.querySelectorAll('.view-link, .edit-link').forEach(function(a){ a.addEventListener('click', saveNavSeq); });
 
 // ---------- Init ----------
 restoreSel();

@@ -145,6 +145,18 @@ def edit(id):
     return render_template('contact_form.html', contact=contact, listes=listes, back_liste=back_liste)
 
 
+@bp.route('/contacts/<int:id>/view')
+@login_required
+def view(id):
+    """Fiche en LECTURE SEULE (« vision ») + bouton Modifier. Un utilisateur qui suit
+    un lien (ex. onglet Réponses d'un formulaire) n'atterrit plus directement en édition."""
+    contact = Contact.query.get_or_404(id)
+    back_liste = request.args.get('back_liste', '') or None
+    listes = Liste.query.order_by(Liste.nom).all()
+    return render_template('contact_form.html', contact=contact, listes=listes,
+                           back_liste=back_liste, readonly=True)
+
+
 @bp.route('/contacts/<int:id>/delete', methods=['POST'])
 @login_required
 def delete(id):
