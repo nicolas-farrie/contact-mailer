@@ -95,6 +95,8 @@ def index():
     return render_template('settings.html', active_tab='general', deleted_contacts=deleted_contacts,
                            smtp_host=Config.SMTP_HOST, smtp_port=Config.SMTP_PORT,
                            smtp_sender=Config.SMTP_SENDER_EMAIL, smtp_tls=Config.SMTP_USE_TLS,
+                           imap_host=Config.IMAP_HOST, imap_user=Config.IMAP_USER,
+                           bounce_host=Config.BOUNCE_IMAP_HOST, bounce_user=Config.BOUNCE_IMAP_USER,
                            bounce_configured=bool(Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER),
                            bounce_enabled=(get_setting('bounce_enabled', '1') != '0'),
                            civilite_text='\n'.join(civilite_values))

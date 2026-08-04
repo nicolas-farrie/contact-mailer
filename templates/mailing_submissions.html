@@ -2,21 +2,17 @@
 {% block title %}Demandes de diffusion - Contact Mailer{% endblock %}
 {% import "_icons.html" as ico %}
 
-{% macro human_size(n) %}{% if n >= 1048576 %}{{ (n / 1048576)|round(1) }} Mo{% elif n >= 1024 %}{{ (n / 1024)|round(0)|int }} Ko{% else %}{{ n }} o{% endif %}{% endmacro %}
-
-{# Une demande : ligne + ligne d'aperçu repliable. `idp` = préfixe d'id unique. #}
-{% macro submission_rows(s, idp, actions=True) %}
+{# Une demande : ligne + ligne d'aperçu PARESSEUSE (corps/PJ chargés au clic « Voir »).
+   La liste ne rapatrie que les en-têtes → instantanée même à grande échelle. #}
+{% macro submission_rows(s, idp, archived=False, actions=True) %}
 <tr class="sub-row">
     <td style="white-space:nowrap" class="text-muted">{{ s.date }}</td>
     <td>{{ s.from_name or s.from_email }}{% if s.from_name %}<div class="recip-mail">{{ s.from_email }}</div>{% endif %}</td>
     <td class="campaign-subject">
-        <span class="subject-toggle" onclick="toggleContent('{{ idp }}')">{{ s.subject or '(sans sujet)' }}</span>
-    </td>
-    <td>
-        {% for a in s.attachments %}<span class="tag sub-attach" title="{{ a.filename }} · {{ human_size(a.size) }}">📎 {{ a.filename }}</span>{% else %}<span class="text-muted">—</span>{% endfor %}
+        <span class="subject-toggle" onclick="toggleSub('{{ idp }}')">{{ s.subject or '(sans sujet)' }}</span>
     </td>
     <td class="actions-cell">
-        <button type="button" class="icon-btn" title="Aperçu du message" onclick="toggleContent('{{ idp }}')">{{ ico.eye() }}</button>
+        <button type="button" class="icon-btn" title="Aperçu du message" onclick="toggleSub('{{ idp }}')">{{ ico.eye() }}</button>
         {% if actions %}
         <form method="POST" action="{{ url_for('mailing.submission_use', uid=s.uid) }}" style="display:inline">
             <button type="submit" class="btn btn-small btn-primary">Utiliser</button>
@@ -28,12 +24,8 @@
         {% endif %}
     </td>
 </tr>
-<tr id="{{ idp }}" class="content-row" style="display:none">
-    <td colspan="5">
-        {% if s.body_html %}
-        <iframe srcdoc="{{ s.body_html | e }}" style="width:100%;min-height:280px;border:none;" sandbox="allow-same-origin"></iframe>
-        {% else %}<pre class="body-text">{{ s.body_text or '(message vide)' }}</pre>{% endif %}
-    </td>
+<tr id="{{ idp }}" class="content-row" style="display:none" data-uid="{{ s.uid }}" data-archived="{{ '1' if archived else '' }}">
+    <td colspan="4"><div class="preview-body" data-loaded="0"><span class="text-muted">Chargement…</span></div></td>
 </tr>
 {% endmacro %}
 
@@ -69,7 +61,7 @@
 {% if submissions %}
 <div class="table-responsive">
 <table class="data-table">
-    <thead><tr><th>Date</th><th>De</th><th>Sujet</th><th>Pièces jointes</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Date</th><th>De</th><th>Sujet</th><th>Actions</th></tr></thead>
     <tbody>
         {% for s in submissions %}{{ submission_rows(s, 'sub-' ~ loop.index) }}{% endfor %}
     </tbody>
@@ -91,9 +83,9 @@
     {% if archived %}
     <div class="table-responsive">
     <table class="data-table">
-        <thead><tr><th>Date</th><th>De</th><th>Sujet</th><th>Pièces jointes</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>De</th><th>Sujet</th><th></th></tr></thead>
         <tbody>
-            {% for s in archived %}{{ submission_rows(s, 'arch-' ~ loop.index, actions=False) }}{% endfor %}
+            {% for s in archived %}{{ submission_rows(s, 'arch-' ~ loop.index, archived=True, actions=False) }}{% endfor %}
         </tbody>
     </table>
     </div>
@@ -103,9 +95,23 @@
 {% endif %}
 
 <script>
-function toggleContent(id) {
+function toggleSub(id) {
     var row = document.getElementById(id);
-    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+    if (!row) return;
+    var open = row.style.display !== 'none';
+    row.style.display = open ? 'none' : 'table-row';
+    if (!open) loadPreview(row);
+}
+function loadPreview(row) {
+    var box = row.querySelector('.preview-body');
+    if (!box || box.dataset.loaded === '1') return;
+    box.dataset.loaded = '1';   // avant le fetch : évite les double-chargements
+    var url = "{{ url_for('mailing.submission_preview', uid='__UID__') }}".replace('__UID__', encodeURIComponent(row.dataset.uid));
+    if (row.dataset.archived) url += '?archived=1';
+    fetch(url)
+      .then(function(r){ return r.text(); })
+      .then(function(html){ box.innerHTML = html; })
+      .catch(function(){ box.innerHTML = '<p class="text-muted">Erreur de chargement.</p>'; box.dataset.loaded = '0'; });
 }
 </script>
 {% endblock %}

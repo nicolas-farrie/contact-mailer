@@ -5,7 +5,7 @@ Endpoints : mailing.compose, mailing.history, mailing.queue_retry,
 mailing.history_archive/unarchive/delete, mailing.submissions,
 mailing.submission_use/archive/attachment, mailing.preview, mailing.send,
 mailing.confirm, mailing.add_to_queue, mailing.queue, mailing.process,
-mailing.test_smtp.
+mailing.submission_preview, mailing.test_connection.
 """
 import re
 
@@ -261,6 +261,24 @@ def submission_use(uid):
     except Exception as e:
         flash(f'Erreur lors de la lecture du message : {e}', 'error')
         return redirect(url_for('mailing.submissions'))
+
+
+@bp.route('/mailing/submissions/<uid>/preview')
+@login_required
+def submission_preview(uid):
+    """Aperçu (corps + PJ) d'UNE demande, chargé à la demande au clic « Voir » —
+    évite de rapatrier tous les corps dans la liste. `?archived=1` = dossier traité."""
+    if not (Config.IMAP_HOST and Config.IMAP_USER):
+        return '<p class="text-muted">Boîte non configurée.</p>'
+    import imap_submissions
+    folder = Config.IMAP_PROCESSED_FOLDER if request.args.get('archived') == '1' else None
+    try:
+        sub = imap_submissions.get_submission(Config, uid, folder=folder)
+    except Exception:
+        return '<p class="text-muted">Erreur de chargement du message.</p>'
+    if not sub:
+        return '<p class="text-muted">Message introuvable (déjà traité ?).</p>'
+    return render_template('_submission_preview.html', s=sub)
 
 
 @bp.route('/mailing/submissions/<uid>/archive', methods=['POST'])
@@ -867,17 +885,41 @@ def process():
     return redirect(url_for('mailing.queue', campaign=campaign))
 
 
-@bp.route('/mailing/test-smtp', methods=['POST'])
+@bp.route('/mailing/test-connection', methods=['POST'])
 @login_required
-def test_smtp():
-    """Test la connexion SMTP"""
+def test_connection():
+    """Teste une connexion avec la configuration `.env` COURANTE, sans rien modifier :
+    - kind='smtp'   : envoi (SMTP)
+    - kind='imap'   : boîte des demandes de diffusion (IMAP)
+    - kind='bounce' : boîte des bounces (IMAP)
+    Renvoie {success, error}."""
     import smtplib
     import ssl
+    import imaplib
 
-    if not Config.SMTP_HOST:
-        return jsonify({'success': False, 'error': 'SMTP non configuré'})
-
+    kind = request.form.get('kind', 'smtp')
     try:
+        if kind == 'imap':
+            if not Config.IMAP_HOST:
+                return jsonify({'success': False, 'error': 'Boîte des demandes (IMAP) non configurée'})
+            conn = imaplib.IMAP4_SSL(Config.IMAP_HOST, Config.IMAP_PORT)
+            conn.login(Config.IMAP_USER, Config.IMAP_PASSWORD)
+            conn.select(Config.IMAP_FOLDER)
+            conn.logout()
+            return jsonify({'success': True})
+
+        if kind == 'bounce':
+            if not Config.BOUNCE_IMAP_HOST:
+                return jsonify({'success': False, 'error': 'Boîte bounce (IMAP) non configurée'})
+            conn = imaplib.IMAP4_SSL(Config.BOUNCE_IMAP_HOST, Config.BOUNCE_IMAP_PORT)
+            conn.login(Config.BOUNCE_IMAP_USER, Config.BOUNCE_IMAP_PASSWORD)
+            conn.select(Config.BOUNCE_IMAP_FOLDER)
+            conn.logout()
+            return jsonify({'success': True})
+
+        # défaut : SMTP
+        if not Config.SMTP_HOST:
+            return jsonify({'success': False, 'error': 'SMTP non configuré'})
         context = ssl.create_default_context()
         if Config.SMTP_USE_TLS:
             with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT) as server:

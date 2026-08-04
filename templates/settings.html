@@ -35,8 +35,20 @@
             <label>Expéditeur</label>
             <div class="field-value">{{ smtp_sender or '—' }}</div>
         </div>
-        <button type="button" class="btn btn-secondary" id="smtp-test-btn" onclick="testSmtp()"{% if not smtp_host %} disabled{% endif %}>Tester la connexion</button>
+        <button type="button" class="btn btn-secondary" id="smtp-test-btn" onclick="testConn('smtp','smtp-test-btn','smtp-test-result')"{% if not smtp_host %} disabled{% endif %}>Tester la connexion</button>
         <span id="smtp-test-result" class="smtp-result"></span>
+    </section>
+
+    <!-- Réception des demandes de diffusion (IMAP) -->
+    <section class="card settings-section">
+        <h2>Réception des demandes de diffusion (IMAP)</h2>
+        <p class="settings-hint">Boîte où arrivent les demandes de diffusion (définie côté serveur, dans <code>.env</code>).</p>
+        <div class="form-group">
+            <label>Boîte</label>
+            <div class="field-value">{% if imap_host %}{{ imap_user }} · {{ imap_host }}{% else %}— non configurée —{% endif %}</div>
+        </div>
+        <button type="button" class="btn btn-secondary" id="imap-test-btn" onclick="testConn('imap','imap-test-btn','imap-test-result')"{% if not imap_host %} disabled{% endif %}>Tester la connexion</button>
+        <span id="imap-test-result" class="smtp-result"></span>
     </section>
 
     <!-- Valeurs par défaut -->
@@ -67,6 +79,13 @@
             <p class="field-help">Désactivé : aucune adresse de retour (Return-Path) n'est imposée à l'envoi — utile si votre serveur mail rejette les envois (erreur SMTP&nbsp;553).</p>
             <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">Enregistrer</button>
         </form>
+        {% if bounce_host %}
+        <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--border);">
+            <div class="field-help" style="margin:0 0 0.4rem;">Boîte de retour (bounce) : <strong>{{ bounce_user }} · {{ bounce_host }}</strong></div>
+            <button type="button" class="btn btn-secondary btn-small" id="bounce-test-btn" onclick="testConn('bounce','bounce-test-btn','bounce-test-result')">Tester la connexion (bounce)</button>
+            <span id="bounce-test-result" class="smtp-result"></span>
+        </div>
+        {% endif %}
     </section>
 
     <!-- Apparence de la connexion -->
@@ -127,10 +146,11 @@
 </div>
 
 <script>
-function testSmtp(){
-    var btn = document.getElementById('smtp-test-btn'), res = document.getElementById('smtp-test-result');
+function testConn(kind, btnId, resId){
+    var btn = document.getElementById(btnId), res = document.getElementById(resId);
     btn.disabled = true; res.textContent = '⏳ Test en cours…'; res.className = 'smtp-result';
-    fetch("{{ url_for('mailing.test_smtp') }}", {method: 'POST'})
+    var fd = new FormData(); fd.append('kind', kind);
+    fetch("{{ url_for('mailing.test_connection') }}", {method: 'POST', body: fd})
       .then(function(r){ return r.json(); })
       .then(function(d){
           if (d.success){ res.textContent = '✓ Connexion réussie'; res.className = 'smtp-result is-ok'; }

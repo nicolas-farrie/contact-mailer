@@ -1,0 +1,12 @@
+{# Fragment d'aperçu d'une demande de diffusion (corps + PJ), chargé en AJAX au clic. #}
+{% macro human_size(n) %}{% if n >= 1048576 %}{{ (n / 1048576)|round(1) }} Mo{% elif n >= 1024 %}{{ (n / 1024)|round(0)|int }} Ko{% else %}{{ n }} o{% endif %}{% endmacro %}
+{% if s.attachments %}
+<div class="preview-attachments">
+    {% for a in s.attachments %}<span class="tag">📎 {{ a.filename }} · {{ human_size(a.size) }}</span>{% endfor %}
+</div>
+{% endif %}
+{% if s.body_html %}
+<iframe srcdoc="{{ s.body_html | e }}" style="width:100%;min-height:280px;border:none;" sandbox="allow-same-origin"></iframe>
+{% else %}
+<pre class="body-text">{{ s.body_text or '(message vide)' }}</pre>
+{% endif %}

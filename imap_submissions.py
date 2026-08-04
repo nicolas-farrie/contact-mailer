@@ -115,12 +115,14 @@ def fetch_submissions(config, folder=None):
 
         submissions = []
         for uid in data[0].split():
-            status, msg_data = conn.fetch(uid, '(RFC822)')
-            if status != 'OK':
+            # LISTE = en-têtes SEULEMENT (rapide) : ne PAS télécharger le corps ni les
+            # pièces jointes de chaque message. Le corps est chargé à la demande, au clic
+            # « Voir » (cf. get_submission / route submission_preview). Sinon lister N
+            # demandes = rapatrier N emails entiers, PJ comprises → très lent à l'échelle.
+            status, msg_data = conn.fetch(uid, '(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])')
+            if status != 'OK' or not msg_data or not msg_data[0]:
                 continue
             msg = email.message_from_bytes(msg_data[0][1])
-
-            body_text, body_html, attachments = _extract_body_and_attachments(msg)
             name, addr = parseaddr(_decode(msg.get('From', '')))
 
             submissions.append({
@@ -129,12 +131,6 @@ def fetch_submissions(config, folder=None):
                 'from_email': addr,
                 'subject': _decode(msg.get('Subject', '')),
                 'date': _fmt_date(msg.get('Date', '')),
-                'body_text': body_text,
-                'body_html': body_html,
-                'attachments': [
-                    {'filename': a['filename'], 'size': a['size']}
-                    for a in attachments
-                ],
             })
 
         # Plus récent en premier
@@ -144,11 +140,12 @@ def fetch_submissions(config, folder=None):
         conn.logout()
 
 
-def get_submission(config, uid):
-    """Récupère le détail complet (corps + pièces jointes avec contenu) d'une demande."""
+def get_submission(config, uid, folder=None):
+    """Récupère le détail complet (corps + pièces jointes avec contenu) d'une demande.
+    `folder` permet de lire une demande ARCHIVÉE (IMAP_PROCESSED_FOLDER)."""
     conn = _connect(config)
     try:
-        conn.select(config.IMAP_FOLDER)
+        conn.select(folder or config.IMAP_FOLDER)
         status, msg_data = conn.fetch(uid.encode(), '(RFC822)')
         if status != 'OK' or not msg_data[0]:
             return None
