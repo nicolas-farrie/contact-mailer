@@ -9,7 +9,16 @@ import base64
 import imaplib
 import email
 from email.header import decode_header
-from email.utils import parseaddr
+from email.utils import parseaddr, parsedate_to_datetime
+
+
+def _fmt_date(raw):
+    """Date d'email RFC 2822 → « JJ/MM/AAAA HH:MM » (repli sur la valeur brute)."""
+    try:
+        dt = parsedate_to_datetime(raw)
+        return dt.strftime('%d/%m/%Y %H:%M') if dt else raw
+    except Exception:
+        return raw
 
 
 def _decode(value):
@@ -93,11 +102,13 @@ def _extract_body_and_attachments(msg):
     return body_text, body_html, attachments
 
 
-def fetch_submissions(config):
-    """Liste les demandes en attente dans le dossier IMAP configuré."""
+def fetch_submissions(config, folder=None):
+    """Liste les demandes d'un dossier IMAP.
+    `folder=None` → dossier des demandes en attente (IMAP_FOLDER) ;
+    passer `config.IMAP_PROCESSED_FOLDER` pour lister les demandes archivées."""
     conn = _connect(config)
     try:
-        conn.select(config.IMAP_FOLDER)
+        conn.select(folder or config.IMAP_FOLDER)
         status, data = conn.search(None, *_search_criteria(config))
         if status != 'OK':
             return []
@@ -117,7 +128,7 @@ def fetch_submissions(config):
                 'from_name': name,
                 'from_email': addr,
                 'subject': _decode(msg.get('Subject', '')),
-                'date': msg.get('Date', ''),
+                'date': _fmt_date(msg.get('Date', '')),
                 'body_text': body_text,
                 'body_html': body_html,
                 'attachments': [
@@ -151,7 +162,7 @@ def get_submission(config, uid):
             'from_name': name,
             'from_email': addr,
             'subject': _decode(msg.get('Subject', '')),
-            'date': msg.get('Date', ''),
+            'date': _fmt_date(msg.get('Date', '')),
             'body_text': body_text,
             'body_html': body_html,
             'attachments': attachments,

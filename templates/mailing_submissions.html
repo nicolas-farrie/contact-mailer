@@ -1,117 +1,111 @@
 {% extends "base.html" %}
 {% block title %}Demandes de diffusion - Contact Mailer{% endblock %}
+{% import "_icons.html" as ico %}
+
+{% macro human_size(n) %}{% if n >= 1048576 %}{{ (n / 1048576)|round(1) }} Mo{% elif n >= 1024 %}{{ (n / 1024)|round(0)|int }} Ko{% else %}{{ n }} o{% endif %}{% endmacro %}
+
+{# Une demande : ligne + ligne d'aperçu repliable. `idp` = préfixe d'id unique. #}
+{% macro submission_rows(s, idp, actions=True) %}
+<tr class="sub-row">
+    <td style="white-space:nowrap" class="text-muted">{{ s.date }}</td>
+    <td>{{ s.from_name or s.from_email }}{% if s.from_name %}<div class="recip-mail">{{ s.from_email }}</div>{% endif %}</td>
+    <td class="campaign-subject">
+        <span class="subject-toggle" onclick="toggleContent('{{ idp }}')">{{ s.subject or '(sans sujet)' }}</span>
+    </td>
+    <td>
+        {% for a in s.attachments %}<span class="tag sub-attach" title="{{ a.filename }} · {{ human_size(a.size) }}">📎 {{ a.filename }}</span>{% else %}<span class="text-muted">—</span>{% endfor %}
+    </td>
+    <td class="actions-cell">
+        <button type="button" class="icon-btn" title="Aperçu du message" onclick="toggleContent('{{ idp }}')">{{ ico.eye() }}</button>
+        {% if actions %}
+        <form method="POST" action="{{ url_for('mailing.submission_use', uid=s.uid) }}" style="display:inline">
+            <button type="submit" class="btn btn-small btn-primary">Utiliser</button>
+        </form>
+        <form method="POST" action="{{ url_for('mailing.submission_archive', uid=s.uid) }}" style="display:inline">
+            <button type="submit" class="icon-btn" title="Archiver (traiter sans créer de mailing)"
+                    onclick="return confirm('Archiver cette demande sans créer de mailing ?')">{{ ico.archive() }}</button>
+        </form>
+        {% endif %}
+    </td>
+</tr>
+<tr id="{{ idp }}" class="content-row" style="display:none">
+    <td colspan="5">
+        {% if s.body_html %}
+        <iframe srcdoc="{{ s.body_html | e }}" style="width:100%;min-height:280px;border:none;" sandbox="allow-same-origin"></iframe>
+        {% else %}<pre class="body-text">{{ s.body_text or '(message vide)' }}</pre>{% endif %}
+    </td>
+</tr>
+{% endmacro %}
 
 {% block content %}
 <div class="page-header">
-    <h1>Demandes de diffusion {% if submissions %}<span class="count">({{ submissions|length }})</span>{% endif %}</h1>
-    <div>
-        <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
-    </div>
+    <h1>Demandes de diffusion {% if submissions %}<span class="count">{{ submissions|length }}</span>{% endif %}</h1>
+    <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
 </div>
 
 {% if not imap_configured %}
-<div class="alert alert-error">
-    <strong>Boîte de demandes non configurée.</strong> Ajoutez IMAP_HOST, IMAP_USER, IMAP_PASSWORD dans votre fichier .env
-</div>
+<div class="alert alert-error"><strong>Boîte de demandes non configurée.</strong> Ajoutez IMAP_HOST, IMAP_USER, IMAP_PASSWORD dans votre fichier <code>.env</code>.</div>
 {% elif error %}
-<div class="alert alert-error">
-    <strong>Erreur de connexion IMAP :</strong> {{ error }}
-</div>
+<div class="alert alert-error"><strong>Erreur de connexion IMAP :</strong> {{ error }}</div>
 {% endif %}
 
 {% if imap_configured and not error %}
 <div class="info-box" style="margin-bottom:0.75rem;">
     <h3>Adresse de dépôt des demandes</h3>
-    <p>Les contacts qui souhaitent soumettre un message à diffuser envoient un email à :</p>
-    <p style="font-size:1.1rem;font-weight:600;margin:0.5rem 0;">
-        <a href="mailto:{{ config.IMAP_USER }}">{{ config.IMAP_USER }}</a>
-    </p>
-    <p style="color:var(--gray-500);font-size:0.875rem;">Le sujet du mail devient le sujet du mailing ; le corps du mail en devient le contenu, avec les pièces jointes éventuelles.</p>
+    <p>Pour proposer un message à diffuser, on envoie un email à :</p>
+    <p style="font-size:1.05rem;font-weight:600;margin:0.4rem 0;"><a href="mailto:{{ config.IMAP_USER }}">{{ config.IMAP_USER }}</a></p>
+    <details class="submissions-help">
+        <summary>Comment ça marche ?</summary>
+        <ul>
+            <li>Le <strong>sujet</strong> du mail devient le sujet du mailing ; le <strong>corps</strong> en devient le contenu (pièces jointes comprises).</li>
+            <li><strong>Utiliser</strong> : pré-remplit un nouveau mailing. La demande reste visible tant que le mailing n'est pas mis en file d'envoi (rien n'est perdu si on abandonne).</li>
+            <li><strong>Archiver</strong> : marque la demande comme traitée sans créer de mailing.</li>
+            <li>Les demandes traitées sont déplacées vers le dossier « {{ config.IMAP_PROCESSED_FOLDER }} » de la boîte.</li>
+        </ul>
+    </details>
 </div>
 {% endif %}
-<div class="info-box">
-    <h3>Fonctionnement</h3>
-    <ul>
-        <li>Les messages reçus sur la boîte dédiée apparaissent ci-dessous</li>
-        <li><strong>Utiliser</strong> : pré-remplit un nouveau mailing avec le sujet et le corps du message. La demande reste visible ici tant que le mailing n'est pas mis en file d'envoi (en cas d'abandon, rien n'est perdu)</li>
-        <li><strong>Archiver</strong> : marque la demande comme traitée sans créer de mailing</li>
-        <li>Les demandes traitées (utilisées et envoyées, ou archivées) sont déplacées vers le dossier "{{ config.IMAP_PROCESSED_FOLDER }}" de la boîte</li>
-    </ul>
-</div>
 
 {% if submissions %}
 <div class="table-responsive">
 <table class="data-table">
-    <thead>
-        <tr>
-            <th data-sort>Date</th>
-            <th data-sort>De</th>
-            <th data-sort>Sujet</th>
-            <th>Pièces jointes</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
+    <thead><tr><th>Date</th><th>De</th><th>Sujet</th><th>Pièces jointes</th><th>Actions</th></tr></thead>
     <tbody>
-        {% for s in submissions %}
-        <tr>
-            <td style="white-space:nowrap">{{ s.date }}</td>
-            <td>{{ s.from_name or s.from_email }}{% if s.from_name %} <span class="hint">&lt;{{ s.from_email }}&gt;</span>{% endif %}</td>
-            <td class="campaign-subject">{{ s.subject or '(sans sujet)' }}</td>
-            <td>
-                {% for a in s.attachments %}
-                <span class="badge badge-pending" title="{{ a.size }} octets">{{ a.filename }}</span>
-                {% endfor %}
-            </td>
-            <td class="actions-cell">
-                <form method="POST" action="{{ url_for('mailing.submission_use', uid=s.uid) }}" style="display:inline">
-                    <button type="submit" class="btn btn-sm btn-primary">Utiliser pour un mailing</button>
-                </form>
-                <form method="POST" action="{{ url_for('mailing.submission_archive', uid=s.uid) }}" style="display:inline">
-                    <button type="submit" class="btn btn-sm btn-secondary"
-                            onclick="return confirm('Archiver cette demande sans créer de mailing ?')">Archiver</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
+        {% for s in submissions %}{{ submission_rows(s, 'sub-' ~ loop.index) }}{% endfor %}
     </tbody>
 </table>
 </div>
 {% elif imap_configured and not error %}
-<div class="empty-state">
-    <p>Aucune demande en attente.</p>
+<div class="empty-state"><p>Aucune demande en attente.</p></div>
+{% endif %}
+
+{% if imap_configured and not error %}
+<div class="submissions-archived">
+    {% if not show_archived %}
+    <a href="{{ url_for('mailing.submissions', archived=1) }}" class="btn btn-secondary btn-small">Voir les demandes archivées</a>
+    {% else %}
+    <div class="detail-link-head" style="margin-bottom:0.5rem;">
+        <h2 style="font-size:1rem;margin:0;">Demandes archivées {% if archived %}<span class="badge badge-gray">{{ archived|length }}</span>{% endif %}</h2>
+        <a href="{{ url_for('mailing.submissions') }}" class="btn btn-secondary btn-small">Masquer</a>
+    </div>
+    {% if archived %}
+    <div class="table-responsive">
+    <table class="data-table">
+        <thead><tr><th>Date</th><th>De</th><th>Sujet</th><th>Pièces jointes</th><th></th></tr></thead>
+        <tbody>
+            {% for s in archived %}{{ submission_rows(s, 'arch-' ~ loop.index, actions=False) }}{% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}<p class="empty-state-text">Aucune demande archivée.</p>{% endif %}
+    {% endif %}
 </div>
 {% endif %}
 
-<style>
-.campaign-subject {
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+<script>
+function toggleContent(id) {
+    var row = document.getElementById(id);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
 }
-.badge {
-    display: inline-block;
-    padding: 0.125rem 0.5rem;
-    border-radius: 99px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin-right: 0.25rem;
-}
-.badge-pending { background: #fef3c7; color: #92400e; }
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.8rem;
-}
-.actions-cell {
-    white-space: nowrap;
-}
-.actions-cell .btn {
-    margin-right: 0.25rem;
-}
-.empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--gray-500);
-}
-</style>
+</script>
 {% endblock %}

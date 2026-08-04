@@ -1209,6 +1209,11 @@ select:focus {
 .smtp-result { margin-left: 0.6rem; font-size: 0.9rem; font-weight: 600; }
 .smtp-result.is-ok { color: #047857; }
 .smtp-result.is-err { color: #b91c1c; }
+.submissions-help { margin-top: 0.5rem; }
+.submissions-help summary { cursor: pointer; color: var(--primary); font-size: 0.85rem; }
+.submissions-help ul { margin: 0.5rem 0 0; padding-left: 1.1rem; font-size: 0.88rem; color: var(--gray-600, #4b5563); }
+.submissions-archived { margin-top: 1.75rem; }
+.sub-attach { display: inline-block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
 .tag-bounce  { background: #fef3c7; color: #92400e; border-color: #fde68a; }
 .table-actions { display: flex; gap: 0.4rem; white-space: nowrap; }
 

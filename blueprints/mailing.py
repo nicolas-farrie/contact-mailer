@@ -196,17 +196,22 @@ def history_delete(campaign_id):
 def submissions():
     """Liste les demandes de diffusion reçues sur la boîte IMAP dédiée"""
     imap_configured = bool(Config.IMAP_HOST and Config.IMAP_USER)
+    show_archived = request.args.get('archived') == '1'
     submissions = []
+    archived = []
     error = None
 
     if imap_configured:
         import imap_submissions
         try:
             submissions = imap_submissions.fetch_submissions(Config)
+            if show_archived:
+                archived = imap_submissions.fetch_submissions(Config, folder=Config.IMAP_PROCESSED_FOLDER)
         except Exception as e:
             error = str(e)
 
     return render_template('mailing_submissions.html', submissions=submissions,
+                           archived=archived, show_archived=show_archived,
                            imap_configured=imap_configured, error=error)
 
 
