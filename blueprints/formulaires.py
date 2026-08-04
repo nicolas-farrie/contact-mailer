@@ -38,7 +38,7 @@ def index():
     archived = (PreferenceForm.query.filter_by(is_archived=True)
                 .order_by(PreferenceForm.created_at.desc()).all())
     pending_by_form = dict(db.session.query(FieldProposal.form_id, db.func.count())
-                           .filter(FieldProposal.status == 'pending')
+                           .filter(FieldProposal.status == 'pending', FieldProposal.is_test == False)
                            .group_by(FieldProposal.form_id).all())
     return render_template('formulaires.html', forms=forms, archived=archived,
                            pending_by_form=pending_by_form, now=datetime.utcnow())
@@ -91,12 +91,12 @@ def detail(id):
     base_url = (Config.BASE_URL or request.host_url).rstrip('/')
     link_template = f"{base_url}/p/{pf.token}/{{uid}}"
     responses = (PreferenceResponse.query
-                 .filter_by(form_id=pf.id)
+                 .filter_by(form_id=pf.id, is_test=False)
                  .order_by(PreferenceResponse.submitted_at.desc()).all())
     tab = request.args.get('tab', 'reponses')
     if tab not in ('lien', 'reponses', 'valider'):
         tab = 'reponses'
-    props = (FieldProposal.query.filter_by(form_id=pf.id, status='pending')
+    props = (FieldProposal.query.filter_by(form_id=pf.id, status='pending', is_test=False)
              .order_by(FieldProposal.contact_id, FieldProposal.proposed_at).all())
     grouped = {}
     for p in props:
@@ -132,7 +132,7 @@ def _csv_safe(val):
 def export_responses(id):
     """Export CSV des réponses d'un formulaire (listes choisies + réponses de sondage), échappé."""
     pf = PreferenceForm.query.get_or_404(id)
-    responses = (PreferenceResponse.query.filter_by(form_id=pf.id)
+    responses = (PreferenceResponse.query.filter_by(form_id=pf.id, is_test=False)
                  .order_by(PreferenceResponse.submitted_at.desc()).all())
     liste_names = {l.id: l.nom for l in Liste.query.all()}
     questions = []
@@ -182,8 +182,8 @@ def _render_edit_form(pf, listes, form_data):
     else:
         pf.expires_at = None
     return render_template('formulaire_edit.html', form=pf, listes=listes,
-                           locked=(len(pf.responses) > 0), now=datetime.utcnow(),
-                           pending=FieldProposal.query.filter_by(form_id=pf.id, status='pending').count(),
+                           locked=(len(pf.real_responses) > 0), now=datetime.utcnow(),
+                           pending=FieldProposal.query.filter_by(form_id=pf.id, status='pending', is_test=False).count(),
                            field_groups=fields_registry.fields_by_group(),
                            editable_keys=editable,
                            fiche_selected=[k for k in form_data.getlist('fiche_fields') if k in editable],
@@ -213,7 +213,7 @@ def edit(id):
         # Verrou structurel affiné (#21) : le JEU de groupes n'est figé QUE si le
         # formulaire a DÉJÀ des réponses (des contacts y ont répondu). Un formulaire
         # jamais utilisé reste librement restructurable, même actif.
-        was_locked = len(pf.responses) > 0
+        was_locked = len(pf.real_responses) > 0
         pf.nom = nom
         pf.description = request.form.get('description', '').strip() or None
         pf.is_active = request.form.get('is_active') == 'on'
@@ -236,8 +236,8 @@ def edit(id):
         db.session.commit()
         flash('Formulaire mis à jour.' + (' Groupes verrouillés (des réponses existent) : seuls libellés, aides et ordre ont été enregistrés.' if was_locked else ''), 'success')
         return redirect(url_for('formulaires.detail', id=pf.id, tab='lien'))
-    locked = len(pf.responses) > 0
-    pending = FieldProposal.query.filter_by(form_id=pf.id, status='pending').count()
+    locked = len(pf.real_responses) > 0
+    pending = FieldProposal.query.filter_by(form_id=pf.id, status='pending', is_test=False).count()
     fiche_block = next((b for b in pf.blocks if b.type == 'fiche'), None)
     sondage_block = next((b for b in pf.blocks if b.type == 'sondage'), None)
     return render_template('formulaire_edit.html', form=pf, listes=listes, locked=locked,
@@ -426,7 +426,7 @@ def proposal_apply(id):
     PreferenceForm.query.get_or_404(id)
     contact_id = request.form.get('contact_id', type=int)
     contact = Contact.query.get(contact_id)
-    props = FieldProposal.query.filter_by(form_id=id, contact_id=contact_id, status='pending').all()
+    props = FieldProposal.query.filter_by(form_id=id, contact_id=contact_id, status='pending', is_test=False).all()
     if not contact or not props:
         flash('Rien à appliquer.', 'error')
         return redirect(url_for('formulaires.detail', id=id, tab='valider'))
@@ -448,7 +448,7 @@ def proposal_reject(id):
     """Rejette (sans écrire) toutes les propositions en attente d'un contact."""
     PreferenceForm.query.get_or_404(id)
     contact_id = request.form.get('contact_id', type=int)
-    props = FieldProposal.query.filter_by(form_id=id, contact_id=contact_id, status='pending').all()
+    props = FieldProposal.query.filter_by(form_id=id, contact_id=contact_id, status='pending', is_test=False).all()
     now = datetime.utcnow()
     for p in props:
         p.status = 'rejected'
@@ -571,6 +571,17 @@ def _send_otp(pf, contact):
     return 'sent' if _mail_otp(contact, pf, code) else 'error'
 
 
+def _is_test_req():
+    """L'accès porte-t-il le marqueur d'envoi test (?test=1 ou champ caché) ?
+    Propagé de bout en bout pour taguer la donnée is_test sans la faire compter comme réelle."""
+    return request.args.get('test') == '1' or request.form.get('test') == '1'
+
+
+def _public_url(form_token, contact_uid, test):
+    return url_for('formulaires.public', form_token=form_token, contact_uid=contact_uid,
+                   **({'test': '1'} if test else {}))
+
+
 @bp.route('/p/<form_token>/<contact_uid>/code', methods=['POST'])
 def request_code(form_token, contact_uid):
     """(Re)envoi d'un code à la demande depuis l'écran de vérification."""
@@ -585,7 +596,7 @@ def request_code(form_token, contact_uid):
         flash('Un code vient d\'être envoyé. Patientez une minute avant d\'en demander un autre.', 'error')
     else:
         flash('L\'envoi du code a échoué. Réessayez dans un instant.', 'error')
-    return redirect(url_for('formulaires.public', form_token=form_token, contact_uid=contact_uid))
+    return redirect(_public_url(form_token, contact_uid, _is_test_req()))
 
 
 @bp.route('/p/<form_token>/<contact_uid>/verify', methods=['POST'])
@@ -621,7 +632,7 @@ def verify_code(form_token, contact_uid):
         db.session.commit()
         left = max(0, OTP_MAX_ATTEMPTS - rec.attempts)
         flash(f'Code incorrect. Il vous reste {left} essai(s).', 'error')
-    return redirect(url_for('formulaires.public', form_token=form_token, contact_uid=contact_uid))
+    return redirect(_public_url(form_token, contact_uid, _is_test_req()))
 
 
 @bp.route('/p/<form_token>/<contact_uid>', methods=['GET', 'POST'])
@@ -639,10 +650,11 @@ def public(form_token, contact_uid):
             _send_otp(pf, contact)   # 1er envoi automatique à l'ouverture (anti-flood via cooldown)
         return render_template('preferences_otp.html', form=pf, contact=contact,
                                masked_email=_mask_email(contact.email),
-                               ttl_min=OTP_TTL_MIN)
+                               ttl_min=OTP_TTL_MIN, test=_is_test_req())
 
     if request.method == 'POST':
         data = {}
+        is_test = _is_test_req()   # envoi test → donnée taguée is_test, exclue partout où « réel » compte
         # --- Bloc listes : appliqué directement sur Contact.listes ---
         if any(b.type == 'listes' for b in blocks):
             checked_ids = set(request.form.getlist('liste_ids', type=int))
@@ -672,10 +684,12 @@ def public(form_token, contact_uid):
                 for k in [k for k in (b.config or {}).get('fields', []) if k in allowed]:
                     newv = (request.form.get(f'fiche_{k}', '') or '').strip()
                     curv = _contact_field_value(contact, k)
-                    # Dédup : une seule proposition « pending » par (formulaire, contact, champ).
+                    # Dédup : une seule proposition « pending » par (formulaire, contact, champ),
+                    # ISOLÉE par is_test (un test ne touche jamais une proposition réelle).
                     # Re-soumettre MET À JOUR l'existante au lieu d'en créer une nouvelle.
                     existing = FieldProposal.query.filter_by(
-                        form_id=pf.id, contact_id=contact.id, field_key=k, status='pending').first()
+                        form_id=pf.id, contact_id=contact.id, field_key=k,
+                        status='pending', is_test=is_test).first()
                     if newv and newv != (curv or ''):
                         if existing:
                             existing.old_value = curv
@@ -685,17 +699,21 @@ def public(form_token, contact_uid):
                         else:
                             db.session.add(FieldProposal(
                                 form_id=pf.id, contact_id=contact.id, field_key=k,
-                                old_value=curv, new_value=newv, status='pending', otp_verified=otp_ok))
+                                old_value=curv, new_value=newv, status='pending',
+                                otp_verified=otp_ok, is_test=is_test))
                     elif existing:
                         # Le contact est revenu à la valeur canonique (ou a vidé le champ) :
                         # la proposition en attente n'a plus lieu d'être → on la retire.
                         db.session.delete(existing)
-        # Trace / met à jour la réponse (payload isolé)
-        resp = PreferenceResponse.query.filter_by(contact_id=contact.id, form_id=pf.id).first()
+        # Trace / met à jour la réponse (payload isolé). Ligne test et ligne réelle
+        # sont indépendantes (filtre is_test) : un test n'écrase jamais une réponse réelle.
+        resp = PreferenceResponse.query.filter_by(
+            contact_id=contact.id, form_id=pf.id, is_test=is_test).first()
         if resp:
             resp.submitted_at = datetime.utcnow(); resp.data = data
         else:
-            db.session.add(PreferenceResponse(contact_id=contact.id, form_id=pf.id, data=data))
+            db.session.add(PreferenceResponse(contact_id=contact.id, form_id=pf.id,
+                                              data=data, is_test=is_test))
         db.session.commit()
         return render_template('preferences_confirm.html', form=pf, contact=contact)
 
@@ -713,4 +731,5 @@ def public(form_token, contact_uid):
                            contact_liste_ids=contact_liste_ids, blocks=blocks,
                            field_map=fields_registry.field_map(),
                            field_options=fields_registry.field_options, preview=False,
-                           fiche_values=fiche_values, email_verified=needs_otp)
+                           fiche_values=fiche_values, email_verified=needs_otp,
+                           test=_is_test_req())

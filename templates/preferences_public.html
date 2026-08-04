@@ -44,6 +44,7 @@
     {% if form.description %}<p class="description">{{ form.description }}</p>{% endif %}
 
     <form method="POST"{% if preview %} onsubmit="return false;"{% endif %}>
+        {% if test|default(false) %}<input type="hidden" name="test" value="1">{% endif %}
         {% for block in blocks %}
 
         {% if block.type == 'listes' and form.listes %}

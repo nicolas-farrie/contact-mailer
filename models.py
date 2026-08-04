@@ -159,6 +159,11 @@ class PreferenceForm(db.Model):
                              order_by='PreferenceFormListe.ordre', cascade='all, delete-orphan')
     responses = db.relationship('PreferenceResponse', back_populates='form', cascade='all, delete-orphan')
 
+    @property
+    def real_responses(self):
+        """Réponses réelles, hors envois de test (`is_test`). Base des verrous/compteurs."""
+        return [r for r in self.responses if not r.is_test]
+
 
 class PreferenceFormListe(db.Model):
     __tablename__ = 'preference_form_liste'
@@ -180,6 +185,10 @@ class PreferenceResponse(db.Model):
     form_id = db.Column(db.Integer, db.ForeignKey('preference_form.id'), nullable=False)
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
     data = db.Column(db.JSON, nullable=True)   # payload v2 : {listes:[ids], survey:{question_id: réponse}}
+    # Réponse issue d'un ENVOI TEST (« Envoi un test ») : parcours réel mais donnée
+    # exclue partout où « réel » compte (verrou, compteurs, export). Bool aujourd'hui,
+    # extensible en code (type de test) plus tard.
+    is_test = db.Column(db.Boolean, default=False, nullable=False)
     contact = db.relationship('Contact')
     form = db.relationship('PreferenceForm', back_populates='responses')
 
@@ -227,6 +236,7 @@ class FieldProposal(db.Model):
     new_value = db.Column(db.Text)     # valeur proposée par le contact
     status = db.Column(db.String(20), default='pending', nullable=False)   # pending | applied | rejected
     otp_verified = db.Column(db.Boolean, default=False, nullable=False)     # Phase 2 (OTP email)
+    is_test = db.Column(db.Boolean, default=False, nullable=False)          # proposition issue d'un envoi test → exclue de « À valider »
     proposed_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviewed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)

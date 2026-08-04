@@ -26,7 +26,7 @@
 <nav class="form-tabs">
     <a class="form-tab{{ ' active' if active=='edition' }}" href="{{ url_for('formulaires.edit', id=form.id) }}">Édition</a>
     <a class="form-tab{{ ' active' if active=='lien' }}" href="{{ url_for('formulaires.detail', id=form.id, tab='lien') }}">Lien</a>
-    <a class="form-tab{{ ' active' if active=='reponses' }}" href="{{ url_for('formulaires.detail', id=form.id, tab='reponses') }}">Réponses <span class="tab-count">{{ form.responses|length }}</span></a>
+    <a class="form-tab{{ ' active' if active=='reponses' }}" href="{{ url_for('formulaires.detail', id=form.id, tab='reponses') }}">Réponses <span class="tab-count">{{ form.real_responses|length }}</span></a>
     <a class="form-tab{{ ' active' if active=='valider' }}" href="{{ url_for('formulaires.detail', id=form.id, tab='valider') }}">À valider{% if pending %} <span class="tab-count is-alert">{{ pending }}</span>{% endif %}</a>
 </nav>
 {% endmacro %}

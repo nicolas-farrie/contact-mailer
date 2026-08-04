@@ -41,6 +41,7 @@
     {% endwith %}
 
     <form method="POST" action="{{ url_for('formulaires.verify_code', form_token=form.token, contact_uid=contact.uid) }}">
+        {% if test|default(false) %}<input type="hidden" name="test" value="1">{% endif %}
         <label class="field-label" for="code">Code de vérification</label>
         <input type="text" id="code" name="code" inputmode="numeric" autocomplete="one-time-code"
                maxlength="6" pattern="[0-9]*" placeholder="000000" autofocus>
@@ -48,6 +49,7 @@
     </form>
 
     <form method="POST" action="{{ url_for('formulaires.request_code', form_token=form.token, contact_uid=contact.uid) }}" class="resend">
+        {% if test|default(false) %}<input type="hidden" name="test" value="1">{% endif %}
         <button type="submit">Je n'ai rien reçu — renvoyer un code</button>
     </form>
 

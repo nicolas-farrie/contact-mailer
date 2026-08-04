@@ -441,6 +441,11 @@ def send_test():
 
     contact = recipients[max(0, min(index, len(recipients) - 1))]
     subject, body, is_html = _render_campaign_for(tpl, contact)
+    # Marqueur de TEST : on ajoute ?test=1 aux liens de formulaire (/p/<token>/<uid>)
+    # UNIQUEMENT dans l'exemplaire de test → la soumission sera taguée is_test et
+    # exclue partout (verrou, compteurs, export). Les campagnes réelles ne sont pas touchées.
+    import re as _re
+    body = _re.sub(r"(/p/[^\"'\s?<>]+)(?!\?)", r"\1?test=1", body or '')
     mailer = Mailer(Config.SMTP_HOST, Config.SMTP_PORT, Config.SMTP_USER,
                     Config.SMTP_PASSWORD, Config.SMTP_SENDER_EMAIL,
                     Config.SMTP_SENDER_NAME, Config.SMTP_USE_TLS)

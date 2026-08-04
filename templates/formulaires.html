@@ -15,7 +15,7 @@
      data-status="{{ 'archive' if archived else status }}"
      data-types="{{ 'listes ' if f.listes }}{{ 'fiche ' if 'fiche' in types }}{{ 'sondage' if 'sondage' in types }}"
      data-created="{{ f.created_at.timestamp()|int }}"
-     data-responses="{{ f.responses|length }}"
+     data-responses="{{ f.real_responses|length }}"
      data-validity="{{ f.expires_at.timestamp()|int if f.expires_at else 9999999999 }}">
     <div class="form-card-head">
         <a href="{{ url_for('formulaires.detail', id=f.id) }}" class="form-card-title">{{ f.nom }}</a>
@@ -39,7 +39,7 @@
         <div><span class="k">Validité</span>
             <span class="v">{% if f.expires_at %}{{ "Expiré le" if expired else "Jusqu'au" }} {{ f.expires_at.strftime('%d/%m/%Y') }}{% else %}Illimité{% endif %}</span>
         </div>
-        <div><span class="k">Réponses</span><span class="v">{{ f.responses|length }}</span></div>
+        <div><span class="k">Réponses</span><span class="v">{{ f.real_responses|length }}</span></div>
     </div>
 
     <div class="form-card-actions">
@@ -49,7 +49,7 @@
         </form>
         {% if current_user.is_admin %}
         <form method="POST" action="{{ url_for('formulaires.delete', id=f.id) }}" style="display:inline"
-              onsubmit="return confirm('Supprimer DÉFINITIVEMENT « {{ f.nom }} » et ses {{ f.responses|length }} réponse(s) ?');">
+              onsubmit="return confirm('Supprimer DÉFINITIVEMENT « {{ f.nom }} » et ses {{ f.real_responses|length }} réponse(s) ?');">
             <button type="submit" class="icon-btn icon-danger" title="Supprimer définitivement">{{ ico.trash() }}</button>
         </form>
         {% endif %}
