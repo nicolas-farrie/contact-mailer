@@ -668,7 +668,9 @@ def confirm():
 @bp.route('/mailing/add-to-queue', methods=['POST'])
 @login_required
 def add_to_queue():
-    """Ajoute les contacts sélectionnés à la file d'envoi"""
+    """Parcours d'envoi (étape Destinataires) : met les contacts sélectionnés en file
+    PUIS lance l'envoi IMMÉDIATEMENT. La confirmation DÉCLENCHE l'envoi — fini le piège
+    « resté en file, jamais parti ». On arrive en phase Envoi sur un état résultat."""
     from mailer import MailQueue
     campaign_id = request.form.get('campaign_id')
     contact_ids = set(request.form.getlist('contact_ids', type=int))
@@ -698,7 +700,10 @@ def add_to_queue():
             flash(f'Campagne créée, mais erreur lors du classement de la demande : {e}', 'error')
         shutil.rmtree(f'data/attachments/submission_{submission_id}', ignore_errors=True)
 
-    flash(f'Campagne "{campaign_id}" créée avec {len(selected)} contacts.', 'success')
+    # Confirmation = déclenchement : on ENVOIE tout de suite les contacts qu'on vient
+    # de mettre en file. Si l'envoi est interrompu (timeout gros volume), la file garde
+    # la progression → « Reprendre l'envoi » depuis la File d'attente termine le reste.
+    _flash_send_result(_run_send(campaign_id))
     return redirect(url_for('mailing.queue', campaign=campaign_id))
 
 
@@ -760,33 +765,30 @@ def queue():
                            campaign=None, template={}, queue_campaigns=queue_campaigns)
 
 
-@bp.route('/mailing/process', methods=['POST'])
-@login_required
-def process():
-    """Traite la file d'attente (envoie les emails en attente)"""
+def _run_send(campaign):
+    """Envoie tous les emails EN ATTENTE d'une campagne (boucle synchrone, débit
+    MAIL_RATE_PER_MINUTE) + copie récapitulative à l'expéditeur. Partagé par le parcours
+    d'envoi (add_to_queue) et « Reprendre l'envoi » (process).
+    Retourne (sent, errors) ; ou (None, message) si SMTP absent / template introuvable.
+    NB : l'évolution vers l'ASYNCHRONE = confier cette fonction à un worker (déclenché
+    « maintenant » ou par un timer) — même modèle « confirmation = déclenchement »."""
     from mailer import Mailer, EmailTemplate, MailQueue
-    from pathlib import Path  # utilisé pour le récap des pièces jointes (copie expéditeur)
-
-    campaign = request.form.get('campaign')
+    from pathlib import Path
+    from helpers import get_setting
+    import time
 
     if not Config.SMTP_HOST:
-        flash('SMTP non configuré', 'error')
-        return redirect(url_for('mailing.compose'))
+        return (None, 'SMTP non configuré')
 
     queue = MailQueue()
     pending = queue.get_pending(campaign)
-
     if not pending:
-        flash('Aucun email en attente', 'info')
-        return redirect(url_for('mailing.queue', campaign=campaign))
+        return (0, 0)
 
-    # Récupérer le template sauvegardé avec la campagne
     tpl = queue.get_campaign_template(campaign)
     if not tpl:
-        flash('Template de campagne introuvable', 'error')
-        return redirect(url_for('mailing.queue', campaign=campaign))
+        return (None, 'Template de campagne introuvable')
 
-    # Créer le mailer
     mailer = Mailer(
         smtp_host=Config.SMTP_HOST,
         smtp_port=Config.SMTP_PORT,
@@ -812,11 +814,9 @@ def process():
 
     # Toggle « Gestion du bounce » (Paramètres) : OFF → pas de Return-Path bounce forcé
     # en enveloppe (évite le rejet SMTP 553 sur les serveurs stricts).
-    from helpers import get_setting
     bounce_on = get_setting('bounce_enabled', '1') != '0'
     bounce_return_path = (Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER or None) if bounce_on else None
 
-    import time
     for item in pending:
         contact = item['contact']
 
@@ -837,13 +837,12 @@ def process():
             errors += 1
         time.sleep(delay)
 
-    # Envoyer une copie récapitulative à l'expéditeur
+    # Copie récapitulative à l'expéditeur (best-effort)
     try:
         first_contact = pending[0]['contact']
         subj, body_text, body_html = template.render(first_contact)
         copy_subject = f"[Campagne {campaign} — {sent} envoyés, {errors} erreurs] {subj}"
 
-        # Récapitulatif des résultats à ajouter au corps
         recap_text = (
             f"\n\n{'='*60}\n"
             f"RÉCAPITULATIF CAMPAGNE : {campaign}\n"
@@ -881,7 +880,29 @@ def process():
     except Exception as e:
         flash(f'Copie expéditeur non envoyée : {e}', 'warning')
 
-    flash(f'Envoi terminé : {sent} envoyés, {errors} erreurs', 'success' if errors == 0 else 'warning')
+    return (sent, errors)
+
+
+def _flash_send_result(res):
+    """Flash standard du résultat de _run_send (partagé par les 2 déclencheurs)."""
+    if res[0] is None:
+        flash(res[1], 'error')
+    elif res == (0, 0):
+        flash('Aucun email en attente.', 'info')
+    else:
+        sent, errors = res
+        flash(f'Envoi terminé : {sent} envoyés, {errors} erreurs.',
+              'success' if errors == 0 else 'warning')
+
+
+@bp.route('/mailing/process', methods=['POST'])
+@login_required
+def process():
+    """« Reprendre l'envoi » d'une campagne ayant encore des emails EN ATTENTE
+    (depuis la File d'attente). L'envoi initial, lui, part directement de l'étape
+    Destinataires (add_to_queue)."""
+    campaign = request.form.get('campaign')
+    _flash_send_result(_run_send(campaign))
     return redirect(url_for('mailing.queue', campaign=campaign))
 
 
