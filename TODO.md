@@ -90,6 +90,21 @@
 - [x] **🔴 Mailing : séquence d'envoi phase 3 → phase 4 — CORRIGÉ (08-04, Tier 0)**. La confirmation de l'étape Destinataires **déclenche réellement l'envoi** : `add_to_queue` met en file **puis** `_run_send()` (envoi immédiat) → on arrive en phase Envoi sur un **état résultat**. `process()` devient « Reprendre l'envoi » (file d'attente, cas interrompu/erreurs). Modale unique « Envoyer maintenant » + overlay. Prépare l'asynchrone (confirmer = file + armer le déclencheur). *(Fini le « resté en file, jamais parti ».)*
 
 ## A faire - Prioritaire
+### 📥 Import v2 — MVP-1 LIVRÉ (2026-08-05/06), MVP-2 à faire (urgence sénatoriales)
+Détail complet : `doc-travail/2026-08-06-import-v2-etat-et-suite.md`. Branche `design/claude-design-v2`, non déployé.
+- [x] Parseur **openpyxl (.xlsx) + csv/tsv**, décodage utf-8→cp1252 (Excel FR) — `1a45a66`
+- [x] Écran **mapping colonnes↔champs** registre-driven + auto-suggestion ; **sans email accepté** ; export **modèle CSV**
+- [x] **Tester l'import (à blanc)** + compteurs ; **Nouvelle liste** à la volée ; redirection vers la liste peuplée — `d76c20d`
+- [x] **Dédoublonnage = Nom+Prénom** (email = affinage optionnel) → fichiers sans email ne doublonnent plus (validé sur *maires Hérault* : 0 créé / 341 màj) — `42d7abd`
+- [x] Listes **archivées exclues** des choix de liste (import **et** page contact) ; `_apply_listes` préserve les adhésions archivées — `e11eb46`+`42d7abd`
+- [ ] **MVP-2 — créer un champ perso à l'import** (le gros morceau) : depuis une colonne non mappée → « + créer un champ personnalisé » (type texte/booléen/date/select). **Implique de brancher `CustomFieldDefinition`** (modèle + table + `_custom_field_defs()`) → débloque aussi l'affichage des perso sur la fiche.
+- [ ] **MVP-2 — coercition par type** une fois les perso branchés : booléen (TRUE/oui/1/x → vrai ; **vide → None**, déjà OK), date, nombre, normalisation select.
+- [ ] **MVP-2 — « tester l'import » avec ERREURS par ligne** (demande Nicolas) : lister les lignes en erreur (valeur hors options, date invalide…) + ré-export des lignes fautives.
+- [ ] MVP-2 — mappings sauvegardés (réutiliser une association pour un même format).
+- [ ] MVP-2 — segment « à compléter » (sans email/tél) → rejoint l'EPIC Sélection & Segments (phase 2).
+- [ ] Brief CLD « mapping sexy » (drag-drop) après validation fonctionnelle.
+- [note] Base de dev : doublons possibles créés pendant les tests d'aujourd'hui (avant le fix dédoublonnage) → prévoir au besoin un petit script de dédoublonnage par (nom, prénom).
+
 ### Formulaires — 2 gros sujets liés (analyse cadrée le 6/07, à traiter ensemble, sécurité intégrée dès la conception)
 - [ ] Champs de la base éditables dans le formulaire (self-service auto-correction)
 - [ ][ ] Liste blanche de champs éditables par formulaire (comme la sélection des listes → table type PreferenceFormField ou colonne JSON)
