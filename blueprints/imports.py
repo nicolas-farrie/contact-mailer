@@ -6,6 +6,7 @@ imports.export_contacts.
 import csv
 import io
 import os
+import time
 import uuid
 import unicodedata
 
@@ -303,6 +304,22 @@ def _suggest_mapping(headers, targets):
     return out
 
 
+def _sweep_stale_imports(max_age_h=6):
+    """Best-effort : purge les fichiers temporaires d'import abandonnés (aperçu
+    sans validation, session fermée…). Silencieux."""
+    try:
+        cutoff = time.time() - max_age_h * 3600
+        for name in os.listdir(_IMPORT_DIR):
+            p = os.path.join(_IMPORT_DIR, name)
+            try:
+                if os.path.isfile(p) and os.path.getmtime(p) < cutoff:
+                    os.remove(p)
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
 def _read_tabular(path, filename):
     """(headers, rows) depuis .xlsx / .csv / .tsv. rows = list de {header: str}."""
     fn = (filename or '').lower()
@@ -455,11 +472,24 @@ def _mapping_from_form(form):
     return dict(zip(form.getlist('hdr'), form.getlist('map')))
 
 
-def _extra_listes_from(list_id):
+def _resolve_target_list(list_id, new_list_name):
+    """Résout la liste de destination. Renvoie (noms_a_ajouter, id_pour_redirection).
+
+    Une nouvelle liste (nom saisi) est créée à la volée (flush → id dispo) ; en
+    dry-run le rollback l'annule, en import réel le commit la persiste."""
+    new_list_name = (new_list_name or '').strip()
+    if new_list_name:
+        l = Liste.query.filter_by(nom=new_list_name).first()
+        if not l:
+            l = Liste(nom=new_list_name)
+            db.session.add(l)
+            db.session.flush()
+        return [l.nom], l.id
     if list_id:
         l = Liste.query.get(int(list_id))
-        return [l.nom] if l else []
-    return []
+        if l:
+            return [l.nom], l.id
+    return [], None
 
 
 # === Routes ===
@@ -525,6 +555,7 @@ def index():
 
         # Tabulaire (.xlsx / .csv / .tsv) → sauver en temp + écran de mapping
         os.makedirs(_IMPORT_DIR, exist_ok=True)
+        _sweep_stale_imports()
         ext = '.xlsx' if fn.endswith(('.xlsx', '.xlsm')) else ('.tsv' if fn.endswith('.tsv') else '.csv')
         token = uuid.uuid4().hex
         path = os.path.join(_IMPORT_DIR, token + ext)
@@ -551,8 +582,9 @@ def index():
                                headers=headers, sample_rows=rows[:5], nrows=len(rows),
                                targets=targets, mapping=_suggest_mapping(headers, targets),
                                listes=listes, list_id=request.form.get('list_id', ''),
+                               new_list_name=request.form.get('new_list_name', ''),
                                update_existing=request.form.get('update_existing') == 'on',
-                               previewed=False, counts=None, preview=None,
+                               previewed=False, counts=None,
                                field_map=fields_registry.field_map())
 
     return render_template('import.html', listes=listes)
@@ -571,6 +603,7 @@ def import_mapping():
     filename = request.form.get('filename', 'x' + ext)
     mapping = _mapping_from_form(request.form)
     list_id = request.form.get('list_id', '')
+    new_list_name = request.form.get('new_list_name', '')
     update_existing = request.form.get('update_existing') == 'on'
     action = request.form.get('action', 'preview')
 
@@ -581,7 +614,7 @@ def import_mapping():
         return redirect(url_for('imports.index'))
 
     col_keys, custom_keys = _key_sets()
-    extra = _extra_listes_from(list_id)
+    extra, redirect_list_id = _resolve_target_list(list_id, new_list_name)
 
     if action == 'run':
         try:
@@ -599,17 +632,21 @@ def import_mapping():
         if counts.get('no_email'):
             msg += f" — dont {counts['no_email']} sans email (à compléter)"
         flash(msg + '.', 'success')
+        # Retour sur la liste que l'on vient de peupler (sinon liste complète)
+        if redirect_list_id:
+            return redirect(url_for('contacts.index', liste=redirect_list_id))
         return redirect(url_for('contacts.index'))
 
-    # preview (dry-run, rien écrit)
-    counts, sample = _dry_run(rows, mapping, col_keys, custom_keys, update_existing, extra)
+    # « Tester l'import » (dry-run, rien écrit) → compteurs uniquement
+    counts, _sample = _dry_run(rows, mapping, col_keys, custom_keys, update_existing, extra)
     return render_template('import_mapping.html',
                            token=token, ext=ext, filename=filename,
                            headers=headers, sample_rows=rows[:5], nrows=len(rows),
                            targets=_import_targets(), mapping=mapping,
                            listes=Liste.query.order_by(Liste.nom).all(), list_id=list_id,
+                           new_list_name=new_list_name,
                            update_existing=update_existing,
-                           previewed=True, counts=counts, preview=sample,
+                           previewed=True, counts=counts,
                            field_map=fields_registry.field_map())
 
 

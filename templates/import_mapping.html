@@ -33,7 +33,7 @@
         <span class="badge badge-gray">{{ counts.skipped }} inchangé{{ 's' if counts.skipped > 1 }}</span>
         {% if counts.no_email %}<span class="badge badge-danger">{{ counts.no_email }} sans email (à compléter)</span>{% endif %}
     </p>
-    <p class="hint">Rien n'a encore été écrit en base. Cliquez sur « Lancer l'import » pour confirmer.</p>
+    <p class="hint">Test à blanc — rien n'a été écrit en base. Cliquez sur « Importer les contacts » pour confirmer.</p>
 </div>
 {% endif %}
 
@@ -91,6 +91,9 @@
                 <option value="{{ l.id }}" {{ 'selected' if list_id == l.id|string }}>{{ l.nom }}</option>
                 {% endfor %}
             </select>
+            <input type="text" name="new_list_name" value="{{ new_list_name }}"
+                   placeholder="…ou créer une nouvelle liste (saisir un nom)" style="margin-top:0.5rem;">
+            <p class="hint">Après l'import, vous serez redirigé vers cette liste. Un nom de nouvelle liste est prioritaire sur la sélection.</p>
         </div>
         <div class="form-group">
             <label class="checkbox-label">
@@ -100,39 +103,11 @@
         </div>
     </div>
 
-    {% if previewed and preview %}
-    <div class="form-card">
-        <h3 style="margin-top:0;">Aperçu des premières lignes</h3>
-        <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr><th>Action</th><th>Nom</th><th>Prénom</th><th>E-mail</th></tr>
-            </thead>
-            <tbody>
-                {% for p in preview %}
-                <tr>
-                    <td>
-                        {% if p.action == 'created' %}<span class="badge badge-green">créé</span>
-                        {% elif p.action == 'updated' %}<span class="badge badge-pending">maj</span>
-                        {% else %}<span class="badge badge-gray">inchangé</span>{% endif %}
-                    </td>
-                    <td>{{ p.mapped.get('nom', '') }}</td>
-                    <td>{{ p.mapped.get('prenom', '') }}</td>
-                    <td>{% if p.no_email %}<span style="color:var(--text-muted)">— sans email —</span>{% else %}{{ p.mapped.get('email', '') }}{% endif %}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        </div>
-    </div>
-    {% endif %}
-
     <div class="form-actions">
-        <button type="submit" name="action" value="preview" class="btn btn-secondary">Prévisualiser</button>
-        {% if previewed %}
-        <button type="submit" name="action" value="run" class="btn btn-primary">Lancer l'import</button>
-        {% endif %}
+        <button type="submit" name="action" value="run" class="btn btn-primary">Importer les contacts</button>
+        <button type="submit" name="action" value="preview" class="btn btn-secondary">Tester l'import (à blanc)</button>
         <a href="{{ url_for('imports.index') }}" class="btn btn-secondary">Recommencer</a>
     </div>
+    <p class="hint" style="margin-top:0.5rem;">« Tester l'import » simule l'opération et affiche les compteurs sans rien écrire — utile après avoir ajusté les associations.</p>
 </form>
 {% endblock %}

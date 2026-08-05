@@ -24,7 +24,8 @@
                 <option value="{{ l.id }}">{{ l.nom }}</option>
                 {% endfor %}
             </select>
-            <p class="hint">Tous les contacts importés seront ajoutés à cette liste, en plus des listes éventuellement présentes dans le fichier.</p>
+            <input type="text" name="new_list_name" placeholder="…ou créer une nouvelle liste (saisir un nom)" style="margin-top:0.5rem;">
+            <p class="hint">Tous les contacts importés seront ajoutés à cette liste, en plus des listes éventuellement présentes dans le fichier. Si vous saisissez un nom de nouvelle liste, il est prioritaire sur la sélection ci-dessus.</p>
         </div>
 
         <div class="form-group">
