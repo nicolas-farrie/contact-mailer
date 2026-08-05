@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Association des colonnes - Import{% endblock %}
+
+{% set group_labels = {
+    'identite': 'Identité', 'contact': 'Coordonnées', 'adresse': 'Adresse',
+    'autres': 'Autres', 'perso': 'Champs personnalisés',
+    'listes': 'Listes', 'systeme': 'Système'
+} %}
+
+{% macro sample_value(header) %}
+    {%- set ns = namespace(v='') -%}
+    {%- for row in sample_rows -%}
+        {%- if not ns.v and row.get(header) -%}{%- set ns.v = row.get(header) -%}{%- endif -%}
+    {%- endfor -%}
+    {{ ns.v }}
+{% endmacro %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Associer les colonnes</h1>
+    <p class="page-subtitle">
+        Fichier <strong>{{ filename }}</strong> — {{ nrows }} ligne{{ 's' if nrows > 1 }} détectée{{ 's' if nrows > 1 }}.
+        Vérifiez l'association des colonnes, prévisualisez, puis importez.
+    </p>
+</div>
+
+{% if previewed and counts %}
+<div class="info-box" style="border-left:4px solid var(--primary);">
+    <h3 style="margin-top:0;">Aperçu de l'import</h3>
+    <p>
+        <span class="badge badge-green">{{ counts.created }} à créer</span>
+        <span class="badge badge-pending">{{ counts.updated }} à mettre à jour</span>
+        <span class="badge badge-gray">{{ counts.skipped }} inchangé{{ 's' if counts.skipped > 1 }}</span>
+        {% if counts.no_email %}<span class="badge badge-danger">{{ counts.no_email }} sans email (à compléter)</span>{% endif %}
+    </p>
+    <p class="hint">Rien n'a encore été écrit en base. Cliquez sur « Lancer l'import » pour confirmer.</p>
+</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('imports.import_mapping') }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="ext" value="{{ ext }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+
+    <div class="form-card">
+        <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Colonne du fichier</th>
+                    <th>Exemple</th>
+                    <th>Associer à</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for header in headers %}
+                <tr>
+                    <td>
+                        <strong>{{ header }}</strong>
+                        <input type="hidden" name="hdr" value="{{ header }}">
+                    </td>
+                    <td style="color:var(--text-muted)">{{ sample_value(header) | trim | truncate(40) }}</td>
+                    <td>
+                        <select name="map">
+                            <option value="">— Ne pas importer —</option>
+                            {% for gkey, glabel in group_labels.items() %}
+                                {% set opts = targets | selectattr('group', 'equalto', gkey) | list %}
+                                {% if opts %}
+                                <optgroup label="{{ glabel }}">
+                                    {% for t in opts %}
+                                    <option value="{{ t.key }}" {{ 'selected' if mapping.get(header) == t.key }}>{{ t.label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="form-card">
+        <div class="form-group">
+            <label for="list_id">Ajouter les contacts à une liste (optionnel)</label>
+            <select id="list_id" name="list_id">
+                <option value="">— Aucune liste —</option>
+                {% for l in listes %}
+                <option value="{{ l.id }}" {{ 'selected' if list_id == l.id|string }}>{{ l.nom }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="update_existing" {{ 'checked' if update_existing }}>
+                Mettre à jour les contacts existants et fusionner les listes
+            </label>
+        </div>
+    </div>
+
+    {% if previewed and preview %}
+    <div class="form-card">
+        <h3 style="margin-top:0;">Aperçu des premières lignes</h3>
+        <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr><th>Action</th><th>Nom</th><th>Prénom</th><th>E-mail</th></tr>
+            </thead>
+            <tbody>
+                {% for p in preview %}
+                <tr>
+                    <td>
+                        {% if p.action == 'created' %}<span class="badge badge-green">créé</span>
+                        {% elif p.action == 'updated' %}<span class="badge badge-pending">maj</span>
+                        {% else %}<span class="badge badge-gray">inchangé</span>{% endif %}
+                    </td>
+                    <td>{{ p.mapped.get('nom', '') }}</td>
+                    <td>{{ p.mapped.get('prenom', '') }}</td>
+                    <td>{% if p.no_email %}<span style="color:var(--text-muted)">— sans email —</span>{% else %}{{ p.mapped.get('email', '') }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+        <button type="submit" name="action" value="preview" class="btn btn-secondary">Prévisualiser</button>
+        {% if previewed %}
+        <button type="submit" name="action" value="run" class="btn btn-primary">Lancer l'import</button>
+        {% endif %}
+        <a href="{{ url_for('imports.index') }}" class="btn btn-secondary">Recommencer</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,17 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Import - Contact Mailer{% endblock %}
+{% block title %}Importer des contacts - Contact Mailer{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <h1>Importer des contacts</h1>
+    <p class="page-subtitle">Excel, CSV/TSV ou vCard. Les colonnes seront associées à vos champs à l'étape suivante.</p>
 </div>
 
 <div class="form-card">
     <form method="POST" enctype="multipart/form-data">
         <div class="form-group">
-            <label for="file">Fichier contacts (vCard, TSV ou CSV)</label>
-            <input type="file" id="file" name="file" accept=".vcf,.vcard,.tsv,.csv,.txt" required>
-            <p class="hint">Formats acceptés : vCard (.vcf), TSV (tabulations), CSV (virgules)</p>
+            <label for="file">Fichier contacts</label>
+            <input type="file" id="file" name="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt,.vcf,.vcard" required>
+            <p class="hint">Excel (.xlsx), CSV/TSV exporté d'Excel, ou vCard (.vcf).
+                Pour un fichier Excel/CSV, vous choisirez l'association des colonnes juste après.</p>
+        </div>
+
+        <div class="form-group">
+            <label for="list_id">Ajouter les contacts à une liste (optionnel)</label>
+            <select id="list_id" name="list_id">
+                <option value="">— Aucune liste —</option>
+                {% for l in listes %}
+                <option value="{{ l.id }}">{{ l.nom }}</option>
+                {% endfor %}
+            </select>
+            <p class="hint">Tous les contacts importés seront ajoutés à cette liste, en plus des listes éventuellement présentes dans le fichier.</p>
         </div>
 
         <div class="form-group">
@@ -19,48 +32,30 @@
                 <input type="checkbox" name="update_existing" checked>
                 Mettre à jour les contacts existants et fusionner les listes
             </label>
-            <p class="hint">Si coché : les contacts existants (même UID, ou même email+nom+prénom) sont mis à jour.
+            <p class="hint">Si coché : les contacts déjà présents (même UID, ou même email + nom + prénom) sont mis à jour.
                 Si décoché : les doublons détectés sont ignorés.</p>
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Importer</button>
+            <button type="submit" class="btn btn-primary">Continuer</button>
             <a href="{{ url_for('contacts.index') }}" class="btn btn-secondary">Annuler</a>
         </div>
     </form>
 
     <div class="info-box">
-        <h3>Formats supportés</h3>
+        <h3>Modèle d'import</h3>
+        <p>Pas sûr du format ? Téléchargez le modèle : il contient toutes les colonnes reconnues (y compris vos
+            champs personnalisés) avec une ligne d'exemple.</p>
+        <p><a href="{{ url_for('imports.import_template') }}" class="btn btn-secondary btn-sm">⬇ Télécharger le modèle CSV</a></p>
 
-        <p><strong>vCard (.vcf)</strong></p>
-        <p>Import direct de fichiers vCard 2.1, 3.0 et 4.0. Les catégories vCard sont converties en listes.</p>
-
-        <p><strong>TSV / CSV</strong></p>
-        <p>Le fichier doit contenir au minimum une colonne <code>Email</code>.</p>
-        <p>Colonnes reconnues :</p>
+        <h3>Bon à savoir</h3>
         <ul>
-            <li><code>UID</code> (identifiant unique du contact, pour correspondance exacte)</li>
-            <li><code>Nom, Prénom</code> ou <code>Nom</code> + <code>Prenom</code> ou <code>Nom Complet</code></li>
-            <li><code>Email</code>, <code>Email_Home</code>, <code>Email_Work</code></li>
-            <li><code>Tel_Cell</code>, <code>Tel_Home</code>, <code>Tel_Work</code></li>
-            <li><code>Organisation</code></li>
-            <li><code>Rue</code>, <code>Complement</code>, <code>Ville</code>, <code>CP</code>, <code>Region</code>, <code>Pays</code> (adresse postale)</li>
-            <li><code>Source</code> (provenance : Roundcube, Proton, etc.)</li>
-            <li><code>Note</code></li>
-            <li><code>Listes</code> ou <code>Catégories</code> (pour créer/assigner les listes automatiquement)</li>
-        </ul>
-
-        <h3>Comportement des doublons</h3>
-        <p>La détection se fait par ordre de priorité :</p>
-        <ol>
-            <li><strong>UID</strong> : correspondance exacte (si présent dans le fichier)</li>
-            <li><strong>Email + Nom + Prénom</strong> : même personne probable</li>
-            <li>Sinon : nouveau contact créé (même si l'email existe déjà)</li>
-        </ol>
-        <p>Avec la mise à jour activée :</p>
-        <ul>
-            <li>Les champs non vides du fichier importé écrasent ceux en base</li>
-            <li>Les listes sont <strong>remplacées</strong> par celles du fichier importé</li>
+            <li><strong>L'email n'est pas obligatoire.</strong> Les contacts sans email sont importés (utile pour un
+                fichier à compléter ensuite) — ils sont simplement comptés à part.</li>
+            <li><strong>Un même email peut être partagé</strong> par plusieurs contacts (couples, familles). L'import ne
+                déduplique pas sur l'email seul, mais sur la combinaison email + nom + prénom.</li>
+            <li>Les colonnes de votre fichier n'ont pas besoin de porter le bon nom : vous les associerez à l'écran
+                suivant (des suggestions automatiques sont proposées).</li>
         </ul>
     </div>
 </div>

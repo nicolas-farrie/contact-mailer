@@ -5,6 +5,9 @@ imports.export_contacts.
 """
 import csv
 import io
+import os
+import uuid
+import unicodedata
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, Response)
@@ -13,8 +16,30 @@ from flask_login import login_required, current_user
 from models import db, Contact, Liste
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
 from helpers import admin_required
+import fields as fields_registry
 
 bp = Blueprint('imports', __name__)
+
+# Dossier temporaire des fichiers en cours d'import (mappage en 2 temps)
+_IMPORT_DIR = 'data/imports'
+
+# Alias de noms de colonnes → clé de champ (auto-suggestion du mapping)
+_MAPPING_ALIASES = {
+    'courriel': 'email', 'mail': 'email', 'e mail': 'email', 'adresse mail': 'email', 'adresse email': 'email',
+    'first name': 'prenom', 'firstname': 'prenom', 'given name': 'prenom',
+    'nom de famille': 'nom', 'last name': 'nom', 'lastname': 'nom', 'surname': 'nom',
+    'tel': 'telephone', 'phone': 'telephone', 'portable': 'telephone', 'mobile': 'telephone',
+    'gsm': 'telephone', 'tel portable': 'telephone', 'numero': 'telephone',
+    'commune': 'adresse_ville', 'city': 'adresse_ville',
+    'code postal': 'adresse_cp', 'cp': 'adresse_cp', 'zip': 'adresse_cp', 'zip code': 'adresse_cp',
+    'adresse': 'adresse_rue', 'rue': 'adresse_rue', 'street': 'adresse_rue', 'voie': 'adresse_rue',
+    'complement': 'adresse_complement', 'complement adresse': 'adresse_complement',
+    'departement': 'adresse_region', 'region': 'adresse_region',
+    'pays': 'adresse_pays', 'country': 'adresse_pays',
+    'organization': 'organisation', 'societe': 'organisation', 'entreprise': 'organisation', 'company': 'organisation',
+    'note': 'notes', 'remarque': 'notes', 'remarques': 'notes', 'commentaire': 'notes',
+    'liste': 'listes', 'categorie': 'listes', 'categories': 'listes', 'groupe': 'listes', 'groupes': 'listes',
+}
 
 
 # === Helpers d'import ===
@@ -244,87 +269,365 @@ def _import_contact_from_row(row, update_existing=False, source='Import'):
     return contact, 'created'
 
 
+# === Import v2 : mapping registre-driven (Excel/CSV) ===
+
+def _norm(s):
+    """Normalise pour matcher : minuscule, sans accents, alphanum, espaces compactés."""
+    s = unicodedata.normalize('NFKD', str(s or '')).encode('ascii', 'ignore').decode()
+    s = ''.join(c if c.isalnum() else ' ' for c in s.lower())
+    return ' '.join(s.split())
+
+
+def _import_targets():
+    """Champs mappables : registre (cœur + perso, éditables) + synthétiques listes/uid."""
+    targets = []
+    for f in fields_registry.contact_fields(include_custom=True):
+        if f.editable:   # 'source' est editable=False → jamais proposé à l'import
+            targets.append({'key': f.key, 'label': f.label, 'group': f.group,
+                            'custom': (f.source == 'custom')})
+    targets.append({'key': 'listes', 'label': 'Listes (séparées par ;)', 'group': 'listes', 'custom': False})
+    targets.append({'key': 'uid', 'label': 'UID (dédoublonnage)', 'group': 'systeme', 'custom': False})
+    return targets
+
+
+def _suggest_mapping(headers, targets):
+    """Devine {header: clé} par nom (clé/label du registre, puis alias)."""
+    by_norm = {}
+    for t in targets:
+        by_norm.setdefault(_norm(t['label']), t['key'])
+        by_norm.setdefault(_norm(t['key']), t['key'])
+    out = {}
+    for h in headers:
+        n = _norm(h)
+        out[h] = by_norm.get(n) or _MAPPING_ALIASES.get(n) or ''
+    return out
+
+
+def _read_tabular(path, filename):
+    """(headers, rows) depuis .xlsx / .csv / .tsv. rows = list de {header: str}."""
+    fn = (filename or '').lower()
+    if fn.endswith('.xlsx') or fn.endswith('.xlsm'):
+        import openpyxl
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        ws = wb.active
+        it = ws.iter_rows(values_only=True)
+        try:
+            head = next(it)
+        except StopIteration:
+            wb.close(); return [], []
+        headers = [str(h).strip() if h is not None else f'colonne {i+1}' for i, h in enumerate(head)]
+        rows = []
+        for r in it:
+            d = {h: ('' if (i >= len(r) or r[i] is None) else str(r[i]).strip())
+                 for i, h in enumerate(headers)}
+            if any(d.values()):
+                rows.append(d)
+        wb.close()
+        return headers, rows
+    # CSV / TSV : utf-8 (BOM géré) sinon cp1252 (encodage réel des exports Excel FR).
+    # cp1252 mappe les 256 octets → jamais d'échec, et rend correctement é/è/à/ç…
+    # (on évite la détection statistique, peu fiable sur de petits fichiers).
+    with open(path, 'rb') as fp:
+        raw = fp.read()
+    try:
+        text = raw.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        text = raw.decode('cp1252', errors='replace')
+    first = text.split('\n', 1)[0]
+    delim = '\t' if '\t' in first else (';' if first.count(';') > first.count(',') else ',')
+    reader = csv.DictReader(io.StringIO(text), delimiter=delim)
+    headers = [(h or '').strip() for h in (reader.fieldnames or [])]
+    rows = []
+    for r in reader:
+        d = {(k or '').strip(): ('' if v is None else str(v).strip()) for k, v in r.items()}
+        if any(d.values()):
+            rows.append(d)
+    return headers, rows
+
+
+def _apply_mapping(row, mapping):
+    """{clé_champ: valeur} depuis {header: valeur} + {header: clé}. 1re valeur non vide gagne."""
+    mapped = {}
+    for header, key in mapping.items():
+        if not key:
+            continue
+        val = (row.get(header) or '').strip()
+        if val and not mapped.get(key):
+            mapped[key] = val
+    return mapped
+
+
+def _key_sets():
+    """(clés colonnes, clés perso) éditables du registre."""
+    col_keys, custom_keys = set(), set()
+    for f in fields_registry.contact_fields(include_custom=True):
+        if not f.editable:
+            continue
+        (custom_keys if f.source == 'custom' else col_keys).add(f.key)
+    return col_keys, custom_keys
+
+
+def _import_mapped(mapped, col_keys, custom_keys, update_existing, source, extra_listes):
+    """Importe une row MAPPÉE (keyée par clé de champ). Sans email = ACCEPTÉ.
+    Dédup : UID puis composite email+nom+prénom (si email). Retourne (contact, action)."""
+    email = (mapped.get('email') or '').strip()
+    nom = (mapped.get('nom') or '').strip()
+    prenom = (mapped.get('prenom') or '').strip()
+    uid = (mapped.get('uid') or '').strip()
+
+    existing = None
+    if uid:
+        existing = Contact.query.filter_by(uid=uid, is_deleted=False).first()
+    if not existing and email and nom and prenom:
+        existing = Contact.query.filter_by(email=email, nom=nom, prenom=prenom, is_deleted=False).first()
+
+    if existing and not update_existing:
+        return existing, 'skipped'
+
+    listes_names = sorted(set(_parse_liste_names(mapped.get('listes', '')) + list(extra_listes)))
+
+    def _write(contact):
+        for key, val in mapped.items():
+            if not val or key in ('listes', 'uid'):
+                continue
+            if key in col_keys:
+                setattr(contact, key, val)
+            elif key in custom_keys:
+                cf = dict(contact.custom_fields or {})
+                cf[key] = val
+                contact.custom_fields = cf
+        if uid and not contact.uid:
+            contact.uid = uid
+        if listes_names:
+            objs = _get_or_create_listes(listes_names)
+            if update_existing and existing is contact:
+                contact.listes = objs
+            else:
+                for l in objs:
+                    if l not in contact.listes:
+                        contact.listes.append(l)
+
+    if existing and update_existing:
+        _write(existing)
+        return existing, 'updated'
+
+    # Nouveau : colonnes NOT NULL initialisées à '' (contact « à compléter » autorisé)
+    contact = Contact(nom='', prenom='', email='', source=(mapped.get('source') or source))
+    db.session.add(contact)   # en session AVANT d'attacher les listes (sinon l'assoc n'est pas prise)
+    _write(contact)
+    return contact, 'created'
+
+
+def _dry_run(rows, mapping, col_keys, custom_keys, update_existing, extra_listes):
+    """Compte created/updated/skipped SANS écrire (rollback à la fin)."""
+    counts = {'created': 0, 'updated': 0, 'skipped': 0}
+    sample = []
+    for i, row in enumerate(rows):
+        mapped = _apply_mapping(row, mapping)
+        _c, action = _import_mapped(mapped, col_keys, custom_keys, update_existing, 'preview', extra_listes)
+        counts[action] = counts.get(action, 0) + 1
+        no_email = not (mapped.get('email') or '').strip()
+        if no_email and action != 'skipped':
+            counts['no_email'] = counts.get('no_email', 0) + 1
+        if i < 6:
+            sample.append({'mapped': mapped, 'action': action, 'no_email': no_email})
+    db.session.rollback()   # défausse toute mutation — rien n'est persisté
+    return counts, sample
+
+
+def _run_import(rows, mapping, col_keys, custom_keys, update_existing, extra_listes, user_id):
+    counts = {'created': 0, 'updated': 0, 'skipped': 0, 'no_email': 0}
+    for row in rows:
+        mapped = _apply_mapping(row, mapping)
+        contact, action = _import_mapped(mapped, col_keys, custom_keys, update_existing, 'Import', extra_listes)
+        if action == 'created':
+            contact.created_by_id = user_id
+            db.session.add(contact)
+        counts[action] += 1
+        if not (mapped.get('email') or '').strip() and action != 'skipped':
+            counts['no_email'] += 1
+    db.session.commit()
+    return counts
+
+
+def _mapping_from_form(form):
+    """Reconstruit {header: clé} depuis les paires cachées hdr/map (ordre préservé)."""
+    return dict(zip(form.getlist('hdr'), form.getlist('map')))
+
+
+def _extra_listes_from(list_id):
+    if list_id:
+        l = Liste.query.get(int(list_id))
+        return [l.nom] if l else []
+    return []
+
+
 # === Routes ===
+
+def _import_vcard_direct(file):
+    """Import direct d'un fichier vCard (schéma standard → pas de mapping)."""
+    import tempfile
+    update_existing = request.form.get('update_existing') == 'on'
+    content = file.read()
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.vcf', mode='wb')
+    tmp.write(content)
+    tmp.close()
+    created = updated = skipped = no_email = 0
+    try:
+        source = _detect_vcard_source(content.decode('utf-8', errors='replace'))
+        for vcard in get_vcards(tmp.name):
+            row = extract_vcard_data(vcard, tmp.name)
+            contact, action = _import_contact_from_row(row, update_existing=update_existing, source=source)
+            if action == 'created':
+                contact.created_by_id = current_user.id
+                db.session.add(contact)
+                created += 1
+            elif action == 'updated':
+                updated += 1
+            elif action == 'skipped':
+                skipped += 1
+            else:
+                no_email += 1
+        db.session.commit()
+        parts = []
+        if created:
+            parts.append(f'{created} créés')
+        if updated:
+            parts.append(f'{updated} mis à jour')
+        if skipped:
+            parts.append(f'{skipped} inchangés')
+        if no_email:
+            parts.append(f'{no_email} sans email ignorés')
+        flash('Import vCard : ' + (', '.join(parts) or 'aucun contact'), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erreur import vCard : {e}', 'error')
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+    return redirect(url_for('contacts.index'))
+
 
 @bp.route('/import', methods=['GET', 'POST'])
 @admin_required
 def index():
+    listes = Liste.query.order_by(Liste.nom).all()
     if request.method == 'POST':
         file = request.files.get('file')
-        if not file:
+        if not file or not file.filename:
             flash('Aucun fichier sélectionné', 'error')
             return redirect(url_for('imports.index'))
+        fn = file.filename.lower()
+        if fn.endswith('.vcf') or fn.endswith('.vcard'):
+            return _import_vcard_direct(file)
 
-        update_existing = request.form.get('update_existing') == 'on'
-        filename = file.filename.lower()
-        created = 0
-        updated = 0
-        skipped = 0
-        no_email = 0
-
+        # Tabulaire (.xlsx / .csv / .tsv) → sauver en temp + écran de mapping
+        os.makedirs(_IMPORT_DIR, exist_ok=True)
+        ext = '.xlsx' if fn.endswith(('.xlsx', '.xlsm')) else ('.tsv' if fn.endswith('.tsv') else '.csv')
+        token = uuid.uuid4().hex
+        path = os.path.join(_IMPORT_DIR, token + ext)
+        file.save(path)
         try:
-            rows = []
-            source = 'Import'
+            headers, rows = _read_tabular(path, file.filename)
+        except Exception as e:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            flash(f'Lecture du fichier impossible : {e}', 'error')
+            return redirect(url_for('imports.index'))
+        if not headers:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            flash("Fichier vide ou sans ligne d'en-tête.", 'error')
+            return redirect(url_for('imports.index'))
+        targets = _import_targets()
+        return render_template('import_mapping.html',
+                               token=token, ext=ext, filename=file.filename,
+                               headers=headers, sample_rows=rows[:5], nrows=len(rows),
+                               targets=targets, mapping=_suggest_mapping(headers, targets),
+                               listes=listes, list_id=request.form.get('list_id', ''),
+                               update_existing=request.form.get('update_existing') == 'on',
+                               previewed=False, counts=None, preview=None,
+                               field_map=fields_registry.field_map())
 
-            if filename.endswith('.vcf') or filename.endswith('.vcard'):
-                # === IMPORT VCARD ===
-                import tempfile
-                content = file.read()
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.vcf', mode='wb')
-                tmp.write(content)
-                tmp.close()
+    return render_template('import.html', listes=listes)
 
-                for vcard in get_vcards(tmp.name):
-                    rows.append(extract_vcard_data(vcard, tmp.name))
 
-                import os
-                os.unlink(tmp.name)
+@bp.route('/import/mapping', methods=['POST'])
+@admin_required
+def import_mapping():
+    token = request.form.get('token', '')
+    ext = request.form.get('ext', '')
+    path = os.path.join(_IMPORT_DIR, token + ext)
+    if not token or not os.path.exists(path):
+        flash("Session d'import expirée — recommencez.", 'error')
+        return redirect(url_for('imports.index'))
 
-                # Auto-détection de la source depuis le contenu vCard
-                source = _detect_vcard_source(content.decode('utf-8', errors='replace'))
+    filename = request.form.get('filename', 'x' + ext)
+    mapping = _mapping_from_form(request.form)
+    list_id = request.form.get('list_id', '')
+    update_existing = request.form.get('update_existing') == 'on'
+    action = request.form.get('action', 'preview')
 
-            else:
-                # === IMPORT TSV/CSV ===
-                content = file.read().decode('utf-8')
-                first_line = content.split('\n')[0]
-                delimiter = '\t' if '\t' in first_line else ','
-                reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
-                rows = list(reader)
-                source = 'TSV' if delimiter == '\t' else 'CSV'
+    try:
+        headers, rows = _read_tabular(path, filename)
+    except Exception as e:
+        flash(f'Lecture impossible : {e}', 'error')
+        return redirect(url_for('imports.index'))
 
-            for row in rows:
-                contact, action = _import_contact_from_row(row, update_existing=update_existing, source=source)
-                if action == 'created':
-                    contact.created_by_id = current_user.id
-                    db.session.add(contact)
-                    created += 1
-                elif action == 'updated':
-                    updated += 1
-                elif action == 'skipped':
-                    skipped += 1
-                else:
-                    no_email += 1
+    col_keys, custom_keys = _key_sets()
+    extra = _extra_listes_from(list_id)
 
-            db.session.commit()
-
-            parts = []
-            if created:
-                parts.append(f'{created} créés')
-            if updated:
-                parts.append(f'{updated} mis à jour')
-            if skipped:
-                parts.append(f'{skipped} inchangés')
-            if no_email:
-                parts.append(f'{no_email} sans email ignorés')
-            flash('Import : ' + ', '.join(parts), 'success')
-
+    if action == 'run':
+        try:
+            counts = _run_import(rows, mapping, col_keys, custom_keys, update_existing, extra, current_user.id)
         except Exception as e:
             db.session.rollback()
-            flash(f'Erreur import: {e}', 'error')
-
+            flash(f'Erreur import : {e}', 'error')
+            return redirect(url_for('imports.index'))
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        msg = (f"Import terminé : {counts['created']} créés, {counts['updated']} mis à jour, "
+               f"{counts['skipped']} inchangés")
+        if counts.get('no_email'):
+            msg += f" — dont {counts['no_email']} sans email (à compléter)"
+        flash(msg + '.', 'success')
         return redirect(url_for('contacts.index'))
 
-    return render_template('import.html')
+    # preview (dry-run, rien écrit)
+    counts, sample = _dry_run(rows, mapping, col_keys, custom_keys, update_existing, extra)
+    return render_template('import_mapping.html',
+                           token=token, ext=ext, filename=filename,
+                           headers=headers, sample_rows=rows[:5], nrows=len(rows),
+                           targets=_import_targets(), mapping=mapping,
+                           listes=Liste.query.order_by(Liste.nom).all(), list_id=list_id,
+                           update_existing=update_existing,
+                           previewed=True, counts=counts, preview=sample,
+                           field_map=fields_registry.field_map())
+
+
+@bp.route('/import/template')
+@admin_required
+def import_template():
+    """Modèle CSV généré depuis le registre : en-têtes attendus + une ligne d'exemple."""
+    targets = _import_targets()
+    example_vals = {'email': 'jean.dupont@exemple.fr', 'nom': 'Dupont', 'prenom': 'Jean',
+                    'civilite': 'Monsieur', 'telephone': '06 12 34 56 78',
+                    'adresse_ville': 'Lodève', 'adresse_cp': '34700',
+                    'listes': 'Sénatoriales 2026'}
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow([t['label'] for t in targets])
+    w.writerow([example_vals.get(t['key'], '') for t in targets])
+    return Response(out.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': 'attachment; filename=modele_import_contacts.csv'})
 
 
 @bp.route('/export/vcard')
