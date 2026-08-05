@@ -38,7 +38,12 @@ def _apply_form(contact, form):
 
 def _apply_listes(contact, form, clear=False):
     if clear:
-        contact.listes.clear()
+        # Ne réconcilier que les listes ACTIVES (celles proposées dans le formulaire).
+        # Les adhésions à des listes archivées sont préservées (non affichées, non touchées).
+        checked = set(form.getlist('listes'))
+        for liste in list(contact.listes):
+            if not liste.is_archived and str(liste.id) not in checked:
+                contact.listes.remove(liste)
     for lid in form.getlist('listes'):
         liste = Liste.query.get(int(lid))
         if liste and liste not in contact.listes:
@@ -85,7 +90,7 @@ def index():
         )
 
     contacts_list = query.order_by(Contact.nom, Contact.prenom).all()
-    listes = Liste.query.order_by(Liste.nom).all()
+    listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
     # Sources distinctes pour le filtre
     sources = db.session.query(Contact.source).filter(Contact.is_deleted == False).distinct().order_by(Contact.source).all()
     sources = [s[0] for s in sources if s[0]]
@@ -117,7 +122,7 @@ def new():
             db.session.rollback()
             flash(f'Erreur: {e}', 'error')
 
-    listes = Liste.query.order_by(Liste.nom).all()
+    listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
     return render_template('contact_form.html', contact=None, listes=listes)
 
 
@@ -146,7 +151,7 @@ def edit(id):
             flash(f'Erreur: {e}', 'error')
 
     back_liste = request.args.get('back_liste', '') or None
-    listes = Liste.query.order_by(Liste.nom).all()
+    listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
     return render_template('contact_form.html', contact=contact, listes=listes,
                            back_liste=back_liste, from_view=(request.args.get('ret') == 'view'))
 
@@ -158,7 +163,7 @@ def view(id):
     un lien (ex. onglet Réponses d'un formulaire) n'atterrit plus directement en édition."""
     contact = Contact.query.get_or_404(id)
     back_liste = request.args.get('back_liste', '') or None
-    listes = Liste.query.order_by(Liste.nom).all()
+    listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
     return render_template('contact_form.html', contact=contact, listes=listes,
                            back_liste=back_liste, readonly=True)
 

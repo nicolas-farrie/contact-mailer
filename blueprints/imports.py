@@ -395,8 +395,14 @@ def _import_mapped(mapped, col_keys, custom_keys, update_existing, source, extra
     existing = None
     if uid:
         existing = Contact.query.filter_by(uid=uid, is_deleted=False).first()
-    if not existing and email and nom and prenom:
-        existing = Contact.query.filter_by(email=email, nom=nom, prenom=prenom, is_deleted=False).first()
+    if not existing and nom and prenom:
+        # Dédoublonnage par nom+prénom ; l'email affine quand il est présent
+        # (familles au même email distinguées par le prénom). Sans email — cas
+        # fréquent (fichier « maires » = 0 email) — nom+prénom suffit à retrouver.
+        q = Contact.query.filter_by(nom=nom, prenom=prenom, is_deleted=False)
+        if email:
+            q = q.filter_by(email=email)
+        existing = q.first()
 
     if existing and not update_existing:
         return existing, 'skipped'
@@ -473,10 +479,11 @@ def _mapping_from_form(form):
 
 
 def _dedup_ok(mapping):
-    """Une clé de dédoublonnage est-elle mappée ? (UID, ou email+nom+prénom ensemble).
-    Sinon un ré-import ne peut PAS retrouver les contacts existants → il crée des doublons."""
+    """Une clé de dédoublonnage est-elle mappée ? (UID, ou Nom+Prénom).
+    Sinon un ré-import ne peut PAS retrouver les contacts existants → il crée des doublons.
+    L'email n'est pas requis (souvent absent) : il ne fait qu'affiner le nom+prénom."""
     keys = {v for v in mapping.values() if v}
-    return ('uid' in keys) or ({'email', 'nom', 'prenom'} <= keys)
+    return ('uid' in keys) or ({'nom', 'prenom'} <= keys)
 
 
 def _active_listes():
