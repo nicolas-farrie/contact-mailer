@@ -472,6 +472,17 @@ def _mapping_from_form(form):
     return dict(zip(form.getlist('hdr'), form.getlist('map')))
 
 
+def _dedup_ok(mapping):
+    """Une clé de dédoublonnage est-elle mappée ? (UID, ou email+nom+prénom ensemble).
+    Sinon un ré-import ne peut PAS retrouver les contacts existants → il crée des doublons."""
+    keys = {v for v in mapping.values() if v}
+    return ('uid' in keys) or ({'email', 'nom', 'prenom'} <= keys)
+
+
+def _active_listes():
+    return Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
+
+
 def _resolve_target_list(list_id, new_list_name):
     """Résout la liste de destination. Renvoie (noms_a_ajouter, id_pour_redirection).
 
@@ -543,7 +554,7 @@ def _import_vcard_direct(file):
 @bp.route('/import', methods=['GET', 'POST'])
 @admin_required
 def index():
-    listes = Liste.query.order_by(Liste.nom).all()
+    listes = _active_listes()
     if request.method == 'POST':
         file = request.files.get('file')
         if not file or not file.filename:
@@ -577,13 +588,15 @@ def index():
             flash("Fichier vide ou sans ligne d'en-tête.", 'error')
             return redirect(url_for('imports.index'))
         targets = _import_targets()
+        suggested = _suggest_mapping(headers, targets)
         return render_template('import_mapping.html',
                                token=token, ext=ext, filename=file.filename,
                                headers=headers, sample_rows=rows[:5], nrows=len(rows),
-                               targets=targets, mapping=_suggest_mapping(headers, targets),
+                               targets=targets, mapping=suggested,
                                listes=listes, list_id=request.form.get('list_id', ''),
                                new_list_name=request.form.get('new_list_name', ''),
                                update_existing=request.form.get('update_existing') == 'on',
+                               dedup_ok=_dedup_ok(suggested),
                                previewed=False, counts=None,
                                field_map=fields_registry.field_map())
 
@@ -643,9 +656,10 @@ def import_mapping():
                            token=token, ext=ext, filename=filename,
                            headers=headers, sample_rows=rows[:5], nrows=len(rows),
                            targets=_import_targets(), mapping=mapping,
-                           listes=Liste.query.order_by(Liste.nom).all(), list_id=list_id,
+                           listes=_active_listes(), list_id=list_id,
                            new_list_name=new_list_name,
                            update_existing=update_existing,
+                           dedup_ok=_dedup_ok(mapping),
                            previewed=True, counts=counts,
                            field_map=fields_registry.field_map())
 

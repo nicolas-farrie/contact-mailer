@@ -37,6 +37,17 @@
 </div>
 {% endif %}
 
+{% if update_existing and not dedup_ok %}
+<div class="info-box" style="border-left:4px solid var(--danger, #c0392b);">
+    <h3 style="margin-top:0;">⚠ Aucune clé de dédoublonnage</h3>
+    <p>Pour retrouver des contacts <strong>déjà présents</strong> et les mettre à jour, il faut mapper soit
+        l'<strong>UID</strong>, soit <strong>E-mail + Nom + Prénom</strong> (les trois ensemble).</p>
+    <p>En l'état, chaque ligne sera importée comme un <strong>nouveau contact</strong> — même si la personne existe
+        déjà — et les champs non mappés resteront vides. C'est voulu pour créer des fiches « à compléter », mais
+        cela crée des <strong>doublons</strong> si votre but est de mettre à jour l'existant.</p>
+</div>
+{% endif %}
+
 <form method="POST" action="{{ url_for('imports.import_mapping') }}">
     <input type="hidden" name="token" value="{{ token }}">
     <input type="hidden" name="ext" value="{{ ext }}">
