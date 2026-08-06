@@ -15,9 +15,9 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, Response)
 from flask_login import login_required, current_user
 
-from models import db, Contact, Liste
+from models import db, Contact, Liste, CustomFieldDefinition
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
-from helpers import admin_required
+from helpers import admin_required, slugify_key
 import fields as fields_registry
 
 bp = Blueprint('imports', __name__)
@@ -518,6 +518,45 @@ def _mapping_from_form(form):
     return dict(zip(form.getlist('hdr'), form.getlist('map')))
 
 
+# Types autorisés à la création d'un champ perso depuis l'import (MVP-2).
+_NEW_FIELD_TYPES = (
+    ('text', 'Texte'), ('textarea', 'Texte long'), ('number', 'Nombre'),
+    ('date', 'Date'), ('checkbox', 'Case à cocher'), ('select', 'Liste déroulante'),
+)
+_NEW_FIELD_TYPE_KEYS = {k for k, _ in _NEW_FIELD_TYPES}
+
+
+def _create_import_fields(mapping, form):
+    """Crée les champs perso demandés à l'import (colonnes mappées sur « __new__ »).
+
+    Réécrit `mapping` en place (header → clé du nouveau champ) et renvoie la liste
+    des champs créés [(libellé, clé)]. Idempotent : une clé déjà existante est
+    réutilisée (pas de doublon si on prévisualise puis importe). Persiste aussitôt
+    (définitions légères, gérables ensuite dans Paramètres › Champs personnalisés)."""
+    newlabels = dict(zip(form.getlist('hdr'), form.getlist('newlabel')))
+    newtypes = dict(zip(form.getlist('hdr'), form.getlist('newtype')))
+    created = []
+    for hdr, key in list(mapping.items()):
+        if key != '__new__':
+            continue
+        label = (newlabels.get(hdr) or hdr or '').strip()
+        ftype = newtypes.get(hdr) if newtypes.get(hdr) in _NEW_FIELD_TYPE_KEYS else 'text'
+        slug = slugify_key(label)
+        if not slug or slug in fields_registry.RESERVED_KEYS:
+            mapping[hdr] = ''   # clé impossible/réservée → colonne non importée
+            continue
+        cf = CustomFieldDefinition.query.filter_by(key=slug).first()
+        if not cf:
+            max_ordre = db.session.query(db.func.max(CustomFieldDefinition.ordre)).scalar() or 0
+            db.session.add(CustomFieldDefinition(
+                key=slug, display_name=label, type=ftype, ordre=max_ordre + 1))
+            created.append((label, slug))
+        mapping[hdr] = slug
+    if created:
+        db.session.commit()
+    return created
+
+
 def _dedup_ok(mapping):
     """Une clé de dédoublonnage est-elle mappée ? (UID, ou Nom+Prénom).
     Sinon un ré-import ne peut PAS retrouver les contacts existants → il crée des doublons.
@@ -644,6 +683,7 @@ def index():
                                new_list_name=request.form.get('new_list_name', ''),
                                update_existing=request.form.get('update_existing') == 'on',
                                dedup_ok=_dedup_ok(suggested),
+                               new_field_types=_NEW_FIELD_TYPES,
                                previewed=False, counts=None,
                                field_map=fields_registry.field_map())
 
@@ -672,6 +712,11 @@ def import_mapping():
     except Exception as e:
         flash(f'Lecture impossible : {e}', 'error')
         return redirect(url_for('imports.index'))
+
+    # Création éventuelle de champs perso demandés à l'import (colonnes « __new__ »).
+    created_fields = _create_import_fields(mapping, request.form)
+    if created_fields:
+        flash('Champ personnalisé créé : ' + ', '.join(lbl for lbl, _ in created_fields), 'success')
 
     col_keys, custom_keys = _key_sets()
     custom_types = _custom_types()
@@ -708,6 +753,7 @@ def import_mapping():
                            new_list_name=new_list_name,
                            update_existing=update_existing,
                            dedup_ok=_dedup_ok(mapping),
+                           new_field_types=_NEW_FIELD_TYPES,
                            previewed=True, counts=counts,
                            field_map=fields_registry.field_map())
 

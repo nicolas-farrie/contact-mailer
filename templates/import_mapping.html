@@ -72,7 +72,7 @@
                     </td>
                     <td style="color:var(--text-muted)">{{ sample_value(header) | trim | truncate(40) }}</td>
                     <td>
-                        <select name="map">
+                        <select name="map" onchange="toggleNewField(this)">
                             <option value="">— Ne pas importer —</option>
                             {% for gkey, glabel in group_labels.items() %}
                                 {% set opts = targets | selectattr('group', 'equalto', gkey) | list %}
@@ -84,13 +84,23 @@
                                 </optgroup>
                                 {% endif %}
                             {% endfor %}
+                            <option value="__new__" {{ 'selected' if mapping.get(header) == '__new__' }}>➕ Créer un champ personnalisé…</option>
                         </select>
+                        <div class="new-field-box"{% if mapping.get(header) != '__new__' %} style="display:none"{% endif %}>
+                            <input type="text" name="newlabel" value="{{ header }}" placeholder="Libellé du champ">
+                            <select name="newtype">
+                                {% for tk, tl in new_field_types %}
+                                <option value="{{ tk }}">{{ tl }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
         </div>
+        <p class="hint" style="margin-top:0.5rem;">Une colonne sans équivalent ? Choisissez <strong>« ➕ Créer un champ personnalisé… »</strong> : le champ sera créé et rempli à l'import (gérable ensuite dans Paramètres › Champs personnalisés).</p>
     </div>
 
     <div class="form-card">
@@ -121,4 +131,15 @@
     </div>
     <p class="hint" style="margin-top:0.5rem;">« Tester l'import » simule l'opération et affiche les compteurs sans rien écrire — utile après avoir ajusté les associations.</p>
 </form>
+
+<style>
+.new-field-box { margin-top:0.4rem; display:flex; gap:0.4rem; flex-wrap:wrap; }
+.new-field-box input[type=text] { flex:1 1 8rem; min-width:6rem; }
+</style>
+<script>
+function toggleNewField(sel){
+    var box = sel.parentNode.querySelector('.new-field-box');
+    if (box) box.style.display = (sel.value === '__new__') ? 'flex' : 'none';
+}
+</script>
 {% endblock %}

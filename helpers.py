@@ -4,6 +4,8 @@ gestion des paramètres applicatifs (table Setting) + fichiers d'upload.
 Utilise `current_app` plutôt que d'importer `app` (évite les imports circulaires).
 """
 import os
+import re
+import unicodedata
 from functools import wraps
 
 from flask import current_app, url_for, flash, redirect
@@ -11,6 +13,17 @@ from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
 from models import db, Setting
+
+
+def slugify_key(label):
+    """Dérive une clé machine stable (fieldName) depuis un libellé.
+    Partagé par la gestion des champs perso (Paramètres) et la création à l'import."""
+    s = unicodedata.normalize('NFKD', (label or '').strip().lower())
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r'[^a-z0-9]+', '_', s).strip('_')
+    if s and s[0].isdigit():
+        s = 'f_' + s
+    return s
 
 
 # === Contrôle d'accès ===

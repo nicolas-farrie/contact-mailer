@@ -5,16 +5,15 @@ Endpoints : settings.index, settings.clear_login_bg, settings.trash,
 settings.trash_restore, settings.trash_purge.
 """
 import os
-import re
 import uuid
-import unicodedata
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
 from models import db, Contact, CustomFieldDefinition
 from helpers import (admin_required, set_setting, get_setting, _upload_dir,
-                     _delete_current_login_bg, ALLOWED_IMAGE_EXT, MAX_IMAGE_BYTES)
+                     _delete_current_login_bg, ALLOWED_IMAGE_EXT, MAX_IMAGE_BYTES,
+                     slugify_key)
 from config import Config
 import fields
 
@@ -153,15 +152,6 @@ def trash_purge():
 
 # --- Champs personnalisés (définitions) ---
 
-def _slugify_key(label):
-    """Dérive une clé machine stable (fieldName) depuis un libellé."""
-    s = unicodedata.normalize('NFKD', label.strip().lower())
-    s = ''.join(c for c in s if not unicodedata.combining(c))
-    s = re.sub(r'[^a-z0-9]+', '_', s).strip('_')
-    if s and s[0].isdigit():
-        s = 'f_' + s
-    return s
-
 
 def _parse_options(form, ftype):
     """Options (une par ligne) pour un select, sinon None.
@@ -194,7 +184,7 @@ def custom_field_new():
     if not label:
         flash('Le libellé est requis.', 'error')
         return redirect(url_for('settings.custom_fields'))
-    key = _slugify_key(label)
+    key = slugify_key(label)
     if not key:
         flash("Libellé invalide : impossible d'en dériver une clé.", 'error')
         return redirect(url_for('settings.custom_fields'))
