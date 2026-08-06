@@ -321,6 +321,17 @@ def _sweep_stale_imports(max_age_h=6):
         pass
 
 
+def _cell_str(v):
+    """Cellule openpyxl → chaîne « propre ». Excel stocke tout nombre en flottant :
+    un entier ressort en float (34700.0) → on retire le « .0 » parasite (codes postaux,
+    identifiants…) tout en préservant les vraies décimales (12.5)."""
+    if v is None:
+        return ''
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v).strip()
+
+
 def _read_tabular(path, filename):
     """(headers, rows) depuis .xlsx / .csv / .tsv. rows = list de {header: str}."""
     fn = (filename or '').lower()
@@ -333,10 +344,10 @@ def _read_tabular(path, filename):
             head = next(it)
         except StopIteration:
             wb.close(); return [], []
-        headers = [str(h).strip() if h is not None else f'colonne {i+1}' for i, h in enumerate(head)]
+        headers = [_cell_str(h) if h is not None else f'colonne {i+1}' for i, h in enumerate(head)]
         rows = []
         for r in it:
-            d = {h: ('' if (i >= len(r) or r[i] is None) else str(r[i]).strip())
+            d = {h: ('' if (i >= len(r) or r[i] is None) else _cell_str(r[i]))
                  for i, h in enumerate(headers)}
             if any(d.values()):
                 rows.append(d)
