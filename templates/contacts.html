@@ -241,6 +241,7 @@
             <h2>Exporter la sélection</h2>
             <p class="text-muted"><span id="export-count">0</span> contact(s) sélectionné(s).</p>
             <div class="export-choices">
+                <button type="button" class="btn btn-secondary" onclick="exportSelection('xlsx')">Excel (.xlsx)</button>
                 <button type="button" class="btn btn-secondary" onclick="exportSelection('tsv')">TSV</button>
                 <button type="button" class="btn btn-secondary" onclick="exportSelection('v3')">vCard 3.0</button>
                 <button type="button" class="btn btn-secondary" onclick="exportSelection('v4')">vCard 4.0</button>
@@ -343,7 +344,8 @@ function openExportModal(){
 }
 function exportSelection(fmt){
     var ids = selectedIds().join(',');
-    if (fmt === 'tsv') window.location = EXPORT_TSV + '?ids=' + ids;
+    if (fmt === 'xlsx') window.location = EXPORT_TSV + '?format=xlsx&ids=' + ids;
+    else if (fmt === 'tsv') window.location = EXPORT_TSV + '?ids=' + ids;
     else if (fmt === 'v3') window.location = EXPORT_VCF + '?version=3.0&ids=' + ids;
     else if (fmt === 'v4') window.location = EXPORT_VCF + '?version=4.0&ids=' + ids;
     closeModal('modal-export');

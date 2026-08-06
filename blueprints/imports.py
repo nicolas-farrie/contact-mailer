@@ -911,46 +911,76 @@ def export_vcard():
     )
 
 
-@bp.route('/export')
-@admin_required
-def export_contacts():
-    liste_id = request.args.get('liste', type=int)
-    ids = request.args.get('ids', '').strip()
+# Colonnes d'export (partagées TSV / Excel) : (en-tête, extracteur).
+_EXPORT_COLUMNS = [
+    ('UID', lambda c: c.uid or ''),
+    ('Nom', lambda c: c.nom or ''),
+    ('Prenom', lambda c: c.prenom or ''),
+    ('Genre', lambda c: c.genre or ''),
+    ('Titre', lambda c: c.titre or ''),
+    ('Email', lambda c: c.email or ''),
+    ('Telephone', lambda c: c.telephone or ''),
+    ('Organisation', lambda c: c.organisation or ''),
+    ('Rue', lambda c: c.adresse_rue or ''),
+    ('Complement', lambda c: c.adresse_complement or ''),
+    ('Ville', lambda c: c.adresse_ville or ''),
+    ('CP', lambda c: c.adresse_cp or ''),
+    ('Region', lambda c: c.adresse_region or ''),
+    ('Pays', lambda c: c.adresse_pays or ''),
+    ('Source', lambda c: c.source or ''),
+    ('Notes', lambda c: c.notes or ''),
+    ('Listes', lambda c: ','.join(l.nom for l in c.listes)),
+]
 
+
+def _select_export_contacts(ids, liste_id):
+    """(contacts, nom_de_fichier_sans_extension) selon sélection / liste / tous."""
     if ids:
         id_list = [int(x) for x in ids.split(',') if x.strip().isdigit()]
         contacts = (Contact.query.filter(Contact.id.in_(id_list), Contact.is_deleted == False)
                     .order_by(Contact.nom, Contact.prenom).all())
-        filename = 'contacts_selection.tsv'
-    elif liste_id:
+        return contacts, 'contacts_selection'
+    if liste_id:
         liste = Liste.query.get_or_404(liste_id)
-        contacts = liste.active_contacts
-        filename = f'contacts_{liste.nom}.tsv'
-    else:
-        contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
-        filename = 'contacts_all.tsv'
+        return liste.active_contacts, f'contacts_{liste.nom}'
+    contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
+    return contacts, 'contacts_all'
 
+
+@bp.route('/export')
+@admin_required
+def export_contacts():
+    contacts, base = _select_export_contacts(request.args.get('ids', '').strip(),
+                                             request.args.get('liste', type=int))
+    fmt = request.args.get('format', 'tsv')
+    headers = [h for h, _ in _EXPORT_COLUMNS]
+
+    if fmt == 'xlsx':
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Contacts'
+        ws.append(headers)
+        for c in contacts:
+            ws.append([fn(c) for _, fn in _EXPORT_COLUMNS])
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        return Response(
+            buf.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={'Content-Disposition': f'attachment; filename={base}.xlsx'}
+        )
+
+    # TSV (par défaut)
     output = io.StringIO()
     writer = csv.writer(output, delimiter='\t')
-    writer.writerow(['UID', 'Nom', 'Prenom', 'Genre', 'Titre', 'Email', 'Telephone', 'Organisation',
-                      'Rue', 'Complement', 'Ville', 'CP', 'Region', 'Pays',
-                      'Source', 'Notes', 'Listes'])
-
+    writer.writerow(headers)
     for c in contacts:
-        writer.writerow([
-            c.uid, c.nom, c.prenom, c.genre or '', c.titre or '',
-            c.email, c.telephone or '',
-            c.organisation or '',
-            c.adresse_rue or '', c.adresse_complement or '',
-            c.adresse_ville or '', c.adresse_cp or '',
-            c.adresse_region or '', c.adresse_pays or '',
-            c.source or '',
-            c.notes or '',
-            ','.join([l.nom for l in c.listes])
-        ])
+        writer.writerow([fn(c) for _, fn in _EXPORT_COLUMNS])
 
     return Response(
         output.getvalue(),
         mimetype='text/tab-separated-values',
-        headers={'Content-Disposition': f'attachment; filename={filename}'}
+        headers={'Content-Disposition': f'attachment; filename={base}.tsv'}
     )
