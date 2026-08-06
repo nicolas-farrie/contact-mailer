@@ -9,6 +9,7 @@ import os
 import time
 import uuid
 import unicodedata
+from datetime import datetime
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, Response)
@@ -384,7 +385,42 @@ def _key_sets():
     return col_keys, custom_keys
 
 
-def _import_mapped(mapped, col_keys, custom_keys, update_existing, source, extra_listes):
+def _custom_types():
+    """{clé_perso: type} — pour coercition des valeurs importées selon le type du champ."""
+    return {f.key: f.type for f in fields_registry.contact_fields(include_custom=True)
+            if f.source == 'custom'}
+
+
+# Jetons interprétés comme « vrai » pour un champ case à cocher (le reste = faux).
+_TRUTHY = {'1', 'true', 'vrai', 'oui', 'yes', 'y', 'x', 'o', 'v'}
+
+
+def _norm_date(v):
+    """Normalise une date en ISO YYYY-MM-DD si reconnue, sinon renvoie la valeur brute.
+    Gère notamment le datetime openpyxl (« 2026-08-06 00:00:00 ») et le format FR."""
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y'):
+        try:
+            return datetime.strptime(v, fmt).strftime('%Y-%m-%d')
+        except ValueError:
+            continue
+    return v
+
+
+def _coerce_custom(ftype, val):
+    """Coerce une valeur importée selon le type du champ perso.
+    Renvoie None quand le champ doit rester VIDE (absent de custom_fields)."""
+    v = (val or '').strip()
+    if not v:
+        return None
+    if ftype == 'checkbox':
+        # « FALSE / non / 0 » → non coché (None) ; « TRUE / oui / 1 / x » → '1'
+        return '1' if v.lower() in _TRUTHY else None
+    if ftype == 'date':
+        return _norm_date(v)
+    return v
+
+
+def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, source, extra_listes):
     """Importe une row MAPPÉE (keyée par clé de champ). Sans email = ACCEPTÉ.
     Dédup : UID puis composite email+nom+prénom (si email). Retourne (contact, action)."""
     email = (mapped.get('email') or '').strip()
@@ -416,8 +452,12 @@ def _import_mapped(mapped, col_keys, custom_keys, update_existing, source, extra
             if key in col_keys:
                 setattr(contact, key, val)
             elif key in custom_keys:
+                coerced = _coerce_custom(custom_types.get(key, 'text'), val)
                 cf = dict(contact.custom_fields or {})
-                cf[key] = val
+                if coerced is None:
+                    cf.pop(key, None)   # valeur « fausse »/vide → champ laissé absent
+                else:
+                    cf[key] = coerced
                 contact.custom_fields = cf
         if uid and not contact.uid:
             contact.uid = uid
@@ -441,13 +481,13 @@ def _import_mapped(mapped, col_keys, custom_keys, update_existing, source, extra
     return contact, 'created'
 
 
-def _dry_run(rows, mapping, col_keys, custom_keys, update_existing, extra_listes):
+def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra_listes):
     """Compte created/updated/skipped SANS écrire (rollback à la fin)."""
     counts = {'created': 0, 'updated': 0, 'skipped': 0}
     sample = []
     for i, row in enumerate(rows):
         mapped = _apply_mapping(row, mapping)
-        _c, action = _import_mapped(mapped, col_keys, custom_keys, update_existing, 'preview', extra_listes)
+        _c, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, 'preview', extra_listes)
         counts[action] = counts.get(action, 0) + 1
         no_email = not (mapped.get('email') or '').strip()
         if no_email and action != 'skipped':
@@ -458,11 +498,11 @@ def _dry_run(rows, mapping, col_keys, custom_keys, update_existing, extra_listes
     return counts, sample
 
 
-def _run_import(rows, mapping, col_keys, custom_keys, update_existing, extra_listes, user_id):
+def _run_import(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra_listes, user_id):
     counts = {'created': 0, 'updated': 0, 'skipped': 0, 'no_email': 0}
     for row in rows:
         mapped = _apply_mapping(row, mapping)
-        contact, action = _import_mapped(mapped, col_keys, custom_keys, update_existing, 'Import', extra_listes)
+        contact, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, 'Import', extra_listes)
         if action == 'created':
             contact.created_by_id = user_id
             db.session.add(contact)
@@ -634,11 +674,12 @@ def import_mapping():
         return redirect(url_for('imports.index'))
 
     col_keys, custom_keys = _key_sets()
+    custom_types = _custom_types()
     extra, redirect_list_id = _resolve_target_list(list_id, new_list_name)
 
     if action == 'run':
         try:
-            counts = _run_import(rows, mapping, col_keys, custom_keys, update_existing, extra, current_user.id)
+            counts = _run_import(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra, current_user.id)
         except Exception as e:
             db.session.rollback()
             flash(f'Erreur import : {e}', 'error')
@@ -658,7 +699,7 @@ def import_mapping():
         return redirect(url_for('contacts.index'))
 
     # « Tester l'import » (dry-run, rien écrit) → compteurs uniquement
-    counts, _sample = _dry_run(rows, mapping, col_keys, custom_keys, update_existing, extra)
+    counts, _sample = _dry_run(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra)
     return render_template('import_mapping.html',
                            token=token, ext=ext, filename=filename,
                            headers=headers, sample_rows=rows[:5], nrows=len(rows),
