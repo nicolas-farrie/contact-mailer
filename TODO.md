@@ -97,8 +97,8 @@ Détail complet : `doc-travail/2026-08-06-import-v2-etat-et-suite.md`. Branche `
 - [x] **Tester l'import (à blanc)** + compteurs ; **Nouvelle liste** à la volée ; redirection vers la liste peuplée — `d76c20d`
 - [x] **Dédoublonnage = Nom+Prénom** (email = affinage optionnel) → fichiers sans email ne doublonnent plus (validé sur *maires Hérault* : 0 créé / 341 màj) — `42d7abd`
 - [x] Listes **archivées exclues** des choix de liste (import **et** page contact) ; `_apply_listes` préserve les adhésions archivées — `e11eb46`+`42d7abd`
-- [ ] **MVP-2 — créer un champ perso à l'import** (le gros morceau) : depuis une colonne non mappée → « + créer un champ personnalisé » (type texte/booléen/date/select). **Implique de brancher `CustomFieldDefinition`** (modèle + table + `_custom_field_defs()`) → débloque aussi l'affichage des perso sur la fiche.
-- [ ] **MVP-2 — coercition par type** une fois les perso branchés : booléen (TRUE/oui/1/x → vrai ; **vide → None**, déjà OK), date, nombre, normalisation select.
+- [x] **MVP-2 — créer un champ perso à l'import** — `b79ff90`. Le socle `CustomFieldDefinition` existait déjà (modèle + table + 14 champs + CRUD Paramètres + rendu fiche). Ajouté : option « ➕ Créer un champ personnalisé… » sur l'écran mapping (libellé + type), création idempotente à l'import. `slugify_key` promu dans `helpers` (partagé settings↔import).
+- [x] **MVP-2 — coercition par type** — `bdb9a64`. checkbox (TRUE/oui/1/x → coché ; FALSE/non/0/vide → décoché/absent — **corrige un bug** : « FALSE » truthy en Jinja affichait « Oui »), date → ISO (gère datetime openpyxl + FR), vide → None.
 - [ ] **MVP-2 — « tester l'import » avec ERREURS par ligne** (demande Nicolas) : lister les lignes en erreur (valeur hors options, date invalide…) + ré-export des lignes fautives.
 - [ ] MVP-2 — mappings sauvegardés (réutiliser une association pour un même format).
 - [ ] MVP-2 — segment « à compléter » (sans email/tél) → rejoint l'EPIC Sélection & Segments (phase 2).
