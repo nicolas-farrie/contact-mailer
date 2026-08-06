@@ -722,7 +722,16 @@ def import_mapping():
     custom_types = _custom_types()
     extra, redirect_list_id = _resolve_target_list(list_id, new_list_name)
 
-    if action == 'run':
+    # Garde-fou : mettre à jour sans clé d'identification créerait des doublons
+    # quasi-vides au lieu de retrouver les contacts. On BLOQUE l'import réel et on
+    # renvoie l'utilisateur à l'écran (avertissement + message) au lieu de subir.
+    blocked = update_existing and not _dedup_ok(mapping)
+    if action == 'run' and blocked:
+        flash("Mise à jour impossible sans clé d'identification : associez « Nom » et "
+              "« Prénom » (ou l'UID) pour retrouver les contacts existants — ou décochez "
+              "« Mettre à jour les contacts existants » pour créer de nouveaux contacts.", 'error')
+
+    if action == 'run' and not blocked:
         try:
             counts = _run_import(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra, current_user.id)
         except Exception as e:
