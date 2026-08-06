@@ -385,3 +385,17 @@ class ContactSend(db.Model):
     campaign_id = db.Column(db.String(255), nullable=False, index=True)
     sent_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     contact = db.relationship('Contact')
+
+
+class ImportMapping(db.Model):
+    """Association colonnes→champs RÉUTILISABLE pour l'import (import v2).
+
+    Mémorise `{en-tête de colonne: clé de champ}` afin de rejouer l'association sur
+    un fichier au même format. Réappliqué par correspondance de NOM de colonne
+    (robuste à l'ordre / aux colonnes manquantes)."""
+    __tablename__ = 'import_mapping'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), unique=True, nullable=False)
+    mapping = db.Column(db.JSON, nullable=False)   # {en-tête: clé_champ}
+    created_at = db.Column(db.DateTime, default=utcnow)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)

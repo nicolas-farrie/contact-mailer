@@ -53,6 +53,24 @@
     <input type="hidden" name="ext" value="{{ ext }}">
     <input type="hidden" name="filename" value="{{ filename }}">
 
+    {% if saved_mappings %}
+    <div class="form-card">
+        <label for="saved_id">Mapping enregistré</label>
+        {% if applied_mapping %}
+        <p class="hint">✓ Mapping « <strong>{{ applied_mapping }}</strong> » appliqué automatiquement (format reconnu) — modifiable ci-dessous.</p>
+        {% endif %}
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <select id="saved_id" name="saved_id" class="filter-pill">
+                <option value="">— choisir un mapping —</option>
+                {% for sm in saved_mappings %}
+                <option value="{{ sm.id }}">{{ sm.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" name="action" value="apply_saved" class="btn btn-secondary btn-sm">Appliquer</button>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="form-card">
         <div class="table-responsive">
         <table class="data-table">
@@ -122,6 +140,15 @@
                 Mettre à jour les contacts existants et fusionner les listes
             </label>
         </div>
+    </div>
+
+    <div class="form-card">
+        <label for="save_as">Enregistrer cette association pour la réutiliser</label>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <input type="text" id="save_as" name="save_as" placeholder="Nom du mapping (ex. Export mairie)">
+            <button type="submit" name="action" value="save" class="btn btn-secondary btn-sm">💾 Enregistrer ce mapping</button>
+        </div>
+        <p class="hint">Réutilisable ensuite sur un fichier au même format : les colonnes sont reconnues par leur nom.</p>
     </div>
 
     <div class="form-actions">

@@ -58,6 +58,7 @@ MIGRATIONS = [
     ("migrate_add_form_access_code", "safe"),
     ("migrate_add_form_is_test", "safe"),
     ("migrate_add_contact_send", "safe"),
+    ("migrate_add_import_mapping", "safe"),
 ]
 
 

@@ -15,7 +15,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, Response)
 from flask_login import login_required, current_user
 
-from models import db, Contact, Liste, CustomFieldDefinition
+from models import db, Contact, Liste, CustomFieldDefinition, ImportMapping
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
 from helpers import admin_required, slugify_key
 import fields as fields_registry
@@ -518,6 +518,53 @@ def _mapping_from_form(form):
     return dict(zip(form.getlist('hdr'), form.getlist('map')))
 
 
+# --- Mappings enregistrés (réutilisables) ---
+
+def _saved_mappings():
+    return ImportMapping.query.order_by(ImportMapping.name).all()
+
+
+def _apply_saved(headers, saved):
+    """{header: clé} pour les en-têtes du fichier couverts par un mapping enregistré,
+    par correspondance de NOM normalisé (robuste à l'ordre / colonnes manquantes)."""
+    lut = {_norm(h): k for h, k in (saved.mapping or {}).items() if k}
+    out = {}
+    for h in headers:
+        k = lut.get(_norm(h))
+        if k:
+            out[h] = k
+    return out
+
+
+def _best_saved(headers, saved_list):
+    """Mapping enregistré couvrant le plus d'en-têtes du fichier (par nom normalisé).
+    Renvoie (ImportMapping|None, nb_correspondances)."""
+    hset = {_norm(h) for h in headers}
+    best, best_n = None, 0
+    for sm in saved_list:
+        keys = {_norm(h) for h, k in (sm.mapping or {}).items() if k}
+        n = len(keys & hset)
+        if n > best_n:
+            best, best_n = sm, n
+    return best, best_n
+
+
+def _render_mapping(token, ext, filename, headers, rows, mapping, list_id,
+                    new_list_name, update_existing, saved_mappings,
+                    applied_mapping=None, previewed=False, counts=None):
+    """Rendu unique de l'écran de mapping (upload, aperçu, save, apply)."""
+    return render_template('import_mapping.html',
+                           token=token, ext=ext, filename=filename,
+                           headers=headers, sample_rows=rows[:5], nrows=len(rows),
+                           targets=_import_targets(), mapping=mapping,
+                           listes=_active_listes(), list_id=list_id,
+                           new_list_name=new_list_name, update_existing=update_existing,
+                           dedup_ok=_dedup_ok(mapping), new_field_types=_NEW_FIELD_TYPES,
+                           saved_mappings=saved_mappings, applied_mapping=applied_mapping,
+                           previewed=previewed, counts=counts,
+                           field_map=fields_registry.field_map())
+
+
 # Types autorisés à la création d'un champ perso depuis l'import (MVP-2).
 _NEW_FIELD_TYPES = (
     ('text', 'Texte'), ('textarea', 'Texte long'), ('number', 'Nombre'),
@@ -673,19 +720,22 @@ def index():
                 pass
             flash("Fichier vide ou sans ligne d'en-tête.", 'error')
             return redirect(url_for('imports.index'))
-        targets = _import_targets()
-        suggested = _suggest_mapping(headers, targets)
-        return render_template('import_mapping.html',
-                               token=token, ext=ext, filename=file.filename,
-                               headers=headers, sample_rows=rows[:5], nrows=len(rows),
-                               targets=targets, mapping=suggested,
-                               listes=listes, list_id=request.form.get('list_id', ''),
-                               new_list_name=request.form.get('new_list_name', ''),
-                               update_existing=request.form.get('update_existing') == 'on',
-                               dedup_ok=_dedup_ok(suggested),
-                               new_field_types=_NEW_FIELD_TYPES,
-                               previewed=False, counts=None,
-                               field_map=fields_registry.field_map())
+        suggested = _suggest_mapping(headers, _import_targets())
+        # Auto-application du meilleur mapping enregistré (≥2 colonnes reconnues),
+        # par-dessus l'heuristique — modifiable ensuite.
+        saved = _saved_mappings()
+        best, best_n = _best_saved(headers, saved)
+        applied = None
+        mapping = suggested
+        if best and best_n >= 2:
+            mapping = dict(suggested)
+            mapping.update(_apply_saved(headers, best))
+            applied = best.name
+        return _render_mapping(token, ext, file.filename, headers, rows, mapping,
+                               request.form.get('list_id', ''),
+                               request.form.get('new_list_name', ''),
+                               request.form.get('update_existing') == 'on',
+                               saved, applied_mapping=applied)
 
     return render_template('import.html', listes=listes)
 
@@ -713,10 +763,46 @@ def import_mapping():
         flash(f'Lecture impossible : {e}', 'error')
         return redirect(url_for('imports.index'))
 
+    saved_mappings = _saved_mappings()
+
+    # Réappliquer un mapping enregistré (il prime sur les colonnes qu'il couvre ; le
+    # reste des associations en cours est conservé). AVANT toute création de champ.
+    if action == 'apply_saved':
+        sm = (ImportMapping.query.get(request.form.get('saved_id', type=int))
+              if request.form.get('saved_id') else None)
+        if sm:
+            mapping.update(_apply_saved(headers, sm))
+            flash(f'Mapping « {sm.name} » appliqué.', 'success')
+        else:
+            flash('Mapping enregistré introuvable.', 'error')
+        return _render_mapping(token, ext, filename, headers, rows, mapping, list_id,
+                               new_list_name, update_existing, saved_mappings,
+                               applied_mapping=(sm.name if sm else None))
+
     # Création éventuelle de champs perso demandés à l'import (colonnes « __new__ »).
     created_fields = _create_import_fields(mapping, request.form)
     if created_fields:
         flash('Champ personnalisé créé : ' + ', '.join(lbl for lbl, _ in created_fields), 'success')
+
+    # Enregistrer l'association pour réutilisation (les « __new__ » viennent d'être
+    # résolus en clés réelles → on ne sauvegarde que des clés concrètes).
+    if action == 'save':
+        name = (request.form.get('save_as') or '').strip()
+        if not name:
+            flash('Donnez un nom au mapping à enregistrer.', 'error')
+        else:
+            to_save = {h: k for h, k in mapping.items() if k and k != '__new__'}
+            sm = ImportMapping.query.filter_by(name=name).first()
+            if sm:
+                sm.mapping = to_save
+            else:
+                db.session.add(ImportMapping(name=name, mapping=to_save,
+                                             created_by_id=current_user.id))
+            db.session.commit()
+            flash(f'Mapping « {name} » enregistré ({len(to_save)} colonne(s)).', 'success')
+            saved_mappings = _saved_mappings()
+        return _render_mapping(token, ext, filename, headers, rows, mapping, list_id,
+                               new_list_name, update_existing, saved_mappings)
 
     col_keys, custom_keys = _key_sets()
     custom_types = _custom_types()
@@ -754,17 +840,9 @@ def import_mapping():
 
     # « Tester l'import » (dry-run, rien écrit) → compteurs uniquement
     counts, _sample = _dry_run(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra)
-    return render_template('import_mapping.html',
-                           token=token, ext=ext, filename=filename,
-                           headers=headers, sample_rows=rows[:5], nrows=len(rows),
-                           targets=_import_targets(), mapping=mapping,
-                           listes=_active_listes(), list_id=list_id,
-                           new_list_name=new_list_name,
-                           update_existing=update_existing,
-                           dedup_ok=_dedup_ok(mapping),
-                           new_field_types=_NEW_FIELD_TYPES,
-                           previewed=True, counts=counts,
-                           field_map=fields_registry.field_map())
+    return _render_mapping(token, ext, filename, headers, rows, mapping, list_id,
+                           new_list_name, update_existing, saved_mappings,
+                           previewed=True, counts=counts)
 
 
 @bp.route('/import/template')
