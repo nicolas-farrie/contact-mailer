@@ -99,9 +99,10 @@ Détail complet : `doc-travail/2026-08-06-import-v2-etat-et-suite.md`. Branche `
 - [x] Listes **archivées exclues** des choix de liste (import **et** page contact) ; `_apply_listes` préserve les adhésions archivées — `e11eb46`+`42d7abd`
 - [x] **MVP-2 — créer un champ perso à l'import** — `b79ff90`. Le socle `CustomFieldDefinition` existait déjà (modèle + table + 14 champs + CRUD Paramètres + rendu fiche). Ajouté : option « ➕ Créer un champ personnalisé… » sur l'écran mapping (libellé + type), création idempotente à l'import. `slugify_key` promu dans `helpers` (partagé settings↔import).
 - [x] **MVP-2 — coercition par type** — `bdb9a64`. checkbox (TRUE/oui/1/x → coché ; FALSE/non/0/vide → décoché/absent — **corrige un bug** : « FALSE » truthy en Jinja affichait « Oui »), date → ISO (gère datetime openpyxl + FR), vide → None.
-- [ ] **MVP-2 — « tester l'import » avec ERREURS par ligne** (demande Nicolas) : lister les lignes en erreur (valeur hors options, date invalide…) + ré-export des lignes fautives.
+- [~] **MVP-2 — « tester l'import » avec ERREURS par ligne** (demande Nicolas) : **REPORTÉ** (2026-08-06) — sous-chantier design-lourd (taxonomie erreurs + UI par ligne + ré-export) ; rien ne bloque aujourd'hui (coercition tolérante). À reprendre si gros fichiers « sales ».
 - [ ] MVP-2 — mappings sauvegardés (réutiliser une association pour un même format).
-- [ ] MVP-2 — segment « à compléter » (sans email/tél) → rejoint l'EPIC Sélection & Segments (phase 2).
+- [x] **MVP-2 — segment « à compléter »** — `f943318`. Filtre Contacts `?completude=` : « À compléter » (email OU tél manquant) / « Sans e-mail » / « Sans téléphone ». Amorce l'EPIC Sélection & Segments.
+- [ ] MVP-2 — peaufinages import : options d'un champ `select` créé à l'import (naît sans options) ; effet de bord « prévisualiser crée déjà le champ » (à reconfirmer).
 - [ ] Brief CLD « mapping sexy » (drag-drop) après validation fonctionnelle.
 - [note] Base de dev : doublons possibles créés pendant les tests d'aujourd'hui (avant le fix dédoublonnage) → prévoir au besoin un petit script de dédoublonnage par (nom, prénom).
 
