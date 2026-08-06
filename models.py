@@ -1,9 +1,16 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 db = SQLAlchemy()
+
+
+def utcnow():
+    """UTC « naïf » (sans tzinfo), en remplacement de datetime.utcnow() (déprécié
+    depuis Python 3.12). Conserve la sémantique naive-UTC utilisée partout dans le
+    projet (colonnes `DateTime` sans timezone, comparaisons avec des datetimes naïfs)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Table d'association contacts <-> listes (many-to-many)
 contact_liste = db.Table(
@@ -41,8 +48,8 @@ class Contact(db.Model):
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     # Traçabilité
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
@@ -91,7 +98,7 @@ class Liste(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nom = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)   # archivage réversible
     color = db.Column(db.String(9), nullable=True)                       # pastille choisie (#rrggbb)
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
@@ -128,7 +135,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), default='user')
     moderation_signature = db.Column(db.String(120))  # pseudonyme public pour signer les diffusions modérées (optionnel)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
     contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=True)
     contact = db.relationship('Contact', foreign_keys=[contact_id])
 
@@ -152,7 +159,7 @@ class PreferenceForm(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_by = db.relationship('User', foreign_keys=[created_by_id])
     listes = db.relationship('PreferenceFormListe', back_populates='form',
@@ -183,7 +190,7 @@ class PreferenceResponse(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=False)
     form_id = db.Column(db.Integer, db.ForeignKey('preference_form.id'), nullable=False)
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime, default=utcnow)
     data = db.Column(db.JSON, nullable=True)   # payload v2 : {listes:[ids], survey:{question_id: réponse}}
     # Réponse issue d'un ENVOI TEST (« Envoi un test ») : parcours réel mais donnée
     # exclue partout où « réel » compte (verrou, compteurs, export). Bool aujourd'hui,
@@ -237,7 +244,7 @@ class FieldProposal(db.Model):
     status = db.Column(db.String(20), default='pending', nullable=False)   # pending | applied | rejected
     otp_verified = db.Column(db.Boolean, default=False, nullable=False)     # Phase 2 (OTP email)
     is_test = db.Column(db.Boolean, default=False, nullable=False)          # proposition issue d'un envoi test → exclue de « À valider »
-    proposed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    proposed_at = db.Column(db.DateTime, default=utcnow)
     reviewed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
     contact = db.relationship('Contact')
@@ -255,7 +262,7 @@ class FormAccessCode(db.Model):
     form_id = db.Column(db.Integer, db.ForeignKey('preference_form.id'), nullable=False, index=True)
     contact_uid = db.Column(db.String(64), nullable=False, index=True)
     code_hash = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)  # anti-flood (rate-limit)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)  # anti-flood (rate-limit)
     expires_at = db.Column(db.DateTime, nullable=False)
     attempts = db.Column(db.Integer, default=0, nullable=False)   # essais erronés (blocage au-delà d'un seuil)
     consumed = db.Column(db.Boolean, default=False, nullable=False)
@@ -265,7 +272,7 @@ class BookstackRole(db.Model):
     """Rôle importé depuis BookStack (référence locale)"""
     id = db.Column(db.Integer, primary_key=True, autoincrement=False)  # ID venant de BS
     display_name = db.Column(db.String(200), nullable=False)
-    synced_at = db.Column(db.DateTime, default=datetime.utcnow)
+    synced_at = db.Column(db.DateTime, default=utcnow)
 
 
 class Setting(db.Model):
@@ -290,7 +297,7 @@ class CustomFieldDefinition(db.Model):
     required = db.Column(db.Boolean, default=False, nullable=False)  # champ obligatoire à la saisie
     ordre = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
 
 class MailCampaign(db.Model):
@@ -376,5 +383,5 @@ class ContactSend(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=False, index=True)
     campaign_id = db.Column(db.String(255), nullable=False, index=True)
-    sent_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    sent_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     contact = db.relationship('Contact')

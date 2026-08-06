@@ -22,7 +22,7 @@ import sqlite3
 import json
 import shutil
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def _has_table(conn, name):
@@ -89,7 +89,7 @@ def main():
         inserted = 0
         if _has_table(conn, 'mail_queue_item') and _has_table(conn, 'contact'):
             valid = {r[0] for r in conn.execute("SELECT id FROM contact").fetchall()}
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             for (snap, cid_, sent_at) in conn.execute(
                     "SELECT contact, campaign_id, sent_at FROM mail_queue_item WHERE status='sent'"):
                 try:

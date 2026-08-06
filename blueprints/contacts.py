@@ -4,12 +4,11 @@ Endpoints : contacts.index, contacts.new, contacts.edit, contacts.delete,
 contacts.bulk_action, contacts.scan_bounces, contacts.clear_bounce,
 contacts.resubscribe.
 """
-from datetime import datetime
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
-from models import db, Contact, Liste
+from models import db, Contact, Liste, utcnow
 from config import Config
 from helpers import admin_required
 import fields
@@ -174,7 +173,7 @@ def delete(id):
     contact = Contact.query.get_or_404(id)
     nom_complet = f'{contact.prenom} {contact.nom}'
     contact.is_deleted = True
-    contact.deleted_at = datetime.utcnow()
+    contact.deleted_at = utcnow()
     contact.deleted_by_id = current_user.id
     db.session.commit()
     flash(f'Contact {nom_complet} déplacé dans la corbeille', 'success')
@@ -246,7 +245,7 @@ def bulk_action():
         flash(f'{n} contact(s) réabonné(s)', 'success')
 
     elif action == 'unsubscribe':
-        now = datetime.utcnow()
+        now = utcnow()
         n = 0
         for contact in contacts:
             if not contact.is_unsubscribed:
@@ -258,7 +257,7 @@ def bulk_action():
         flash(f'{n} contact(s) désabonné(s)', 'success')
 
     elif action == 'delete':
-        now = datetime.utcnow()
+        now = utcnow()
         for contact in contacts:
             contact.is_deleted = True
             contact.deleted_at = now
@@ -287,7 +286,7 @@ def scan_bounces():
         ).first()
         if contact:
             contact.has_bounced = True
-            contact.bounced_at = datetime.utcnow()
+            contact.bounced_at = utcnow()
             mark_processed(Config, item['imap_uid'])
             marked += 1
         else:

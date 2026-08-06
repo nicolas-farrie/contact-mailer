@@ -9,7 +9,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 
-from models import db, User, Contact
+from models import db, User, Contact, utcnow
 from config import Config
 
 bp = Blueprint('public', __name__)
@@ -108,7 +108,7 @@ def unsubscribe(uid):
 
     if request.method == 'POST':
         contact.is_unsubscribed = True
-        contact.unsubscribed_at = datetime.utcnow()
+        contact.unsubscribed_at = utcnow()
         db.session.commit()
         return render_template('unsubscribe.html', state='done')
 

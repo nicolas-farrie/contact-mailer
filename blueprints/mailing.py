@@ -13,7 +13,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify, send_from_directory)
 from flask_login import login_required, current_user
 
-from models import Contact, Liste, PreferenceForm, MailCampaign, MailQueueItem, ContactSend, db
+from models import Contact, Liste, PreferenceForm, MailCampaign, MailQueueItem, ContactSend, db, utcnow
 from config import Config
 from helpers import admin_required
 
@@ -836,7 +836,7 @@ def _run_send(campaign):
             queue.mark_sent(item['id'])
             sent += 1
             if contact.get('id'):
-                sent_log.append((contact['id'], _dt.utcnow()))
+                sent_log.append((contact['id'], utcnow()))
         except Exception as e:
             queue.mark_error(item['id'], str(e))
             errors += 1

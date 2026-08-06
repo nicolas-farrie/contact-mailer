@@ -17,7 +17,7 @@ import sqlite3
 import shutil
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 DEFAULT_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'contacts.db')
 
@@ -129,7 +129,7 @@ def migrate(db_path, dry_run=False):
 
         # Mettre created_at pour les utilisateurs existants
         if 'created_at' not in user_cols:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             conn.execute("UPDATE user SET created_at = ?", (now,))
             print(f"  created_at={now} pour {nb_users} utilisateur(s) existant(s)")
 

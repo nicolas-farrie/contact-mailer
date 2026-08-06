@@ -16,7 +16,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
                     PreferenceResponse, FieldProposal, FormBlock, SurveyQuestion,
-                    FormAccessCode)
+                    FormAccessCode, utcnow)
 from config import Config
 from helpers import admin_required
 import fields as fields_registry
@@ -50,7 +50,7 @@ def index():
                            .filter(FieldProposal.status == 'pending', FieldProposal.is_test == False)
                            .group_by(FieldProposal.form_id).all())
     return render_template('formulaires.html', forms=forms, archived=archived,
-                           pending_by_form=pending_by_form, now=datetime.utcnow())
+                           pending_by_form=pending_by_form, now=utcnow())
 
 
 @bp.route('/formulaires/new', methods=['GET', 'POST'])
@@ -62,7 +62,7 @@ def new():
         if not nom:
             flash('Le nom du formulaire est requis.', 'error')
             return render_template('formulaire_edit.html', form=None, listes=listes, locked=False,
-                               now=datetime.utcnow(), pending=0,
+                               now=utcnow(), pending=0,
                                field_groups=fields_registry.fields_by_group(),
                                editable_keys=_editable_field_keys(),
                                fiche_selected=[], has_fiche=False,
@@ -84,7 +84,7 @@ def new():
         flash(f'Formulaire "{pf.nom}" créé.', 'success')
         return redirect(url_for('formulaires.detail', id=pf.id, tab='lien'))
     return render_template('formulaire_edit.html', form=None, listes=listes, locked=False,
-                           now=datetime.utcnow(), pending=0,
+                           now=utcnow(), pending=0,
                            field_groups=fields_registry.fields_by_group(),
                            editable_keys=_editable_field_keys(),
                            fiche_selected=[], has_fiche=False,
@@ -124,7 +124,7 @@ def detail(id):
                            tab=tab, proposal_groups=proposal_groups, pending=len(proposal_groups),
                            field_map=fields_registry.field_map(),
                            liste_names=liste_names, question_labels=question_labels,
-                           now=datetime.utcnow())
+                           now=utcnow())
 
 
 def _csv_safe(val):
@@ -191,7 +191,7 @@ def _render_edit_form(pf, listes, form_data):
     else:
         pf.expires_at = None
     return render_template('formulaire_edit.html', form=pf, listes=listes,
-                           locked=(len(pf.real_responses) > 0), now=datetime.utcnow(),
+                           locked=(len(pf.real_responses) > 0), now=utcnow(),
                            pending=_pending_contacts_count(pf.id),
                            field_groups=fields_registry.fields_by_group(),
                            editable_keys=editable,
@@ -250,7 +250,7 @@ def edit(id):
     fiche_block = next((b for b in pf.blocks if b.type == 'fiche'), None)
     sondage_block = next((b for b in pf.blocks if b.type == 'sondage'), None)
     return render_template('formulaire_edit.html', form=pf, listes=listes, locked=locked,
-                           now=datetime.utcnow(), pending=pending,
+                           now=utcnow(), pending=pending,
                            field_groups=fields_registry.fields_by_group(),
                            editable_keys=_editable_field_keys(),
                            fiche_selected=((fiche_block.config or {}).get('fields', []) if fiche_block else []),
@@ -287,7 +287,7 @@ def archive(id):
     fixer une date de clôture passée — garde-fou contre un archivage accidentel
     d'un formulaire encore en cours de collecte."""
     pf = PreferenceForm.query.get_or_404(id)
-    now = datetime.utcnow()
+    now = utcnow()
     still_online = pf.is_active and (pf.expires_at is None or pf.expires_at > now)
     if still_online:
         flash("Un formulaire actif et en ligne ne peut pas être archivé (il peut encore être "
@@ -439,7 +439,7 @@ def proposal_apply(id):
     if not contact or not props:
         flash('Rien à appliquer.', 'error')
         return redirect(url_for('formulaires.detail', id=id, tab='valider'))
-    now = datetime.utcnow()
+    now = utcnow()
     for p in props:
         _set_contact_field(contact, p.field_key, p.new_value)
         p.status = 'applied'
@@ -458,7 +458,7 @@ def proposal_reject(id):
     PreferenceForm.query.get_or_404(id)
     contact_id = request.form.get('contact_id', type=int)
     props = FieldProposal.query.filter_by(form_id=id, contact_id=contact_id, status='pending', is_test=False).all()
-    now = datetime.utcnow()
+    now = utcnow()
     for p in props:
         p.status = 'rejected'
         p.reviewed_by_id = current_user.id
@@ -496,11 +496,11 @@ def _otp_skey(pf, uid):
 def _otp_verified(pf, uid):
     """La session porte-t-elle une vérification email encore valide pour ce (formulaire, contact) ?"""
     exp = session.get(_otp_skey(pf, uid))
-    return bool(exp and exp > datetime.utcnow().timestamp())
+    return bool(exp and exp > utcnow().timestamp())
 
 
 def _set_otp_verified(pf, uid):
-    session[_otp_skey(pf, uid)] = (datetime.utcnow() + timedelta(minutes=OTP_SESSION_MIN)).timestamp()
+    session[_otp_skey(pf, uid)] = (utcnow() + timedelta(minutes=OTP_SESSION_MIN)).timestamp()
 
 
 def _mask_email(email):
@@ -520,7 +520,7 @@ def _latest_code(pf, uid):
 
 
 def _has_valid_code(pf, uid):
-    now = datetime.utcnow()
+    now = utcnow()
     return (FormAccessCode.query
             .filter(FormAccessCode.form_id == pf.id, FormAccessCode.contact_uid == uid,
                     FormAccessCode.consumed.is_(False), FormAccessCode.expires_at > now)
@@ -564,7 +564,7 @@ def _purge_access_codes(pf, uid, now):
 
 def _send_otp(pf, contact):
     """Génère + envoie un code (anti-flood). Retourne 'sent' | 'cooldown' | 'error'."""
-    now = datetime.utcnow()
+    now = utcnow()
     latest = _latest_code(pf, contact.uid)
     if latest and (now - latest.created_at).total_seconds() < OTP_COOLDOWN_S:
         return 'cooldown'
@@ -595,7 +595,7 @@ def _public_url(form_token, contact_uid, test):
 def request_code(form_token, contact_uid):
     """(Re)envoi d'un code à la demande depuis l'écran de vérification."""
     pf = PreferenceForm.query.filter_by(token=form_token).first_or_404()
-    if not pf.is_active or (pf.expires_at and pf.expires_at < datetime.utcnow()):
+    if not pf.is_active or (pf.expires_at and pf.expires_at < utcnow()):
         return render_template('preferences_expired.html', form=pf)
     contact = Contact.query.filter_by(uid=contact_uid, is_deleted=False).first_or_404()
     status = _send_otp(pf, contact)
@@ -612,12 +612,12 @@ def request_code(form_token, contact_uid):
 def verify_code(form_token, contact_uid):
     """Vérifie le code saisi ; ouvre la session « email vérifié » en cas de succès."""
     pf = PreferenceForm.query.filter_by(token=form_token).first_or_404()
-    if not pf.is_active or (pf.expires_at and pf.expires_at < datetime.utcnow()):
+    if not pf.is_active or (pf.expires_at and pf.expires_at < utcnow()):
         return render_template('preferences_expired.html', form=pf)
     contact = Contact.query.filter_by(uid=contact_uid, is_deleted=False).first_or_404()
     entered = re.sub(r'\D', '', request.form.get('code', ''))[:6]
 
-    now = datetime.utcnow()
+    now = utcnow()
     rec = (FormAccessCode.query
            .filter(FormAccessCode.form_id == pf.id, FormAccessCode.contact_uid == contact.uid,
                    FormAccessCode.consumed.is_(False), FormAccessCode.expires_at > now)
@@ -647,7 +647,7 @@ def verify_code(form_token, contact_uid):
 @bp.route('/p/<form_token>/<contact_uid>', methods=['GET', 'POST'])
 def public(form_token, contact_uid):
     pf = PreferenceForm.query.filter_by(token=form_token).first_or_404()
-    if not pf.is_active or (pf.expires_at and pf.expires_at < datetime.utcnow()):
+    if not pf.is_active or (pf.expires_at and pf.expires_at < utcnow()):
         return render_template('preferences_expired.html', form=pf)
     contact = Contact.query.filter_by(uid=contact_uid, is_deleted=False).first_or_404()
     blocks = sorted(pf.blocks, key=lambda b: b.ordre)
@@ -704,7 +704,7 @@ def public(form_token, contact_uid):
                             existing.old_value = curv
                             existing.new_value = newv
                             existing.otp_verified = otp_ok
-                            existing.proposed_at = datetime.utcnow()
+                            existing.proposed_at = utcnow()
                         else:
                             db.session.add(FieldProposal(
                                 form_id=pf.id, contact_id=contact.id, field_key=k,
@@ -719,7 +719,7 @@ def public(form_token, contact_uid):
         resp = PreferenceResponse.query.filter_by(
             contact_id=contact.id, form_id=pf.id, is_test=is_test).first()
         if resp:
-            resp.submitted_at = datetime.utcnow(); resp.data = data
+            resp.submitted_at = utcnow(); resp.data = data
         else:
             db.session.add(PreferenceResponse(contact_id=contact.id, form_id=pf.id,
                                               data=data, is_test=is_test))

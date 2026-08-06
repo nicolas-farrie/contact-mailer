@@ -9,7 +9,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify)
 from flask_login import current_user
 
-from models import db, Contact, Liste, BookstackRole
+from models import db, Contact, Liste, BookstackRole, utcnow
 from config import Config
 from helpers import admin_required
 
@@ -31,7 +31,6 @@ def bookstack():
 @admin_required
 def bookstack_sync_roles():
     from bookstack import BookstackClient
-    from datetime import datetime
 
     if not Config.BOOKSTACK_URL:
         flash('BookStack non configuré', 'error')
@@ -42,7 +41,7 @@ def bookstack_sync_roles():
         data = client.list_roles()
         bs_roles = data.get('data', [])
 
-        now = datetime.utcnow()
+        now = utcnow()
         bs_ids = set()
 
         for r in bs_roles:
