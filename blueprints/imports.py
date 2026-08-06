@@ -431,6 +431,15 @@ def _coerce_custom(ftype, val):
     return v
 
 
+def _coerce_column(key, val):
+    """Normalisation légère des champs COLONNE à l'import.
+    Code postal FR : un CP à 1-4 chiffres a perdu son/ses zéro(s) de tête au passage
+    par un nombre Excel (06123 → 6123) → on recomplète à 5 chiffres."""
+    if key == 'adresse_cp' and val.isdigit() and 0 < len(val) < 5:
+        return val.zfill(5)
+    return val
+
+
 def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, source, extra_listes):
     """Importe une row MAPPÉE (keyée par clé de champ). Sans email = ACCEPTÉ.
     Dédup : UID puis composite email+nom+prénom (si email). Retourne (contact, action)."""
@@ -461,7 +470,7 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing,
             if not val or key in ('listes', 'uid'):
                 continue
             if key in col_keys:
-                setattr(contact, key, val)
+                setattr(contact, key, _coerce_column(key, val))
             elif key in custom_keys:
                 coerced = _coerce_custom(custom_types.get(key, 'text'), val)
                 cf = dict(contact.custom_fields or {})
