@@ -16,6 +16,7 @@ Usage :
     python tools/fix_queue_ids.py --file data/mail_queue.json
 """
 import json
+import os
 import shutil
 import sys
 from datetime import datetime
@@ -27,6 +28,15 @@ def main():
     path = 'data/mail_queue.json'
     if '--file' in args:
         path = args[args.index('--file') + 1]
+
+    # Idempotence : la file a pu déjà être migrée en base puis le JSON renommé
+    # (cf. migrate_queue_to_db.py). Sans ce garde, `open()` lèverait
+    # FileNotFoundError et casserait un rejeu de migrate.py sur une instance
+    # déjà migrée. On no-op proprement (sortie 0).
+    if not os.path.exists(path):
+        print(f"Fichier   : {path}")
+        print("→ Absent (file déjà migrée en base / JSON renommé) — rien à faire.")
+        return
 
     with open(path, encoding='utf-8') as f:
         data = json.load(f)
