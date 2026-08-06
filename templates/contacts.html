@@ -20,7 +20,7 @@
     {% if c.notes %}<div class="summary-notes"><span class="sk">Notes</span>{{ c.notes }}</div>{% endif %}
 </div>
 {% endmacro %}
-{% set has_filter = search or liste_filter or source_filter or statut_filter %}
+{% set has_filter = search or liste_filter or source_filter or statut_filter or completude_filter %}
 
 <div class="page-header">
     <div class="page-header-title">
@@ -50,6 +50,12 @@
         <option value="abonne"    {% if statut_filter=='abonne'    %}selected{% endif %}>Statut : Abonnés</option>
         <option value="desabonne" {% if statut_filter=='desabonne' %}selected{% endif %}>Statut : Désabonnés</option>
         <option value="bounce"    {% if statut_filter=='bounce'    %}selected{% endif %}>Statut : Bounces</option>
+    </select>
+    <select name="completude" class="filter-pill" onchange="this.form.submit()">
+        <option value="">Complétude : Toutes</option>
+        <option value="a_completer" {% if completude_filter=='a_completer' %}selected{% endif %}>À compléter (email ou tél. manquant)</option>
+        <option value="sans_email"  {% if completude_filter=='sans_email'  %}selected{% endif %}>Sans e-mail</option>
+        <option value="sans_tel"    {% if completude_filter=='sans_tel'    %}selected{% endif %}>Sans téléphone</option>
     </select>
     {% if current_user.is_admin and sources %}
     <select name="source" class="filter-pill" onchange="this.form.submit()">

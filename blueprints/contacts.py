@@ -57,6 +57,7 @@ def index():
     source_filter = request.args.get('source', '').strip()
     search = request.args.get('q', '').strip()
     statut_filter = request.args.get('statut', '').strip()
+    completude_filter = request.args.get('completude', '').strip()
 
     query = Contact.query.filter(Contact.is_deleted == False)
 
@@ -75,6 +76,17 @@ def index():
         query = query.filter(Contact.is_unsubscribed == True)
     elif statut_filter == 'bounce':
         query = query.filter(Contact.has_bounced == True)
+
+    # Complétude = fiches « à compléter » (contacts importés sans coordonnées).
+    # Un email/téléphone vide se stocke soit à NULL soit à '' selon l'origine.
+    no_email = db.or_(Contact.email.is_(None), Contact.email == '')
+    no_tel = db.or_(Contact.telephone.is_(None), Contact.telephone == '')
+    if completude_filter == 'sans_email':
+        query = query.filter(no_email)
+    elif completude_filter == 'sans_tel':
+        query = query.filter(no_tel)
+    elif completude_filter == 'a_completer':
+        query = query.filter(db.or_(no_email, no_tel))
 
     if search:
         search_pattern = f'%{search}%'
@@ -101,6 +113,7 @@ def index():
                            liste_filter=liste_filter,
                            source_filter=source_filter,
                            statut_filter=statut_filter,
+                           completude_filter=completude_filter,
                            search=search)
 
 
