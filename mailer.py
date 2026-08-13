@@ -6,6 +6,7 @@ import ssl
 import time
 import email
 import base64
+import logging
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -312,15 +313,30 @@ class MailQueue:
             item.status = 'error'
             item.attempts = (item.attempts or 0) + 1
             item.error = error
+            item.last_error = error   # trace durable, non effacée par un retry
             db.session.commit()
+            # Log hors base : survit à un retry ET à un `--force-recreate` (les logs
+            # docker du conteneur remplacé disparaissent — d'où AUSSI last_error en base).
+            logging.error("Échec envoi — item %s (campagne %s, essai %s) : %s",
+                          item_id, item.campaign_id, item.attempts, error)
 
     def reset_errors(self, campaign_id: str = None):
-        """Remet les erreurs en pending pour retry."""
+        """Remet les items en erreur en `pending` pour un nouvel essai.
+        On NE perd PAS la cause : `last_error` est conservé et chaque erreur est
+        loggée avant que `error` (essai courant) ne soit vidé."""
         q = MailQueueItem.query.filter_by(status='error')
         if campaign_id is not None:
             q = q.filter_by(campaign_id=campaign_id)
-        q.update({'status': 'pending', 'error': None}, synchronize_session=False)
+        items = q.all()
+        for it in items:
+            logging.warning("Retry file — item %s (campagne %s) remis en attente ; "
+                            "cause précédente conservée : %s", it.id, it.campaign_id, it.error)
+            if it.error:
+                it.last_error = it.error   # préserve la dernière cause avant de vider `error`
+            it.status = 'pending'
+            it.error = None
         db.session.commit()
+        return len(items)
 
     def get_stats(self, campaign_id: str = None):
         q = db.session.query(MailQueueItem.status, db.func.count()).group_by(MailQueueItem.status)

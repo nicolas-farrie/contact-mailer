@@ -355,7 +355,8 @@ class MailQueueItem(db.Model):
     contact = db.Column(db.JSON)   # snapshot Contact.to_dict()
     status = db.Column(db.String(12), default='pending', index=True)  # pending/sent/error/cancelled
     attempts = db.Column(db.Integer, default=0)
-    error = db.Column(db.Text, nullable=True)
+    error = db.Column(db.Text, nullable=True)          # erreur de l'essai COURANT (vidée au retry)
+    last_error = db.Column(db.Text, nullable=True)     # dernière erreur connue, CONSERVÉE au retry (forensique)
     sent_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
@@ -368,6 +369,7 @@ class MailQueueItem(db.Model):
             'status': self.status,
             'attempts': self.attempts or 0,
             'error': self.error,
+            'last_error': self.last_error,
             'sent_at': self.sent_at.isoformat() if self.sent_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
