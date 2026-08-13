@@ -778,16 +778,16 @@ def _run_send(campaign):
     import time
 
     if not Config.SMTP_HOST:
-        return (None, 'SMTP non configuré')
+        return (None, 'SMTP non configuré', None)
 
     queue = MailQueue()
     pending = queue.get_pending(campaign)
     if not pending:
-        return (0, 0)
+        return (0, 0, None)
 
     tpl = queue.get_campaign_template(campaign)
     if not tpl:
-        return (None, 'Template de campagne introuvable')
+        return (None, 'Template de campagne introuvable', None)
 
     mailer = Mailer(
         smtp_host=Config.SMTP_HOST,
@@ -820,7 +820,35 @@ def _run_send(campaign):
     from datetime import datetime as _dt
     sent_log = []   # (contact_id, sent_at) des envois réussis → journal ContactSend
 
+    # Plafonds glissants (1h / 24h) tous envois confondus, via le journal ContactSend
+    # (déjà envoyés lors des campagnes PRÉCÉDENTES) + le compteur `sent` de ce run.
+    from datetime import timedelta
+    _now = utcnow()
+
+    def _sent_since(delta):
+        return db.session.query(db.func.count(ContactSend.id)).filter(
+            ContactSend.sent_at >= _now - delta).scalar() or 0
+
+    prior_hour = _sent_since(timedelta(hours=1))
+    prior_day = _sent_since(timedelta(days=1))
+    max_hour, max_day = Config.MAIL_MAX_PER_HOUR, Config.MAIL_MAX_PER_DAY
+    capped = None
+
+    # UNE seule connexion SMTP pour toute la campagne (au lieu d'une par email).
+    try:
+        mailer.connect()
+    except Exception as e:
+        return (None, f'Connexion SMTP impossible : {e}', None)
+
     for item in pending:
+        # Garde-fous anti-blocage : on s'arrête AVANT de dépasser les plafonds ;
+        # les items non traités restent EN ATTENTE (repris via « Reprendre l'envoi »).
+        if max_hour and (prior_hour + sent) >= max_hour:
+            capped = f'plafond horaire atteint ({max_hour}/h)'
+            break
+        if max_day and (prior_day + sent) >= max_day:
+            capped = f'plafond journalier atteint ({max_day}/j)'
+            break
         contact = item['contact']
 
         # Construire l'URL de désabonnement par contact
@@ -894,17 +922,23 @@ def _run_send(campaign):
     except Exception as e:
         flash(f'Copie expéditeur non envoyée : {e}', 'warning')
 
-    return (sent, errors)
+    mailer.quit()   # ferme la connexion SMTP persistante de la campagne
+    return (sent, errors, capped)
 
 
 def _flash_send_result(res):
     """Flash standard du résultat de _run_send (partagé par les 2 déclencheurs)."""
-    if res[0] is None:
-        flash(res[1], 'error')
-    elif res == (0, 0):
+    sent, errors, capped = res
+    if sent is None:
+        flash(errors, 'error')   # `errors` porte le message dans le cas d'échec
+        return
+    if (sent, errors) == (0, 0) and not capped:
         flash('Aucun email en attente.', 'info')
+        return
+    if capped:
+        flash(f'Envoi interrompu ({capped}) : {sent} envoyés, {errors} erreurs. '
+              f'Le reste est EN FILE — reprenez plus tard (« Reprendre l\'envoi »).', 'warning')
     else:
-        sent, errors = res
         flash(f'Envoi terminé : {sent} envoyés, {errors} erreurs.',
               'success' if errors == 0 else 'warning')
 

@@ -34,8 +34,14 @@ class Config:
     SMTP_SENDER_NAME = os.environ.get('SMTP_SENDER_NAME', '')
     SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', 'true').lower() == 'true'
 
-    # Rate limiting (emails par minute)
-    MAIL_RATE_PER_MINUTE = int(os.environ.get('MAIL_RATE_PER_MINUTE', 20))
+    # Rate limiting (emails par minute) — cadence des envois pour ne pas « bursté »
+    # les anti-spam des SMTP mutualisés (LWS…). Défaut prudent ; ajustable en .env.
+    MAIL_RATE_PER_MINUTE = int(os.environ.get('MAIL_RATE_PER_MINUTE', 10))
+    # Plafonds glissants (fenêtres 1h / 24h) tous envois confondus. 0 = illimité.
+    # Au-delà, l'envoi en cours S'ARRÊTE proprement (le reste reste en file, à
+    # reprendre plus tard). À CALIBRER sur la limite réelle de l'offre d'hébergement.
+    MAIL_MAX_PER_HOUR = int(os.environ.get('MAIL_MAX_PER_HOUR', 100))
+    MAIL_MAX_PER_DAY = int(os.environ.get('MAIL_MAX_PER_DAY', 300))
 
     # URL publique (pour les liens de désabonnement)
     BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')

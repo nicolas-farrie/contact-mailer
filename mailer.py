@@ -437,6 +437,46 @@ class Mailer:
         self.sender_email = sender_email
         self.sender_name = sender_name
         self.use_tls = use_tls
+        self._server = None   # connexion SMTP persistante (campagne) ; None = envoi one-shot
+
+    def _open_server(self):
+        """Ouvre + authentifie une connexion SMTP (STARTTLS ou SSL)."""
+        context = ssl.create_default_context()
+        if self.use_tls:
+            server = smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30)
+            server.starttls(context=context)
+        else:
+            server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, context=context, timeout=30)
+        server.login(self.smtp_user, self.smtp_password)
+        return server
+
+    def connect(self):
+        """Ouvre UNE connexion réutilisée pour toute une campagne (évite de se
+        reconnecter+réauthentifier à chaque email — plus rapide, moins « suspect »
+        pour les anti-spam de mutualisé)."""
+        self._server = self._open_server()
+
+    def quit(self):
+        """Ferme la connexion persistante (à appeler en fin de campagne)."""
+        if self._server is not None:
+            try:
+                self._server.quit()
+            except Exception:
+                pass
+            self._server = None
+
+    def _deliver(self, envelope_from, to_email, msg):
+        """Envoie le message : via la connexion persistante si ouverte (avec une
+        reconnexion en cas de coupure en cours de campagne), sinon en one-shot."""
+        if self._server is not None:
+            try:
+                self._server.sendmail(envelope_from, to_email, msg.as_string())
+            except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError):
+                self._server = self._open_server()   # la connexion est tombée → une reprise
+                self._server.sendmail(envelope_from, to_email, msg.as_string())
+        else:
+            with self._open_server() as server:
+                server.sendmail(envelope_from, to_email, msg.as_string())
 
     def send_single(self, to_email: str, subject: str, body_text: str, body_html: str = None,
                      unsubscribe_url: str = None, attachments: list = None,
@@ -513,21 +553,10 @@ class Mailer:
                     part.add_header('Content-Disposition', f'attachment; filename="{filepath.name}"')
                     msg.attach(part)
 
-            context = ssl.create_default_context()
-
             # L'expéditeur d'ENVELOPPE (MAIL FROM) détermine où reviennent les bounces.
             # Le header Return-Path seul ne suffit PAS — il faut le passer ici.
             envelope_from = return_path or self.sender_email
-
-            if self.use_tls:
-                with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                    server.starttls(context=context)
-                    server.login(self.smtp_user, self.smtp_password)
-                    server.sendmail(envelope_from, to_email, msg.as_string())
-            else:
-                with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, context=context) as server:
-                    server.login(self.smtp_user, self.smtp_password)
-                    server.sendmail(envelope_from, to_email, msg.as_string())
+            self._deliver(envelope_from, to_email, msg)
 
             return True
 
