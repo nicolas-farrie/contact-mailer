@@ -75,7 +75,7 @@
         {% endfor %}
     </select>
     {% endif %}
-    {% if has_filter %}<a href="{{ url_for('contacts.index') }}" class="btn btn-secondary btn-small">Effacer</a>{% endif %}
+    {% if has_filter %}<a href="{{ url_for('contacts.index') }}" class="btn btn-secondary btn-small" title="Réinitialiser les filtres">Réinitialiser</a>{% endif %}
     <a href="{{ url_for('settings.trash') }}" class="toolbar-trash">Corbeille</a>
 </form>
 

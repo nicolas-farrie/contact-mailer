@@ -30,8 +30,8 @@
             <nav class="sidebar-nav">
                 <div class="sidebar-section">
                     <div class="sidebar-section-label">Travail</div>
-                    <a class="sidebar-link{% if request.endpoint == 'contacts.index' %} active{% endif %}" href="{{ url_for('contacts.index') }}">Contacts</a>
                     <a class="sidebar-link{% if request.endpoint == 'listes.index' %} active{% endif %}" href="{{ url_for('listes.index') }}">Listes</a>
+                    <a class="sidebar-link{% if request.endpoint == 'contacts.index' %} active{% endif %}" href="{{ url_for('contacts.index') }}">Contacts</a>
                     <a class="sidebar-link{% if request.blueprint == 'mailing' %} active{% endif %}" href="{{ url_for('mailing.history') }}">Mailing</a>
                     {% if request.blueprint == 'mailing' %}
                     <div class="sidebar-subnav">
