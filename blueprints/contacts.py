@@ -5,10 +5,12 @@ contacts.bulk_action, contacts.scan_bounces, contacts.clear_bounce,
 contacts.resubscribe.
 """
 
+from datetime import timedelta
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
-from models import db, Contact, Liste, utcnow
+from models import db, Contact, Liste, ContactSend, utcnow
 from config import Config
 from helpers import admin_required
 import fields
@@ -58,6 +60,8 @@ def index():
     search = request.args.get('q', '').strip()
     statut_filter = request.args.get('statut', '').strip()
     completude_filter = request.args.get('completude', '').strip()
+    envoi_filter = request.args.get('envoi', '').strip()
+    recent_filter = request.args.get('recent', '').strip()
 
     query = Contact.query.filter(Contact.is_deleted == False)
 
@@ -88,6 +92,17 @@ def index():
     elif completude_filter == 'a_completer':
         query = query.filter(db.or_(no_email, no_tel))
 
+    # Activité mailing : « jamais mailé » (aucun envoi journalisé) / « déjà mailé »
+    # (au moins un envoi réussi), via le journal ContactSend (S1). EXISTS corrélé
+    # (robuste aux NULL, contrairement à NOT IN (sous-requête)).
+    if envoi_filter in ('jamais', 'deja'):
+        sent = db.exists().where(ContactSend.contact_id == Contact.id)
+        query = query.filter(sent if envoi_filter == 'deja' else ~sent)
+
+    # Ajoutés récemment (created_at) — fenêtre glissante.
+    if recent_filter in ('7', '30'):
+        query = query.filter(Contact.created_at >= utcnow() - timedelta(days=int(recent_filter)))
+
     if search:
         search_pattern = f'%{search}%'
         query = query.filter(
@@ -100,7 +115,11 @@ def index():
             )
         )
 
-    contacts_list = query.order_by(Contact.nom, Contact.prenom).all()
+    # « Ajoutés récemment » → les plus récents d'abord ; sinon tri alphabétique.
+    if recent_filter in ('7', '30'):
+        contacts_list = query.order_by(Contact.created_at.desc()).all()
+    else:
+        contacts_list = query.order_by(Contact.nom, Contact.prenom).all()
     listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
     # Sources distinctes pour le filtre
     sources = db.session.query(Contact.source).filter(Contact.is_deleted == False).distinct().order_by(Contact.source).all()
@@ -114,6 +133,8 @@ def index():
                            source_filter=source_filter,
                            statut_filter=statut_filter,
                            completude_filter=completude_filter,
+                           envoi_filter=envoi_filter,
+                           recent_filter=recent_filter,
                            search=search)
 
 

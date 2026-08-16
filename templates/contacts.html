@@ -20,7 +20,7 @@
     {% if c.notes %}<div class="summary-notes"><span class="sk">Notes</span>{{ c.notes }}</div>{% endif %}
 </div>
 {% endmacro %}
-{% set has_filter = search or liste_filter or source_filter or statut_filter or completude_filter %}
+{% set has_filter = search or liste_filter or source_filter or statut_filter or completude_filter or envoi_filter or recent_filter %}
 
 <div class="page-header">
     <div class="page-header-title">
@@ -56,6 +56,16 @@
         <option value="a_completer" {% if completude_filter=='a_completer' %}selected{% endif %}>À compléter (email ou tél. manquant)</option>
         <option value="sans_email"  {% if completude_filter=='sans_email'  %}selected{% endif %}>Sans e-mail</option>
         <option value="sans_tel"    {% if completude_filter=='sans_tel'    %}selected{% endif %}>Sans téléphone</option>
+    </select>
+    <select name="envoi" class="filter-pill" onchange="this.form.submit()">
+        <option value="">Envoi : Tous</option>
+        <option value="jamais" {% if envoi_filter=='jamais' %}selected{% endif %}>Jamais mailé</option>
+        <option value="deja"   {% if envoi_filter=='deja'   %}selected{% endif %}>Déjà mailé</option>
+    </select>
+    <select name="recent" class="filter-pill" onchange="this.form.submit()">
+        <option value="">Ajout : Tous</option>
+        <option value="7"  {% if recent_filter=='7'  %}selected{% endif %}>Ajoutés (7 derniers jours)</option>
+        <option value="30" {% if recent_filter=='30' %}selected{% endif %}>Ajoutés (30 derniers jours)</option>
     </select>
     {% if current_user.is_admin and sources %}
     <select name="source" class="filter-pill" onchange="this.form.submit()">
