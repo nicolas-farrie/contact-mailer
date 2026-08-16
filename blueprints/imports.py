@@ -931,6 +931,20 @@ def export_vcard():
     )
 
 
+# Anti-injection de formule (CSV/Excel) : une cellule commençant par un de ces
+# caractères peut être interprétée comme une formule à l'ouverture dans Excel/LibreOffice.
+# On préfixe d'un ESPACE → la cellule devient du texte inerte. L'espace est retiré au
+# ré-import (les valeurs sont `.strip()`) → round-trip préservé. Corrige aussi
+# l'affichage des tél. « +33… » (sinon vus comme une formule dans un CSV).
+_CSV_FORMULA_CHARS = ('=', '+', '-', '@', '\t', '\r')
+_XLSX_FORMULA_CHARS = ('=',)   # xlsx : seul « = » devient une formule (openpyxl) ; +/-/@ = strings sûrs
+
+
+def _formula_guard(v, chars):
+    s = '' if v is None else str(v)
+    return ' ' + s if s[:1] in chars else s
+
+
 # Colonnes d'export (partagées TSV / Excel) : (en-tête, extracteur).
 _EXPORT_COLUMNS = [
     ('UID', lambda c: c.uid or ''),
@@ -982,7 +996,7 @@ def export_contacts():
         ws.title = 'Contacts'
         ws.append(headers)
         for c in contacts:
-            ws.append([fn(c) for _, fn in _EXPORT_COLUMNS])
+            ws.append([_formula_guard(fn(c), _XLSX_FORMULA_CHARS) for _, fn in _EXPORT_COLUMNS])
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
@@ -997,7 +1011,7 @@ def export_contacts():
     writer = csv.writer(output, delimiter='\t')
     writer.writerow(headers)
     for c in contacts:
-        writer.writerow([fn(c) for _, fn in _EXPORT_COLUMNS])
+        writer.writerow([_formula_guard(fn(c), _CSV_FORMULA_CHARS) for _, fn in _EXPORT_COLUMNS])
 
     return Response(
         output.getvalue(),
