@@ -112,7 +112,10 @@ Détail complet : `doc-travail/2026-08-06-import-v2-etat-et-suite.md`. Branche `
 - [ ][ ] Page publique : pré-remplissage des valeurs, édition, update du contact ; email/uid exclus par défaut (identité + dedup import) ; traçabilité "modifié par le contact"
 - [ ] Sécuriser l'accès quand des champs sont exposés (le lien est une "capability URL" : token 128 bits + expiry, HTTPS ; risque = fuite du lien)
 - [ ][ ] Option retenue à décider : (préféré) proposition→validation admin — supprime la surface d'injection ; ou OTP e-mail ; ou confirmer un champ connu ; ou SMS OTP (option forte, mais coût provider + numéros mobiles peu fiables)
-- [ ][ ] ⚠️ Auth ≠ sanitisation : échapper/sanitiser les champs contact partout où ils ressortent NON échappés — mailer replace_vars (HTML des mails), export CSV/TSV (formula injection Excel), export vCard
+- [~] ⚠️ Auth ≠ sanitisation : échapper/sanitiser les champs contact partout où ils ressortent NON échappés :
+  - [x] **export CSV/TSV + XLSX (formula injection Excel)** — `b14719d` : `_formula_guard` (préfixe espace, round-trip préservé). Corrige aussi l'affichage des tél. « +33… ».
+  - [x] **export vCard** — VÉRIFIÉ sûr (vobject échappe `\n \; \,` à la sérialisation), rien à faire.
+  - [ ] **mailer replace_vars (HTML des mails)** — RESTE : échapper les variables de fusion injectées dans le HTML des emails (risque réel faible car les clients mail sanitisent, mais bonne pratique). À traiter avec le chantier Formulaires (champs éditables).
 - [ ][ ] Paramètre admin : durée maximale de validité (conseil : illimité/très long interdit)
 - [ ] Formulaire public : mode "aperçu sans enregistrement" (preview no-data) — reporté en version avancée
 - [?] Import interactif : page de revue des doublons avec choix par contact (ignorer/remplacer listes/fusionner listes) + option "pour tous"
