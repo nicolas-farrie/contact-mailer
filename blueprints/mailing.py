@@ -125,7 +125,11 @@ def recipients_count():
 @bp.route('/mailing')
 @login_required
 def compose():
-    listes = Liste.query.order_by(Liste.nom).all()
+    # Rail Destinataires : actives seulement (cohérent avec Contacts/Listes) et triées
+    # alphabétiquement insensible à la casse ET aux accents — sinon SQLite (BINARY)
+    # relègue les noms en minuscule tout en bas → ordre illisible.
+    listes = sorted(Liste.query.filter_by(is_archived=False).all(),
+                    key=lambda l: _norm_name(l.nom))
     smtp_configured = bool(Config.SMTP_HOST and Config.SMTP_USER)
 
     # Pré-remplissage depuis l'historique (réutilisation par campaign_id)
