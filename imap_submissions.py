@@ -34,6 +34,24 @@ def _decode(value):
     return decoded
 
 
+def split_subject_lists(raw):
+    """Sépare un sujet de demande de diffusion « liste1,liste2: vrai sujet ».
+
+    - Retire un « mailing: » de tête s'il traîne (rétro-compat, insensible à la casse).
+    - Découpe sur le PREMIER « : » : partie gauche = noms de listes (séparés par « , »),
+      partie droite = le sujet réel (qui peut lui-même contenir des « : »).
+    Renvoie (tokens_listes, sujet_après_2points, sujet_de_base_sans_mailing).
+    Le matching des tokens vers de vraies listes (DB) est fait par l'appelant."""
+    s = (raw or '').strip()
+    if s[:8].lower() == 'mailing:':
+        s = s[8:].strip()
+    if ':' in s:
+        left, right = s.split(':', 1)
+        tokens = [t.strip() for t in left.split(',') if t.strip()]
+        return tokens, right.strip(), s
+    return [], s, s
+
+
 def _connect(config):
     conn = imaplib.IMAP4_SSL(config.IMAP_HOST, config.IMAP_PORT)
     conn.login(config.IMAP_USER, config.IMAP_PASSWORD)

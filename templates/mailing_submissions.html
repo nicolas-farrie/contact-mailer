@@ -9,7 +9,9 @@
     <td style="white-space:nowrap" class="text-muted">{{ s.date }}</td>
     <td>{{ s.from_name or s.from_email }}{% if s.from_name %}<div class="recip-mail">{{ s.from_email }}</div>{% endif %}</td>
     <td class="campaign-subject">
-        <span class="subject-toggle" onclick="toggleSub('{{ idp }}')">{{ s.subject or '(sans sujet)' }}</span>
+        <span class="subject-toggle" onclick="toggleSub('{{ idp }}')">{{ s.clean_subject or s.subject or '(sans sujet)' }}</span>
+        {% if s.lists %}<div class="recip-mail">→ {% for nom in s.lists %}<span class="tag">{{ nom }}</span> {% endfor %}</div>{% endif %}
+        {% if s.unknown_lists %}<div class="recip-mail" style="color:var(--danger)">⚠ liste(s) inconnue(s) : {{ s.unknown_lists|join(', ') }}</div>{% endif %}
     </td>
     <td class="actions-cell">
         <button type="button" class="icon-btn" title="Aperçu du message" onclick="toggleSub('{{ idp }}')">{{ ico.eye() }}</button>

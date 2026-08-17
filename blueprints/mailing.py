@@ -8,6 +8,7 @@ mailing.confirm, mailing.add_to_queue, mailing.queue, mailing.process,
 mailing.submission_preview, mailing.test_connection.
 """
 import re
+import unicodedata
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify, send_from_directory)
@@ -33,6 +34,43 @@ def _strip_signature(body):
     if not body:
         return body
     return _SIG_RE.sub('', body).rstrip()
+
+
+def _norm_name(s):
+    """Normalise un nom de liste pour le matching (minuscule, sans accents, espaces compactés)."""
+    s = unicodedata.normalize('NFKD', (s or '').strip().lower()).encode('ascii', 'ignore').decode()
+    return ' '.join(s.split())
+
+
+def _lists_by_norm():
+    """{nom_normalisé: Liste} des listes actives (pour matcher un préfixe de sujet)."""
+    return {_norm_name(l.nom): l for l in Liste.query.filter_by(is_archived=False).all()}
+
+
+def _match_subject_lists(raw, by_norm):
+    """Applique la convention « liste1,liste2: sujet réel » à un sujet brut.
+
+    `by_norm` = map {nom_normalisé: Liste}. Renvoie (sujet_nettoyé, [Liste reconnues],
+    [noms non reconnus]). Garde-fou : si AUCUN token ne correspond à une liste connue,
+    on considère qu'il n'y avait pas de préfixe (un sujet peut contenir un « : »)."""
+    import imap_submissions
+    tokens, after_colon, base = imap_submissions.split_subject_lists(raw)
+    if not tokens:
+        return base, [], []
+    matched, unknown = [], []
+    for t in tokens:
+        l = by_norm.get(_norm_name(t))
+        matched.append(l) if l else unknown.append(t)
+    if matched:
+        return after_colon, matched, unknown
+    return base, [], []
+
+
+def _parse_submission_subject(raw):
+    """(sujet_nettoyé, [liste_ids reconnus], [noms non reconnus]) — un « mailing: » de
+    tête est toléré/retiré."""
+    clean, matched, unknown = _match_subject_lists(raw, _lists_by_norm())
+    return clean, [l.id for l in matched], unknown
 
 
 def _sign_body(body, mail_format, sign, signature):
@@ -106,6 +144,7 @@ def compose():
     # images encodées en base64, trop volumineuses pour un cookie de session.
     submission_attachments = []
     submission_id = None
+    submission_unknown_lists = []
     from_submission = request.args.get('from_submission')
     if from_submission:
         import json
@@ -117,16 +156,19 @@ def compose():
                 'subject': data.get('subject', ''),
                 'body': data.get('body', ''),
                 'format': data.get('format', 'text'),
-                'liste_ids': [],
+                # Listes cibles déduites du sujet « liste1,liste2: … » → pré-cochées (modifiables)
+                'liste_ids': data.get('liste_ids', []),
             }
             submission_attachments = data.get('attachments', [])
             submission_id = from_submission
+            submission_unknown_lists = data.get('unknown_lists', [])
 
     forms = (PreferenceForm.query
              .filter_by(is_active=True, is_archived=False)
              .order_by(PreferenceForm.nom).all())
     return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill,
                            submission_attachments=submission_attachments, submission_id=submission_id,
+                           submission_unknown_lists=submission_unknown_lists,
                            campaign_attachments=campaign_attachments, from_campaign_id=from_campaign_id,
                            sign_checked=sign_checked,
                            forms=forms, base_url=Config.BASE_URL,
@@ -207,6 +249,14 @@ def submissions():
             submissions = imap_submissions.fetch_submissions(Config)
             if show_archived:
                 archived = imap_submissions.fetch_submissions(Config, folder=Config.IMAP_PROCESSED_FOLDER)
+            # Enrichir l'affichage : sujet nettoyé + listes cibles déduites du sujet
+            # (« liste1,liste2: sujet »), pour voir le routage sans ouvrir la demande.
+            by_norm = _lists_by_norm()
+            for s in submissions + archived:
+                clean, matched, unknown = _match_subject_lists(s['subject'], by_norm)
+                s['clean_subject'] = clean
+                s['lists'] = [l.nom for l in matched]
+                s['unknown_lists'] = unknown
         except Exception as e:
             error = str(e)
 
@@ -247,13 +297,18 @@ def submission_use(uid):
         body = sub['body_html'] or sub['body_text']
         fmt = 'html' if sub['body_html'] else 'text'
 
+        # Sujet « liste1,liste2: vrai sujet » → listes cibles pré-sélectionnées + sujet nettoyé
+        clean_subject, liste_ids, unknown_lists = _parse_submission_subject(sub['subject'])
+
         # Pré-remplissage stocké sur disque (peut être volumineux : images
         # encodées en base64), pas en session
         prefill_data = {
-            'subject': sub['subject'],
+            'subject': clean_subject,
             'body': body,
             'format': fmt,
             'attachments': saved_attachments,
+            'liste_ids': liste_ids,
+            'unknown_lists': unknown_lists,
         }
         (attach_dir / '_prefill.json').write_text(json.dumps(prefill_data), encoding='utf-8')
 
