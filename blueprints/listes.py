@@ -9,7 +9,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
 from models import db, Liste, Contact, MailCampaign
-from helpers import admin_required
+from helpers import admin_required, listes_sorted
 
 bp = Blueprint('listes', __name__)
 
@@ -49,8 +49,8 @@ def _last_use_by_liste():
 @bp.route('/listes')
 @login_required
 def index():
-    actives = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
-    archivees = Liste.query.filter_by(is_archived=True).order_by(Liste.nom).all()
+    actives = listes_sorted(is_archived=False)
+    archivees = listes_sorted(is_archived=True)
     # Totaux GLOBAUX et DÉDOUBLONNÉS : le désabonnement est une notion globale,
     # pas par liste (cf. décision produit) → on compte des contacts distincts.
     base = Contact.query.filter(Contact.is_deleted == False)

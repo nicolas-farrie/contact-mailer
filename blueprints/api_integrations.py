@@ -11,7 +11,7 @@ from flask_login import current_user
 
 from models import db, Contact, Liste, BookstackRole, utcnow
 from config import Config
-from helpers import admin_required
+from helpers import admin_required, listes_sorted
 
 bp = Blueprint('api_integrations', __name__)
 
@@ -22,7 +22,7 @@ bp = Blueprint('api_integrations', __name__)
 @admin_required
 def bookstack():
     roles = BookstackRole.query.order_by(BookstackRole.display_name).all()
-    listes = Liste.query.order_by(Liste.nom).all()
+    listes = listes_sorted(is_archived=None)
     bs_configured = bool(Config.BOOKSTACK_URL and Config.BOOKSTACK_TOKEN_ID and Config.BOOKSTACK_TOKEN_SECRET)
     return render_template('bookstack.html', roles=roles, listes=listes, bs_configured=bs_configured, active_tab='bookstack')
 
@@ -120,7 +120,7 @@ def bookstack_push():
 @bp.route('/seafile')
 @admin_required
 def seafile():
-    listes = Liste.query.order_by(Liste.nom).all()
+    listes = listes_sorted(is_archived=None)
     sf_configured = bool(Config.SEAFILE_URL and Config.SEAFILE_TOKEN)
     groups = []
     if sf_configured:
@@ -221,7 +221,7 @@ def seafile_push():
         groups = client.list_groups()
         pending_invitations = Contact.query.filter(Contact.seafile_temp_pwd.isnot(None), Contact.is_deleted == False).all()
         return render_template('seafile.html',
-                               listes=Liste.query.order_by(Liste.nom).all(),
+                               listes=listes_sorted(is_archived=None),
                                groups=groups,
                                sf_configured=True,
                                new_passwords=result.get('passwords', {}),

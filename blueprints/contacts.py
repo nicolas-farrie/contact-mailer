@@ -12,7 +12,7 @@ from flask_login import login_required, current_user
 
 from models import db, Contact, Liste, ContactSend, utcnow
 from config import Config
-from helpers import admin_required
+from helpers import admin_required, listes_sorted
 from contact_set import ContactSet
 import fields
 
@@ -131,7 +131,7 @@ def index():
         contacts_list = query.order_by(Contact.created_at.desc()).all()
     else:
         contacts_list = query.order_by(Contact.nom, Contact.prenom).all()
-    listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
+    listes = listes_sorted()
     # Sources distinctes pour le filtre
     sources = db.session.query(Contact.source).filter(Contact.is_deleted == False).distinct().order_by(Contact.source).all()
     sources = [s[0] for s in sources if s[0]]
@@ -167,7 +167,7 @@ def new():
             db.session.rollback()
             flash(f'Erreur: {e}', 'error')
 
-    listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
+    listes = listes_sorted()
     return render_template('contact_form.html', contact=None, listes=listes)
 
 
@@ -196,7 +196,7 @@ def edit(id):
             flash(f'Erreur: {e}', 'error')
 
     back_liste = request.args.get('back_liste', '') or None
-    listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
+    listes = listes_sorted()
     return render_template('contact_form.html', contact=contact, listes=listes,
                            back_liste=back_liste, from_view=(request.args.get('ret') == 'view'))
 
@@ -208,7 +208,7 @@ def view(id):
     un lien (ex. onglet Réponses d'un formulaire) n'atterrit plus directement en édition."""
     contact = Contact.query.get_or_404(id)
     back_liste = request.args.get('back_liste', '') or None
-    listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
+    listes = listes_sorted()
     return render_template('contact_form.html', contact=contact, listes=listes,
                            back_liste=back_liste, readonly=True)
 

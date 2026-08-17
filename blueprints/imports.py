@@ -17,7 +17,7 @@ from flask_login import login_required, current_user
 
 from models import db, Contact, Liste, CustomFieldDefinition, ImportMapping
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
-from helpers import admin_required, slugify_key
+from helpers import admin_required, slugify_key, listes_sorted
 import fields as fields_registry
 
 bp = Blueprint('imports', __name__)
@@ -633,7 +633,7 @@ def _dedup_ok(mapping):
 
 
 def _active_listes():
-    return Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
+    return listes_sorted(is_archived=False)
 
 
 def _resolve_target_list(list_id, new_list_name):

@@ -13,6 +13,7 @@ from flask_login import login_required, current_user
 
 from models import db, Contact, Liste
 from contact_set import ContactSet
+from helpers import listes_sorted
 from blueprints.contacts import _filtered_contacts_query
 
 bp = Blueprint('selection', __name__)
@@ -40,7 +41,7 @@ def _back():
 def view():
     sel = _current()
     contacts = sel.contacts().all()
-    listes = Liste.query.filter_by(is_archived=False).order_by(Liste.nom).all()
+    listes = listes_sorted()
     return render_template('selection.html', contacts=contacts, listes=listes,
                            selection_count=len(contacts))
 

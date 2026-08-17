@@ -18,7 +18,7 @@ from models import (db, Liste, Contact, PreferenceForm, PreferenceFormListe,
                     PreferenceResponse, FieldProposal, FormBlock, SurveyQuestion,
                     FormAccessCode, utcnow)
 from config import Config
-from helpers import admin_required
+from helpers import admin_required, listes_sorted
 import fields as fields_registry
 
 bp = Blueprint('formulaires', __name__)
@@ -56,7 +56,7 @@ def index():
 @bp.route('/formulaires/new', methods=['GET', 'POST'])
 @login_required
 def new():
-    listes = Liste.query.order_by(Liste.nom).all()
+    listes = listes_sorted(is_archived=None)
     if request.method == 'POST':
         nom = request.form.get('nom', '').strip()
         if not nom:
@@ -205,7 +205,7 @@ def _render_edit_form(pf, listes, form_data):
 @login_required
 def edit(id):
     pf = PreferenceForm.query.get_or_404(id)
-    listes = Liste.query.order_by(Liste.nom).all()
+    listes = listes_sorted(is_archived=None)
     if request.method == 'POST':
         nom = request.form.get('nom', '').strip()
         if not nom:

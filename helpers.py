@@ -26,6 +26,25 @@ def slugify_key(label):
     return s
 
 
+def nom_sort_key(nom):
+    """Clé de tri alphabétique insensible à la casse ET aux accents. SQLite trie en
+    BINARY (majuscules avant minuscules, accents après z) → ordre illisible ; ce
+    normaliseur donne l'ordre attendu par un lecteur francophone."""
+    s = unicodedata.normalize('NFKD', (nom or '').strip().lower())
+    return ' '.join(''.join(c for c in s if not unicodedata.combining(c)).split())
+
+
+def listes_sorted(is_archived=False):
+    """Listes triées lisiblement (cf. nom_sort_key). `is_archived` : False = actives
+    (défaut), True = archivées, None = toutes. Source unique du tri des listes dans
+    toute l'app (rail mailing, filtres Contacts, formulaires, intégrations…)."""
+    from models import Liste
+    q = Liste.query
+    if is_archived is not None:
+        q = q.filter_by(is_archived=is_archived)
+    return sorted(q.all(), key=lambda l: nom_sort_key(l.nom))
+
+
 # === Contrôle d'accès ===
 
 def admin_required(f):

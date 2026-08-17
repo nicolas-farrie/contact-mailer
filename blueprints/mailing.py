@@ -16,7 +16,7 @@ from flask_login import login_required, current_user
 
 from models import Contact, Liste, PreferenceForm, MailCampaign, MailQueueItem, ContactSend, db, utcnow
 from config import Config
-from helpers import admin_required
+from helpers import admin_required, listes_sorted
 
 bp = Blueprint('mailing', __name__)
 
@@ -125,11 +125,9 @@ def recipients_count():
 @bp.route('/mailing')
 @login_required
 def compose():
-    # Rail Destinataires : actives seulement (cohérent avec Contacts/Listes) et triées
-    # alphabétiquement insensible à la casse ET aux accents — sinon SQLite (BINARY)
-    # relègue les noms en minuscule tout en bas → ordre illisible.
-    listes = sorted(Liste.query.filter_by(is_archived=False).all(),
-                    key=lambda l: _norm_name(l.nom))
+    # Rail Destinataires : actives seulement (cohérent avec Contacts/Listes), triées
+    # lisiblement (casse/accents-insensible) via le helper partagé.
+    listes = listes_sorted(is_archived=False)
     smtp_configured = bool(Config.SMTP_HOST and Config.SMTP_USER)
 
     # Pré-remplissage depuis l'historique (réutilisation par campaign_id)
