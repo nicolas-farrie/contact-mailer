@@ -6,21 +6,18 @@
     <title>{% block title %}Contact Mailer{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version('style.css') }}">
     <link rel="manifest" href="{{ url_for('public.pwa_manifest') }}">
-    {% if config.INSTANCE_NAME %}
-    <meta name="theme-color" content="{{ config.INSTANCE_COLOR or '#3f56cc' }}">
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('public.pwa_icon', size=192) }}">
-    <link rel="apple-touch-icon" href="{{ url_for('public.pwa_icon', size=192) }}">
-    {% else %}
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='contact-mailer.png') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='contact-mailer.png') }}">
-    {% endif %}
+    {# Icône d'onglet colorée par instance (couleur choisie dans Paramètres › Général).
+       Le ?c=<hex> force le navigateur à recharger l'icône quand la couleur change. #}
+    <meta name="theme-color" content="{{ instance_color }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('public.pwa_icon', size=192) }}?c={{ instance_color|replace('#','') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('public.pwa_icon', size=192) }}?c={{ instance_color|replace('#','') }}">
 </head>
 <body>
     <div class="{% if current_user.is_authenticated %}layout--with-sidebar{% endif %}">
     {% if current_user.is_authenticated %}
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-brand">
-                <img src="{% if config.INSTANCE_NAME %}{{ url_for('public.pwa_icon', size=32) }}{% else %}{{ url_for('static', filename='contact-mailer.png') }}{% endif %}" class="sidebar-logo" alt="">
+                <img src="{{ url_for('public.pwa_icon', size=32) }}?c={{ instance_color|replace('#','') }}" class="sidebar-logo" alt="">
                 <div class="sidebar-brand-text">
                     <span class="sidebar-app-name">{{ app_name }}</span>
                     {% set display = config.DISPLAY_NAME or config.INSTANCE_NAME %}

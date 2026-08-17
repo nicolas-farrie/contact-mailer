@@ -5,6 +5,7 @@ Endpoints : settings.index, settings.clear_login_bg, settings.trash,
 settings.trash_restore, settings.trash_purge.
 """
 import os
+import re
 import uuid
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
@@ -28,11 +29,15 @@ def index():
 
         if section == 'general':
             name = (request.form.get('app_name') or '').strip()
-            if name:
-                set_setting('app_name', name[:60])
-                flash('Paramètres généraux enregistrés.', 'success')
-            else:
+            color = (request.form.get('instance_color') or '').strip()
+            if not name:
                 flash("Le nom de l'application ne peut pas être vide.", 'error')
+            else:
+                set_setting('app_name', name[:60])
+                # <input type="color"> renvoie #rrggbb ; on valide par sécurité
+                if re.fullmatch(r'#[0-9a-fA-F]{6}', color):
+                    set_setting('instance_color', color.lower())
+                flash('Paramètres généraux enregistrés.', 'success')
 
         elif section == 'bounce':
             # Toggle « Gestion du Bounce ». OFF → pas de Return-Path bounce forcé en

@@ -61,11 +61,13 @@ def register_context_processors(app):
                 overlay = 0.35
             return {
                 'app_name': get_setting('app_name', 'Contact Mailer'),
+                'instance_color': get_setting('instance_color', '') or Config.INSTANCE_COLOR,
                 'login_bg_url': login_bg_url,
                 'login_overlay': overlay,
             }
         except Exception:
-            return {'app_name': 'Contact Mailer', 'login_bg_url': None, 'login_overlay': 0.35}
+            return {'app_name': 'Contact Mailer', 'instance_color': Config.INSTANCE_COLOR,
+                    'login_bg_url': None, 'login_overlay': 0.35}
 
 
 def create_app(config_object=Config):

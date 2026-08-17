@@ -19,6 +19,16 @@
                 <input type="text" id="app_name" name="app_name" value="{{ app_name }}" maxlength="60" style="max-width: 360px;">
                 <p class="field-help">Affiché dans la barre de navigation et sur la page de connexion.</p>
             </div>
+            <div class="form-group">
+                <label for="instance_color">Couleur de l'instance</label>
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                    <input type="color" id="instance_color" name="instance_color" value="{{ instance_color }}"
+                           style="width:48px; height:34px; padding:2px; cursor:pointer;"
+                           oninput="document.getElementById('instance_color_hex').textContent = this.value">
+                    <code id="instance_color_hex">{{ instance_color }}</code>
+                </div>
+                <p class="field-help">Couleur du logo et de l'<strong>icône d'onglet du navigateur</strong> — pour distinguer d'un coup d'œil les instances ouvertes.</p>
+            </div>
             <button type="submit" class="btn btn-primary">Enregistrer</button>
         </form>
     </section>

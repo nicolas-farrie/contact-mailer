@@ -11,6 +11,14 @@ from werkzeug.security import check_password_hash
 
 from models import db, User, Contact, utcnow
 from config import Config
+from helpers import get_setting
+
+
+def _instance_identity():
+    """(nom affiché, couleur) de l'instance : Settings DB en priorité, sinon env."""
+    name = get_setting('app_name', '') or Config.INSTANCE_NAME or 'Contact Mailer'
+    color = get_setting('instance_color', '') or Config.INSTANCE_COLOR or '#2563eb'
+    return name, color
 
 bp = Blueprint('public', __name__)
 
@@ -19,18 +27,11 @@ bp = Blueprint('public', __name__)
 
 @bp.route('/manifest.json')
 def pwa_manifest():
-    instance_name = current_app.config.get('INSTANCE_NAME')
-    name = instance_name or 'Contact Mailer'
-    color = current_app.config.get('INSTANCE_COLOR', '#579d48')
-    if instance_name:
-        icons = [
-            {'src': url_for('public.pwa_icon', size=192), 'sizes': '192x192', 'type': 'image/svg+xml'},
-            {'src': url_for('public.pwa_icon', size=512), 'sizes': '512x512', 'type': 'image/svg+xml'},
-        ]
-    else:
-        icons = [
-            {'src': url_for('static', filename='contact-mailer.png'), 'sizes': '512x512', 'type': 'image/png'},
-        ]
+    name, color = _instance_identity()
+    icons = [
+        {'src': url_for('public.pwa_icon', size=192), 'sizes': '192x192', 'type': 'image/svg+xml'},
+        {'src': url_for('public.pwa_icon', size=512), 'sizes': '512x512', 'type': 'image/svg+xml'},
+    ]
     manifest = {
         'name': name,
         'short_name': name,
@@ -45,8 +46,7 @@ def pwa_manifest():
 
 @bp.route('/icon-<int:size>.svg')
 def pwa_icon(size):
-    name = current_app.config.get('INSTANCE_NAME') or 'CM'
-    color = current_app.config.get('INSTANCE_COLOR', '#2563eb')
+    name, color = _instance_identity()
     words = name.split()
     initials = (words[0][0] + words[1][0]).upper() if len(words) >= 2 else name[:2].upper()
     font_size = size * 0.38
