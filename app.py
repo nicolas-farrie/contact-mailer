@@ -42,9 +42,10 @@ def register_blueprints(app):
     from blueprints.settings import bp as settings_bp
     from blueprints.public import bp as public_bp
     from blueprints.mailing import bp as mailing_bp
+    from blueprints.selection import bp as selection_bp
 
     for bp in (contacts_bp, listes_bp, formulaires_bp, users_bp, imports_bp,
-               api_integrations_bp, settings_bp, public_bp, mailing_bp):
+               api_integrations_bp, settings_bp, public_bp, mailing_bp, selection_bp):
         app.register_blueprint(bp)
 
 
@@ -64,10 +65,20 @@ def register_context_processors(app):
                 'instance_color': get_setting('instance_color', '') or Config.INSTANCE_COLOR,
                 'login_bg_url': login_bg_url,
                 'login_overlay': overlay,
+                'selection_count': _selection_count(),
             }
         except Exception:
             return {'app_name': 'Contact Mailer', 'instance_color': Config.INSTANCE_COLOR,
-                    'login_bg_url': None, 'login_overlay': 0.35}
+                    'login_bg_url': None, 'login_overlay': 0.35, 'selection_count': 0}
+
+
+def _selection_count():
+    """Taille de la sélection courante (chip sidebar) — 0 si non authentifié."""
+    from flask_login import current_user
+    if not current_user.is_authenticated:
+        return 0
+    from contact_set import ContactSet
+    return ContactSet.for_user(current_user.id).count()
 
 
 def create_app(config_object=Config):

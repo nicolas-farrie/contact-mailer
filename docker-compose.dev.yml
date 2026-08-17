@@ -4,13 +4,16 @@ services:
     build: .
     restart: "no"
     ports:
-      # Cf. docker-compose.yml : restreindre à 127.0.0.1 (Docker contourne UFW sinon)
-      - "127.0.0.1:8100:8100"
+      # Cf. docker-compose.yml : restreindre à 127.0.0.1 (Docker contourne UFW sinon).
+      # ⚠️ TEMPORAIRE : ouvert au LAN pour test mobile — REMETTRE 127.0.0.1 après.
+      - "0.0.0.0:8100:8100"
     volumes:
       - ./data:/app/data
       # Hot-reload du code sans rebuild (pratique en dev)
       - ./app.py:/app/app.py
       - ./models.py:/app/models.py
+      - ./contact_set.py:/app/contact_set.py
+      - ./tools:/app/tools
       - ./config.py:/app/config.py
       - ./extensions.py:/app/extensions.py
       - ./helpers.py:/app/helpers.py
@@ -22,3 +25,7 @@ services:
       - ./static:/app/static
     env_file:
       - .env
+    environment:
+      # DEV : recharge les templates Jinja à chaud (plus besoin de restart après
+      # une édition de template). Ne PAS mettre en prod.
+      - TEMPLATES_AUTO_RELOAD=true

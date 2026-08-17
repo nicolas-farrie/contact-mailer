@@ -94,6 +94,15 @@
                 {% endif %}
                 <input type="text" class="rail-search" id="rail-search" placeholder="Rechercher une liste…" onkeyup="filterLists()" autocomplete="off">
                 <div class="rail-lists" id="rail-lists">
+                    {% if selection_count %}
+                    <label class="rail-list-item rail-list-selection" data-nom="★ sélection courante"
+                           title="Liste de travail transitoire — gérée depuis la page Sélection" style="font-weight:600;">
+                        <input type="checkbox" name="use_selection" value="1" id="use-selection-cb"
+                               {% if use_selection_checked %}checked{% endif %} onchange="updateRecipients()">
+                        <span class="rail-list-nom">★ Sélection courante</span>
+                        <span class="rail-list-count">{{ selection_count }}</span>
+                    </label>
+                    {% endif %}
                     {% for liste in listes %}
                     <label class="rail-list-item" data-nom="{{ liste.nom|lower }}">
                         <input type="checkbox" name="liste_ids" value="{{ liste.id }}"
@@ -403,10 +412,15 @@ function removeAttachment(idx) {
 function checkedListIds() {
     return Array.from(document.querySelectorAll('input[name="liste_ids"]:checked')).map(function(cb) { return cb.value; });
 }
+function useSelectionChecked() {
+    const cb = document.getElementById('use-selection-cb');
+    return !!(cb && cb.checked);
+}
 function saveDraft() {
     syncBody();
     const draft = {
         liste_ids: checkedListIds(),
+        use_selection: useSelectionChecked(),
         subject: document.getElementById('subject').value,
         body: bodyTextarea.value,
         include_unsubscribe: document.querySelector('input[name="include_unsubscribe"]').checked
@@ -424,6 +438,11 @@ function restoreDraft() {
             const cb = document.querySelector('input[name="liste_ids"][value="' + id + '"]');
             if (cb) cb.checked = true;
         });
+        // On ne fait que COCHER (jamais décocher) → préserve la pré-coche serveur (deep-link).
+        if (draft.use_selection) {
+            const s = document.getElementById('use-selection-cb');
+            if (s) s.checked = true;
+        }
         if (draft.subject) document.getElementById('subject').value = draft.subject;
         const body = draft.body || draft.body_html || draft.body_text;  // compat anciens brouillons
         if (body) bodyTextarea.value = body;
@@ -437,12 +456,15 @@ function restoreDraft() {
 // === Rail Destinataires : compteur dédoublonné (live) + recherche ===
 function updateRecipients() {
     const ids = checkedListIds();
+    const sel = useSelectionChecked();
+    const nSources = ids.length + (sel ? 1 : 0);
     const lc = document.getElementById('rail-listcount');
-    lc.textContent = ids.length ? ids.length + (ids.length > 1 ? ' listes' : ' liste') : '';
+    lc.textContent = nSources ? nSources + (nSources > 1 ? ' sources' : ' source') : '';
     const totalEl = document.getElementById('rail-total-count');
-    if (!ids.length) { totalEl.textContent = '0 contact'; saveDraft(); return; }
+    if (!nSources) { totalEl.textContent = '0 contact'; saveDraft(); return; }
     const fd = new FormData();
     ids.forEach(function(id) { fd.append('liste_ids', id); });
+    if (sel) fd.append('use_selection', '1');
     fetch('{{ url_for("mailing.recipients_count") }}', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
         .then(function(d) { totalEl.textContent = d.count + (d.count > 1 ? ' contacts' : ' contact'); })

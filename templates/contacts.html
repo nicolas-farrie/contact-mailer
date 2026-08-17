@@ -114,6 +114,29 @@
             {% endif %}
             <button type="button" class="btn btn-small btn-danger-outline" onclick="submitBulk('delete', 'Déplacer les contacts sélectionnés dans la corbeille ?')">Mettre à la corbeille</button>
         </div>
+        <div class="select-bar-actions" style="margin-left:auto;">
+            <button type="button" class="btn btn-small btn-primary" title="Ajouter les contacts cochés à la sélection courante (liste de travail)" onclick="submitSelection('{{ url_for('selection.add') }}')">★ Ajouter à la sélection</button>
+            <button type="button" class="btn btn-small btn-secondary" title="Retirer les contacts cochés de la sélection courante" onclick="submitSelection('{{ url_for('selection.remove') }}')">Retirer de la sélection</button>
+        </div>
+    </div>
+
+    {# Sélection courante : ajouter TOUT le résultat du filtre (le serveur rejoue la query) #}
+    <div class="contacts-selection-actions" style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;padding:0.5rem 0;">
+        <form method="POST" action="{{ url_for('selection.add') }}" style="display:inline;">
+            <input type="hidden" name="scope" value="filter">
+            <input type="hidden" name="liste" value="{{ liste_filter or '' }}">
+            <input type="hidden" name="source" value="{{ source_filter or '' }}">
+            <input type="hidden" name="statut" value="{{ statut_filter or '' }}">
+            <input type="hidden" name="completude" value="{{ completude_filter or '' }}">
+            <input type="hidden" name="envoi" value="{{ envoi_filter or '' }}">
+            <input type="hidden" name="recent" value="{{ recent_filter or '' }}">
+            <input type="hidden" name="q" value="{{ search or '' }}">
+            <input type="hidden" name="back" value="{{ request.url }}">
+            <button type="submit" class="btn btn-small btn-secondary" title="Ajoute tous les contacts correspondant au filtre courant à la sélection">★ Ajouter tous ces résultats à la sélection</button>
+        </form>
+        {% if selection_count %}
+        <a href="{{ url_for('selection.view') }}" class="btn btn-small btn-secondary">Voir la sélection ({{ selection_count }})</a>
+        {% endif %}
     </div>
 
     <table class="data-table data-table-contacts contacts-table" id="contacts-table">
@@ -344,6 +367,20 @@ function submitBulk(action, confirmMsg){
     clearSel();  // l'action consomme la sélection → pas de report après redirection
     document.getElementById('bulk-action-input').value = action;
     document.getElementById('bulk-form').submit();
+}
+// Ajout/retrait des contacts COCHÉS à la sélection courante (POST vers /selection/*).
+function submitSelection(action){
+    var ids = selectedIds();
+    if (ids.length === 0){ alert('Aucun contact coché.'); return; }
+    var f = document.createElement('form');
+    f.method = 'POST'; f.action = action;
+    ids.forEach(function(v){
+        var i = document.createElement('input');
+        i.type = 'hidden'; i.name = 'contact_ids'; i.value = v; f.appendChild(i);
+    });
+    var b = document.createElement('input');
+    b.type = 'hidden'; b.name = 'back'; b.value = window.location.href; f.appendChild(b);
+    document.body.appendChild(f); f.submit();
 }
 {% if current_user.is_admin %}
 var EXPORT_TSV = "{{ url_for('imports.export_contacts') }}";

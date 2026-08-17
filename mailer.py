@@ -257,7 +257,7 @@ class MailQueue:
                               sent_by: str = None, include_unsubscribe: bool = False,
                               attachments: list = None, liste_id: int = None,
                               submission_id: str = None, liste_ids: list = None,
-                              name: str = None):
+                              name: str = None, use_selection: bool = False):
         """Crée ou met à jour le template (sujet, corps, format…) d'une campagne."""
         camp = db.session.get(MailCampaign, campaign_id)
         if camp is None:
@@ -272,6 +272,7 @@ class MailQueue:
         camp.attachments = attachments or None
         camp.liste_id = liste_id
         camp.liste_ids = liste_ids
+        camp.use_selection = bool(use_selection)
         camp.submission_id = submission_id
         db.session.commit()
 

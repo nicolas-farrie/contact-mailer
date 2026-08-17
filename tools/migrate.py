@@ -60,6 +60,8 @@ MIGRATIONS = [
     ("migrate_add_contact_send", "safe"),
     ("migrate_add_import_mapping", "safe"),
     ("migrate_add_queue_last_error", "safe"),
+    ("migrate_add_contact_set_member", "safe"),
+    ("migrate_add_campaign_use_selection", "safe"),
 ]
 
 

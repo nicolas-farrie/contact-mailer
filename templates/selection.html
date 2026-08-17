@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Sélection courante - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Sélection courante{% if selection_count %} <span class="text-muted">({{ selection_count }})</span>{% endif %}</h1>
+</div>
+
+<p class="settings-hint" style="margin-bottom:1rem;">
+    Liste de <strong>travail transitoire</strong> : accumulez des contacts au fil de vos recherches
+    (page <a href="{{ url_for('contacts.index') }}">Contacts</a> → « ★ Ajouter à la sélection »),
+    puis agissez dessus ci-dessous. Ce n'est pas une liste — rien n'est publié tant que vous
+    n'« enregistrez comme liste ».
+</p>
+
+{% if not contacts %}
+<div class="card" style="padding:1.5rem;text-align:center;">
+    <p>La sélection est vide.</p>
+    <p class="text-muted">Depuis <a href="{{ url_for('contacts.index') }}">Contacts</a>, cochez des contacts
+       puis « ★ Ajouter à la sélection », ou utilisez « ★ Ajouter tous ces résultats à la sélection »
+       après avoir filtré.</p>
+</div>
+{% else %}
+
+<div class="card" style="padding:1rem;margin-bottom:1rem;">
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+        <a href="{{ url_for('mailing.compose', from_selection=1) }}" class="btn btn-primary btn-small">✉ Envoyer un mailing à cette sélection</a>
+
+        <button type="button" class="btn btn-secondary btn-small" onclick="document.getElementById('save-as-list').hidden = !document.getElementById('save-as-list').hidden">Enregistrer comme liste…</button>
+
+        <form method="POST" action="{{ url_for('selection.to_list') }}" style="display:inline-flex;gap:0.35rem;align-items:center;">
+            <select name="liste_id" required class="form-control" style="max-width:220px;">
+                <option value="">— liste —</option>
+                {% for l in listes %}<option value="{{ l.id }}">{{ l.nom }}</option>{% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary btn-small">Ajouter à cette liste</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('selection.from_list') }}" style="display:inline-flex;gap:0.35rem;align-items:center;">
+            <select name="liste_id" required class="form-control" style="max-width:220px;">
+                <option value="">— liste —</option>
+                {% for l in listes %}<option value="{{ l.id }}">{{ l.nom }}</option>{% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary btn-small">Retirer de cette liste</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('selection.clear') }}" style="display:inline;margin-left:auto;"
+              onsubmit="return confirm('Vider la sélection courante ? (les contacts ne sont pas supprimés)')">
+            <button type="submit" class="btn btn-danger-outline btn-small">Vider la sélection</button>
+        </form>
+    </div>
+
+    <div id="save-as-list" hidden style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);">
+        <form method="POST" action="{{ url_for('selection.save_as_list') }}" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+            <input type="text" name="nom" placeholder="Nom de la nouvelle liste" required class="form-control" style="max-width:280px;">
+            <input type="text" name="description" placeholder="Description (facultatif)" class="form-control" style="max-width:280px;">
+            <button type="submit" class="btn btn-primary btn-small">Créer la liste ({{ selection_count }} contact·s)</button>
+        </form>
+    </div>
+</div>
+
+<div class="card contacts-card">
+    <table class="data-table data-table-contacts">
+        <thead>
+            <tr>
+                <th data-sort>Nom</th>
+                <th data-sort>Prénom</th>
+                <th data-sort>Email</th>
+                <th data-sort>Ville</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in contacts %}
+            <tr>
+                <td>{{ c.nom or '' }}</td>
+                <td>{{ c.prenom or '' }}</td>
+                <td>{{ c.email or '' }}</td>
+                <td>{{ c.adresse_ville or '' }}</td>
+                <td style="text-align:right;">
+                    <a href="{{ url_for('contacts.view', id=c.id) }}" class="icon-edit" title="Voir">Voir</a>
+                    <form method="POST" action="{{ url_for('selection.remove') }}" style="display:inline;">
+                        <input type="hidden" name="contact_ids" value="{{ c.id }}">
+                        <input type="hidden" name="back" value="{{ request.url }}">
+                        <button type="submit" class="btn btn-small btn-danger-outline" title="Retirer de la sélection">Retirer</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

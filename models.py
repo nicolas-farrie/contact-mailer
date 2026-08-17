@@ -316,6 +316,7 @@ class MailCampaign(db.Model):
     attachments = db.Column(db.JSON, nullable=True)   # liste de chemins
     liste_id = db.Column(db.Integer, nullable=True)          # compat : 1re liste sélectionnée
     liste_ids = db.Column(db.JSON, nullable=True)            # multi-listes (dédoublonnées à l'envoi)
+    use_selection = db.Column(db.Boolean, default=False)     # unionne la « sélection courante » de l'auteur
     submission_id = db.Column(db.String(255), nullable=True)
     archived = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
@@ -336,6 +337,8 @@ class MailCampaign(db.Model):
             data['liste_id'] = self.liste_id
         if self.liste_ids:
             data['liste_ids'] = self.liste_ids
+        if self.use_selection:
+            data['use_selection'] = True
         if self.submission_id:
             data['submission_id'] = self.submission_id
         if self.archived:
@@ -401,3 +404,16 @@ class ImportMapping(db.Model):
     mapping = db.Column(db.JSON, nullable=False)   # {en-tête: clé_champ}
     created_at = db.Column(db.DateTime, default=utcnow)
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+
+class ContactSetMember(db.Model):
+    """Membre d'un ContactSet = ensemble de contacts identifié par une CLÉ de namespace.
+
+    Socle réutilisable (cf. classe ContactSet dans contact_set.py) : la « sélection
+    courante » de l'UI = clé `user:<id>` (singleton par utilisateur) ; d'autres usages
+    en code (suivis opérationnels non-synchro) = `op:<nom>`. Algèbre ensembliste en SQL.
+    PK composite (set_key, contact_id) → indexe naturellement les requêtes par set_key."""
+    __tablename__ = 'contact_set_member'
+    set_key = db.Column(db.String(80), primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), primary_key=True)
+    added_at = db.Column(db.DateTime, default=utcnow)

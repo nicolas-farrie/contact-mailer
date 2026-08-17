@@ -40,6 +40,7 @@
                     </div>
                     {% endif %}
                     <a class="sidebar-link{% if request.endpoint in ['formulaires.index', 'formulaires.new', 'formulaires.edit', 'formulaires.detail'] %} active{% endif %}" href="{{ url_for('formulaires.index') }}">Formulaires</a>
+                    <a class="sidebar-link{% if request.blueprint == 'selection' %} active{% endif %}" href="{{ url_for('selection.view') }}" title="Sélection courante : liste de travail transitoire">Sélection{% if selection_count %} <span class="sel-badge">{{ selection_count }}</span>{% endif %}</a>
                 </div>
                 {% if current_user.is_admin %}
                 <div class="sidebar-section">
@@ -125,6 +126,9 @@
     th.sort-asc::after  { content: ' ▲'; font-size: 0.7em; opacity: 0.6; }
     th.sort-desc::after { content: ' ▼'; font-size: 0.7em; opacity: 0.6; }
     th[data-sort]:hover { background: rgba(0,0,0,0.05); }
+    .sel-badge { display:inline-block; min-width:1.1rem; padding:0 0.35rem; margin-left:0.25rem;
+                 border-radius:999px; background:var(--primary,#2563eb); color:#fff;
+                 font-size:0.72rem; font-weight:700; text-align:center; line-height:1.35rem; }
     </style>
 </body>
 </html>

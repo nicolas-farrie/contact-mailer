@@ -13,6 +13,7 @@ from flask_login import login_required, current_user
 from models import db, Contact, Liste, ContactSend, utcnow
 from config import Config
 from helpers import admin_required
+from contact_set import ContactSet
 import fields
 
 bp = Blueprint('contacts', __name__)
@@ -51,17 +52,18 @@ def _apply_listes(contact, form, clear=False):
             contact.listes.append(liste)
 
 
-@bp.route('/')
-@bp.route('/contacts')
-@login_required
-def index():
-    liste_filter = request.args.get('liste', type=int)
-    source_filter = request.args.get('source', '').strip()
-    search = request.args.get('q', '').strip()
-    statut_filter = request.args.get('statut', '').strip()
-    completude_filter = request.args.get('completude', '').strip()
-    envoi_filter = request.args.get('envoi', '').strip()
-    recent_filter = request.args.get('recent', '').strip()
+def _filtered_contacts_query(args):
+    """Query des contacts (non supprimés) filtrée selon les mêmes critères que la page
+    Contacts (liste/source/statut/complétude/envoi/récent/recherche). SANS tri, pour
+    être réutilisée par `index()` ET par l'ajout « tous les résultats du filtre » à la
+    sélection courante (le serveur rejoue le filtre, pas seulement la page affichée)."""
+    liste_filter = args.get('liste', type=int)
+    source_filter = args.get('source', '').strip()
+    search = args.get('q', '').strip()
+    statut_filter = args.get('statut', '').strip()
+    completude_filter = args.get('completude', '').strip()
+    envoi_filter = args.get('envoi', '').strip()
+    recent_filter = args.get('recent', '').strip()
 
     query = Contact.query.filter(Contact.is_deleted == False)
 
@@ -114,6 +116,15 @@ def index():
                 Contact.adresse_ville.ilike(search_pattern)
             )
         )
+    return query
+
+
+@bp.route('/')
+@bp.route('/contacts')
+@login_required
+def index():
+    query = _filtered_contacts_query(request.args)
+    recent_filter = request.args.get('recent', '').strip()
 
     # « Ajoutés récemment » → les plus récents d'abord ; sinon tri alphabétique.
     if recent_filter in ('7', '30'):
@@ -129,13 +140,14 @@ def index():
                            contacts=contacts_list,
                            listes=listes,
                            sources=sources,
-                           liste_filter=liste_filter,
-                           source_filter=source_filter,
-                           statut_filter=statut_filter,
-                           completude_filter=completude_filter,
-                           envoi_filter=envoi_filter,
+                           liste_filter=request.args.get('liste', type=int),
+                           source_filter=request.args.get('source', '').strip(),
+                           statut_filter=request.args.get('statut', '').strip(),
+                           completude_filter=request.args.get('completude', '').strip(),
+                           envoi_filter=request.args.get('envoi', '').strip(),
                            recent_filter=recent_filter,
-                           search=search)
+                           search=request.args.get('q', '').strip(),
+                           selection_ids=ContactSet.for_user(current_user.id).ids())
 
 
 @bp.route('/contacts/new', methods=['GET', 'POST'])

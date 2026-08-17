@@ -85,10 +85,11 @@ def _sign_body(body, mail_format, sign, signature):
     return body + f'\n\n— {signature}'
 
 
-def _recipients_for_lists(liste_ids):
-    """Union DÉDOUBLONNÉE des contacts actifs (non supprimés, non désabonnés) des
-    listes données : un contact présent dans plusieurs listes n'apparaît qu'une fois.
-    Conserve l'ordre de première apparition."""
+def _recipients(liste_ids, use_selection=False):
+    """Union DÉDOUBLONNÉE (par id) des contacts actifs (non supprimés, non désabonnés)
+    des listes données ET — si `use_selection` — de la « sélection courante » de
+    l'utilisateur. Un contact présent dans plusieurs sources n'apparaît qu'une fois.
+    Ordre de première apparition (listes d'abord, puis sélection)."""
     seen = {}
     for lid in liste_ids:
         liste = Liste.query.get(lid)
@@ -97,15 +98,28 @@ def _recipients_for_lists(liste_ids):
         for c in liste.active_contacts:
             if not c.is_unsubscribed and c.id not in seen:
                 seen[c.id] = c
+    if use_selection:
+        from contact_set import ContactSet
+        for c in ContactSet.for_user(current_user.id).contacts().all():
+            if not c.is_unsubscribed and c.id not in seen:
+                seen[c.id] = c
     return list(seen.values())
+
+
+def _recipients_for_lists(liste_ids):
+    """Compat : destinataires des seules listes (sans la sélection courante)."""
+    return _recipients(liste_ids, use_selection=False)
 
 
 @bp.route('/mailing/recipients-count', methods=['POST'])
 @login_required
 def recipients_count():
-    """Compteur live pour le rail Destinataires : total dédoublonné des listes cochées."""
+    """Compteur live pour le rail Destinataires : total dédoublonné des listes cochées
+    (+ sélection courante si l'entrée « ★ Sélection courante » est cochée)."""
     liste_ids = request.form.getlist('liste_ids', type=int)
-    return jsonify({'count': len(_recipients_for_lists(liste_ids)), 'lists': len(liste_ids)})
+    use_selection = request.form.get('use_selection') == '1'
+    n = len(_recipients(liste_ids, use_selection))
+    return jsonify({'count': n, 'lists': len(liste_ids) + (1 if use_selection else 0)})
 
 
 @bp.route('/mailing')
@@ -119,6 +133,9 @@ def compose():
     campaign_attachments = []   # PJ déjà enregistrées (réutilisation / retour édition)
     from_campaign_id = None
     sign_checked = bool(current_user.moderation_signature)
+    # Entrée « ★ Sélection courante » pré-cochée : deep-link depuis /selection, ou
+    # réutilisation d'une campagne qui ciblait la sélection.
+    use_selection_checked = request.args.get('from_selection') == '1'
     from_campaign = request.args.get('from_campaign')
     if from_campaign:
         from mailer import MailQueue
@@ -134,6 +151,7 @@ def compose():
             import os as _os
             campaign_attachments = [_os.path.basename(p) for p in (tpl.get('attachments') or [])]
             from_campaign_id = from_campaign
+            use_selection_checked = use_selection_checked or bool(tpl.get('use_selection'))
             # La signature est un pied de mail, pas du contenu éditable : on la
             # retire du corps affiché (et on reflète l'état « signé »).
             sign_checked = bool(_SIG_RE.search(prefill['body']))
@@ -170,7 +188,7 @@ def compose():
                            submission_attachments=submission_attachments, submission_id=submission_id,
                            submission_unknown_lists=submission_unknown_lists,
                            campaign_attachments=campaign_attachments, from_campaign_id=from_campaign_id,
-                           sign_checked=sign_checked,
+                           sign_checked=sign_checked, use_selection_checked=use_selection_checked,
                            forms=forms, base_url=Config.BASE_URL,
                            signature=current_user.moderation_signature or '')
 
@@ -373,6 +391,7 @@ def submission_attachment(submission_id, filename):
 def preview():
     """Prévisualisation du mail avec un contact de la liste"""
     liste_ids = request.form.getlist('liste_ids', type=int)
+    use_selection = request.form.get('use_selection') == '1'
     subject = request.form.get('subject', '').strip()
     body = request.form.get('body', '').strip()
     mail_format = request.form.get('format', 'text')
@@ -381,11 +400,11 @@ def preview():
     body = _sign_body(body, mail_format, request.form.get('sign') == 'on',
                       current_user.moderation_signature)
 
-    if not liste_ids:
-        return jsonify({'error': 'Sélectionnez au moins une liste'}), 400
+    if not liste_ids and not use_selection:
+        return jsonify({'error': 'Sélectionnez au moins une liste ou la sélection courante'}), 400
 
-    # Aperçu sur l'union dédoublonnée des listes cochées
-    recipients = _recipients_for_lists(liste_ids)
+    # Aperçu sur l'union dédoublonnée des listes cochées (+ sélection si cochée)
+    recipients = _recipients(liste_ids, use_selection)
     if not recipients:
         return jsonify({'error': 'Aucun contact actif dans la sélection'}), 400
 
@@ -554,13 +573,14 @@ def _persist_campaign_from_form(reuse_id=None):
     from datetime import datetime
 
     liste_ids = request.form.getlist('liste_ids', type=int)
+    use_selection = request.form.get('use_selection') == '1'
     name = (request.form.get('name') or '').strip() or None
     subject = request.form.get('subject', '').strip()
     body = request.form.get('body', '').strip()
     mail_format = request.form.get('format', 'text')
 
-    if not (liste_ids and subject and body):
-        return None, 'Sélectionnez au moins une liste, un sujet et un message.'
+    if not ((liste_ids or use_selection) and subject and body):
+        return None, 'Sélectionnez au moins une liste (ou la sélection courante), un sujet et un message.'
 
     body = _sign_body(body, mail_format, request.form.get('sign') == 'on',
                       current_user.moderation_signature)
@@ -569,14 +589,17 @@ def _persist_campaign_from_form(reuse_id=None):
         return None, 'SMTP non configuré'
 
     listes = Liste.query.filter(Liste.id.in_(liste_ids)).all()
-    if not listes:
+    if liste_ids and not listes:
         return None, 'Liste(s) introuvable(s)'
 
     include_unsubscribe = request.form.get('include_unsubscribe') == 'on'
 
-    # Union DÉDOUBLONNÉE des contacts actifs (désabonnés exclus)
-    recipients = _recipients_for_lists(liste_ids)
+    # Union DÉDOUBLONNÉE des contacts actifs (désabonnés exclus) : listes + sélection courante
+    recipients = _recipients(liste_ids, use_selection)
     all_active_ids = {c.id for lst in listes for c in lst.active_contacts}
+    if use_selection:
+        from contact_set import ContactSet
+        all_active_ids |= {c.id for c in ContactSet.for_user(current_user.id).contacts().all()}
     excluded = len(all_active_ids) - len(recipients)
     if excluded:
         flash(f'{excluded} contact{"s" if excluded > 1 else ""} désabonné{"s" if excluded > 1 else ""} exclu{"s" if excluded > 1 else ""} de l\'envoi', 'info')
@@ -596,10 +619,15 @@ def _persist_campaign_from_form(reuse_id=None):
     if reuse_id:
         campaign_id = reuse_id          # on met à jour la campagne en cours d'édition
     else:
-        # ID de campagne : nom de la 1re liste (+ « +N » si plusieurs)
+        # ID de campagne : nom de la 1re liste (+ « +N » si plusieurs), ou « Sélection »
+        # si l'envoi ne cible que la sélection courante.
         id2nom = {lst.id: lst.nom for lst in listes}
-        primary = id2nom.get(liste_ids[0], 'Diffusion')
-        label = primary if len(liste_ids) == 1 else f"{primary}+{len(liste_ids) - 1}"
+        if liste_ids:
+            primary = id2nom.get(liste_ids[0], 'Diffusion')
+            extra = len(liste_ids) - 1 + (1 if use_selection else 0)
+            label = primary if extra == 0 else f"{primary}+{extra}"
+        else:
+            label = 'Sélection'
         campaign_id = f"{label}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Sauvegarder les pièces jointes sur disque
@@ -651,7 +679,8 @@ def _persist_campaign_from_form(reuse_id=None):
                                       sent_by=current_user.username,
                                       include_unsubscribe=include_unsubscribe,
                                       attachments=attachment_paths or None,
-                                      liste_id=liste_ids[0], liste_ids=liste_ids,
+                                      liste_id=(liste_ids[0] if liste_ids else None),
+                                      liste_ids=liste_ids, use_selection=use_selection,
                                       submission_id=submission_id, name=name)
     return campaign_id, None
 
@@ -711,7 +740,7 @@ def confirm():
 
     liste_ids = tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else [])
     listes = Liste.query.filter(Liste.id.in_(liste_ids)).all()
-    recipients = _recipients_for_lists(liste_ids)
+    recipients = _recipients(liste_ids, tpl.get('use_selection'))
 
     return render_template('mailing_confirm.html',
                            campaign_id=campaign_id,
@@ -737,7 +766,7 @@ def add_to_queue():
     queue = MailQueue()
     tpl = queue.get_campaign_template(campaign_id)
     liste_ids = tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else [])
-    recipients = _recipients_for_lists(liste_ids)
+    recipients = _recipients(liste_ids, tpl.get('use_selection'))
 
     selected = [c for c in recipients if c.id in contact_ids]
     for contact in selected:
