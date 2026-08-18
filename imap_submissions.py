@@ -8,6 +8,7 @@ vers un dossier "Traité" (état géré par les dossiers IMAP, pas de table en D
 import base64
 import imaplib
 import email
+import mimetypes
 from email.header import decode_header
 from email.utils import parseaddr, parsedate_to_datetime
 
@@ -77,25 +78,39 @@ def _extract_body_and_attachments(msg):
     inline_images = {}  # Content-ID (sans < >) -> (content_type, payload)
 
     if msg.is_multipart():
+        att_idx = 0
         for part in msg.walk():
+            if part.get_content_maintype() == 'multipart':
+                continue  # conteneur (mixed/alternative/related), pas un contenu
             content_type = part.get_content_type()
-            disposition = part.get_content_disposition()
+            disposition = part.get_content_disposition()   # 'attachment' | 'inline' | None
             content_id = (part.get('Content-ID') or '').strip('<>')
+            filename = _decode(part.get_filename())         # lit Content-Disposition filename ET Content-Type name
 
-            if disposition == 'attachment':
-                filename = _decode(part.get_filename())
+            # 1. Image inline référencée par un Content-ID → gardée inline (data URI),
+            #    sauf si elle est explicitement une pièce jointe.
+            if content_type.startswith('image/') and content_id and disposition != 'attachment':
                 payload = part.get_payload(decode=True)
-                if filename and payload:
+                if payload:
+                    inline_images[content_id] = (content_type, payload)
+            # 2. Pièce jointe : disposition=attachment OU simple présence d'un nom de
+            #    fichier. On ne se fie PLUS à la seule disposition : beaucoup de clients
+            #    l'omettent ou mettent « inline » sur de vraies PJ (Content-Type: …;
+            #    name="x.pdf") → c'était la cause des pièces jointes perdues.
+            elif disposition == 'attachment' or filename:
+                payload = part.get_payload(decode=True)
+                if payload:
+                    att_idx += 1
+                    if not filename:
+                        ext = mimetypes.guess_extension(content_type) or ''
+                        filename = f'piece-jointe-{att_idx}{ext}'
                     attachments.append({
                         'filename': filename,
                         'content_type': content_type,
                         'size': len(payload),
                         'payload': payload,
                     })
-            elif content_type.startswith('image/') and content_id:
-                payload = part.get_payload(decode=True)
-                if payload:
-                    inline_images[content_id] = (content_type, payload)
+            # 3. Corps (première occurrence de chaque type)
             elif content_type == 'text/plain' and not body_text:
                 charset = part.get_content_charset() or 'utf-8'
                 body_text = part.get_payload(decode=True).decode(charset, errors='replace')

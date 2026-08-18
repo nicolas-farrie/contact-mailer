@@ -308,11 +308,12 @@ def submission_use(uid):
         attach_dir = Path(f'data/attachments/submission_{uid}')
         attach_dir.mkdir(parents=True, exist_ok=True)
         saved_attachments = []
-        for a in sub['attachments']:
-            filename = secure_filename(a['filename'])
-            if filename:
-                (attach_dir / filename).write_bytes(a['payload'])
-                saved_attachments.append(filename)
+        for i, a in enumerate(sub['attachments'], 1):
+            # secure_filename peut réduire un nom (non-ASCII, etc.) à '' → ne pas
+            # perdre la PJ pour autant : nom de repli.
+            filename = secure_filename(a['filename']) or f'piece-jointe-{i}'
+            (attach_dir / filename).write_bytes(a['payload'])
+            saved_attachments.append(filename)
 
         body = sub['body_html'] or sub['body_text']
         fmt = 'html' if sub['body_html'] else 'text'
