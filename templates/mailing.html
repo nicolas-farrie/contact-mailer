@@ -41,15 +41,22 @@
                 <a href="{{ url_for('mailing.submission_attachment', submission_id=submission_id, filename=filename) }}" target="_blank">{{ filename }}</a>
                 (voir / télécharger)
                 <label class="checkbox-inline">
-                    <input type="checkbox" name="submission_attachments" value="{{ filename }}">
+                    <input type="checkbox" name="submission_attachments" value="{{ filename }}"
+                           onchange="this.closest('li').classList.toggle('is-joined', this.checked)">
                     <span>Ajouter à l'envoi</span>
                 </label>
+                <span class="joined-flag">✓ sera joint à l'envoi</span>
             </li>
             {% endfor %}
         </ul>
         {% endif %}
     </div>
     {% endif %}
+    <style>
+        .submission-attachments-list .joined-flag { display:none; margin-left:0.4rem; color:var(--success,#16a34a); font-weight:600; }
+        .submission-attachments-list li.is-joined .joined-flag { display:inline; }
+        .submission-attachments-list li.is-joined { background:rgba(22,163,74,0.08); border-radius:4px; }
+    </style>
 
     <div class="composer-grid">
             <!-- Carte éditeur -->

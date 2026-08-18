@@ -135,6 +135,135 @@ def _extract_body_and_attachments(msg):
     return body_text, body_html, attachments
 
 
+def _extract_parens(b, start):
+    """Extrait le groupe de parenthèses ÉQUILIBRÉ commençant au 1er '(' à/après `start`
+    (en respectant les chaînes entre guillemets). Renvoie les octets ou b''."""
+    i = b.find(b'(', start)
+    if i < 0:
+        return b''
+    depth = 0
+    j = i
+    in_str = False
+    while j < len(b):
+        c = b[j:j+1]
+        if in_str:
+            if c == b'\\':
+                j += 2
+                continue
+            if c == b'"':
+                in_str = False
+        elif c == b'"':
+            in_str = True
+        elif c == b'(':
+            depth += 1
+        elif c == b')':
+            depth -= 1
+            if depth == 0:
+                return b[i:j+1]
+        j += 1
+    return b''
+
+
+def _tokenize_bs(b):
+    """Tokenise un BODYSTRUCTURE IMAP (octets) en listes Python imbriquées.
+    Chaîne entre guillemets/atome (NIL, nombre) → str ; groupe (...) → list."""
+    tokens = []
+    stack = [tokens]
+    i, n = 0, len(b)
+    while i < n:
+        c = b[i:i+1]
+        if c == b'(':
+            new = []
+            stack[-1].append(new)
+            stack.append(new)
+            i += 1
+        elif c == b')':
+            if len(stack) > 1:
+                stack.pop()
+            i += 1
+        elif c == b'"':
+            j, buf = i + 1, b''
+            while j < n:
+                if b[j:j+1] == b'\\':
+                    buf += b[j+1:j+2]; j += 2; continue
+                if b[j:j+1] == b'"':
+                    break
+                buf += b[j:j+1]; j += 1
+            stack[-1].append(buf.decode('utf-8', 'replace'))
+            i = j + 1
+        elif c == b' ':
+            i += 1
+        else:
+            j = i
+            while j < n and b[j:j+1] not in b' ()"':
+                j += 1
+            stack[-1].append(b[i:j].decode('utf-8', 'replace'))
+            i = j
+    return tokens
+
+
+def _param_has(params, key):
+    """params = liste plate [k1,v1,k2,v2,…] → vrai si `key` (insensible casse) présent."""
+    if not isinstance(params, list):
+        return False
+    return any(isinstance(params[k], str) and params[k].lower() == key
+               for k in range(0, len(params), 2))
+
+
+def _find_disposition(node):
+    """Cherche le body-fld-dsp d'une part feuille : sous-liste [\"attachment\"|\"inline\", (params)].
+    Renvoie ('attachment'|'inline'|None, params_list)."""
+    for el in node:
+        if (isinstance(el, list) and el and isinstance(el[0], str)
+                and el[0].lower() in ('attachment', 'inline')):
+            dparams = el[1] if len(el) > 1 and isinstance(el[1], list) else []
+            return el[0].lower(), dparams
+    return None, []
+
+
+def _count_attachments(node):
+    """Compte récursivement les pièces jointes d'un arbre BODYSTRUCTURE tokenisé,
+    en miroir de _extract_body_and_attachments : une PJ = disposition=attachment OU
+    présence d'un nom de fichier ; on exclut les images inline référencées par CID."""
+    if not isinstance(node, list) or not node:
+        return 0
+    if isinstance(node[0], list):        # multipart : enfants = listes en tête
+        total = 0
+        for child in node:
+            if isinstance(child, list):
+                total += _count_attachments(child)
+            else:
+                break                    # atteint le subtype (str) → fin des enfants
+        return total
+    # feuille : ["type","subtype",(params),id,desc,enc,size,...]
+    if not isinstance(node[0], str):
+        return 0
+    mtype = node[0].lower()
+    params = node[2] if len(node) > 2 and isinstance(node[2], list) else []
+    content_id = node[3] if len(node) > 3 and isinstance(node[3], str) else 'NIL'
+    disp, dparams = _find_disposition(node)
+    has_name = _param_has(params, 'name') or _param_has(dparams, 'filename')
+    if mtype == 'image' and content_id.upper() != 'NIL' and disp != 'attachment' and not has_name:
+        return 0                         # image inline référencée par cid → pas une PJ
+    return 1 if (disp == 'attachment' or has_name) else 0
+
+
+def _attachment_count(raw_bytes):
+    """Nombre de pièces jointes déduit du BODYSTRUCTURE (sans télécharger le corps).
+    Best-effort : renvoie None si indéterminable (jamais d'exception vers l'appelant)."""
+    try:
+        idx = raw_bytes.upper().find(b'BODYSTRUCTURE')
+        if idx < 0:
+            return None
+        blob = _extract_parens(raw_bytes, idx)
+        if not blob:
+            return None
+        toks = _tokenize_bs(blob)
+        return _count_attachments(toks[0]) if toks else None
+    except Exception:
+        return None
+
+
 def fetch_submissions(config, folder=None):
     """Liste les demandes d'un dossier IMAP.
     `folder=None` → dossier des demandes en attente (IMAP_FOLDER) ;
@@ -152,11 +281,19 @@ def fetch_submissions(config, folder=None):
             # pièces jointes de chaque message. Le corps est chargé à la demande, au clic
             # « Voir » (cf. get_submission / route submission_preview). Sinon lister N
             # demandes = rapatrier N emails entiers, PJ comprises → très lent à l'échelle.
-            status, msg_data = conn.fetch(uid, '(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])')
+            # En-têtes + BODYSTRUCTURE : la BODYSTRUCTURE décrit la structure MIME
+            # (donc le nombre de PJ) SANS télécharger le corps ni les pièces jointes →
+            # la liste reste rapide même à grande échelle.
+            status, msg_data = conn.fetch(uid, '(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)] BODYSTRUCTURE)')
             if status != 'OK' or not msg_data or not msg_data[0]:
                 continue
             msg = email.message_from_bytes(msg_data[0][1])
             name, addr = parseaddr(_decode(msg.get('From', '')))
+
+            # Compter les PJ depuis la métadonnée BODYSTRUCTURE (best-effort).
+            meta = b' '.join(p[0] if isinstance(p, tuple) else p
+                             for p in msg_data if p and (isinstance(p, bytes) or isinstance(p, tuple)))
+            att_count = _attachment_count(meta)
 
             submissions.append({
                 'uid': uid.decode(),
@@ -164,6 +301,7 @@ def fetch_submissions(config, folder=None):
                 'from_email': addr,
                 'subject': _decode(msg.get('Subject', '')),
                 'date': _fmt_date(msg.get('Date', '')),
+                'attachment_count': att_count,
             })
 
         # Plus récent en premier

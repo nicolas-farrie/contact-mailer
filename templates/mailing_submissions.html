@@ -10,6 +10,7 @@
     <td>{{ s.from_name or s.from_email }}{% if s.from_name %}<div class="recip-mail">{{ s.from_email }}</div>{% endif %}</td>
     <td class="campaign-subject">
         <span class="subject-toggle" onclick="toggleSub('{{ idp }}')">{{ s.clean_subject or s.subject or '(sans sujet)' }}</span>
+        {% if s.attachment_count %}<span class="tag" title="Pièces jointes détectées">📎 {{ s.attachment_count }} fichier{{ 's' if s.attachment_count > 1 }}</span>{% endif %}
         {% if s.lists %}<div class="recip-mail">→ {% for nom in s.lists %}<span class="tag">{{ nom }}</span> {% endfor %}</div>{% endif %}
         {% if s.unknown_lists %}<div class="recip-mail" style="color:var(--danger)">⚠ liste(s) inconnue(s) : {{ s.unknown_lists|join(', ') }}</div>{% endif %}
     </td>
@@ -34,7 +35,12 @@
 {% block content %}
 <div class="page-header">
     <h1>Demandes de diffusion {% if submissions %}<span class="count">{{ submissions|length }}</span>{% endif %}</h1>
-    <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
+    <div style="display:flex; gap:0.5rem;">
+        {% if imap_configured %}
+        <a href="{{ url_for('mailing.submissions', archived=1 if show_archived else None) }}" class="btn btn-secondary" title="Relire la boîte de demandes (récupère les nouvelles)">↻ Vérifier les demandes</a>
+        {% endif %}
+        <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
+    </div>
 </div>
 
 {% if not imap_configured %}
