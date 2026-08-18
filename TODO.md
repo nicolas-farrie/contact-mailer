@@ -90,6 +90,46 @@
 - [x] **🔴 Mailing : séquence d'envoi phase 3 → phase 4 — CORRIGÉ (08-04, Tier 0)**. La confirmation de l'étape Destinataires **déclenche réellement l'envoi** : `add_to_queue` met en file **puis** `_run_send()` (envoi immédiat) → on arrive en phase Envoi sur un **état résultat**. `process()` devient « Reprendre l'envoi » (file d'attente, cas interrompu/erreurs). Modale unique « Envoyer maintenant » + overlay. Prépare l'asynchrone (confirmer = file + armer le déclencheur). *(Fini le « resté en file, jamais parti ».)*
 
 ## A faire - Prioritaire
+
+### 🚨 URGENT — Délivrabilité e-mail : anti-bounce, validation & IP dédiée (plan cadré 2026-08-18)
+**Source : conversation LWS, CR dans `doc-travail/vrai-prompt-fiable.md` #30.** À traiter **après** la fin de la session d'hier (déploiement Sélection courante v2.2.3 + PJ demandes + demandes traitées).
+
+**Ce que LWS nous a appris (offre mutualisée asso34.fr) :**
+- Limites dures : **240 envois/heure** (compteur horaire, pas à la minute) · **2500/jour**. Envoi **par lot sans reconnexion** (= valide notre Fix #1 connexion unique).
+- **VPS / IP dédiée** chez LWS → limites supprimées **+** adresse bounce active **+** logs d'envoi accessibles.
+- SPF/DKIM/DMARC asso34.fr : **OK**, rien à toucher (écarte l'auth comme cause de rejet).
+- Logs de rejet riches dans leur UI (1000 derniers) mais **PAS d'API** → pas de bounce programmatique via leurs logs.
+- **Reco #1 de LWS** : « rien de pire que de représenter plusieurs fois des mails en erreur » → suppression stricte + **valider l'adresse à la saisie/màj** (test rapide, « 100% efficace » en base opt-in).
+
+**Stratégie retenue (3 couches) :**
+1. **Suppression** (ne jamais remailer une adresse en erreur) — gratuit, illimité, prioritaire.
+2. **Prévention à la saisie** — format+MX partout (gratuit) ; API temps-réel (ping SMTP + jetables) **en option, aux points à faible débit seulement**.
+3. **Plafonds** recalés aux vraies limites.
+
+**Constats de code (vérifiés le 2026-08-18) :**
+- ⚠️ **L'envoi n'exclut PAS `has_bounced`** : `active_contacts` exclut seulement `is_deleted`, `_recipients` seulement `is_unsubscribed`. Un contact en erreur **est remailé** — exactement ce que LWS proscrit. (Le seul usage de `has_bounced`, `mailing.py:207`, ne sert qu'à une **stat d'affichage** dans l'historique.)
+- ✅ **La boucle de bounce est déjà à 100% construite** : `bounce_scanner.py` = vrai parseur DSN (RFC 3464 `Final-Recipient`, header `X-Failed-Recipients`, fallback regex codes 550-554 + mots-clés FR/EN ; détection `MAILER-DAEMON`/sujets/`multipart/report`) ; lit **n'importe quelle boîte IMAP** via `BOUNCE_IMAP_*` ; la route `contacts.scan_bounces` marque `has_bounced=True` + `bounced_at` et déplace le DSN en « Traité ». Config `BOUNCE_IMAP_*` + `BOUNCE_RETURN_PATH` déjà en place.
+- ⚠️ **Aucune validation de format e-mail** à la saisie aujourd'hui (fiche/formulaire/import).
+
+**Insight clé (corrige la crainte « has_bounced restera toujours false ») :** sans IP dédiée, les NDR reviennent au **From = boîte d'expédition asso34.fr** (accessible en IMAP). En pointant `BOUNCE_IMAP_*` sur cette boîte, la boucle fonctionne **sur mutualisée, sans VPS**. Cohérent avec le fix 553 (bounce_enabled OFF = pas de Return-Path forcé → NDR au From). Le VPS devient un **upgrade** (boîte bounce dédiée non mêlée aux réponses humaines + logs + pas de plafonds), pas un prérequis.
+
+**Design `email_verified` (tri-état) — validé avec correction :**
+- `None` = jamais testé (cas import) · `True` = API OK · `False` = API dit invalide (exclu).
+- **Correction cruciale : ne JAMAIS conditionner l'envoi en masse à l'API** (100/mois → un import 3500 explose le quota qu'on vérifie à l'import OU « au 1er usage »). Le **gate d'envoi = gratuit** (format+MX + `not has_bounced` + `not unsubscribed`). L'API = **bonus qualité** aux points de saisie (fiche + formulaire public), jamais un blocage de campagne. Réponse à « non-vérifiées > quota » : les `None` partent sur confiance format+MX ; l'API ne les atteint simplement pas ce mois-ci. → béquille assumée ; la vraie réponse = la boucle bounce (gratuite, illimitée, **auto-corrective**).
+
+**PLAN D'EXÉCUTION (dans l'ordre) :**
+- [ ] **1a. Exclure `has_bounced` de l'envoi** (consommateur de la boucle) — modifier `_recipients` (+ cohérence `active_contacts`/`joignables`). Petit, sûr.
+- [ ] **1b. Recaler les plafonds** aux vraies limites avec marge : `MAIL_MAX_PER_HOUR` 100→~220, `MAIL_MAX_PER_DAY` 300→~2400 (defaults code surchargeables `.env`). `MAIL_RATE_PER_MINUTE` : lissage modeste (LWS compte à l'heure).
+- [ ] **2. TEST EMPIRIQUE de la boucle sur lfll** (tranche la question « sommes-nous aveugles ? ») : `.env` `BOUNCE_IMAP_*` = boîte d'expédition ; envoyer à une adresse invalide (`nexistepas@asso34.fr`) ; attendre le NDR ; « Scanner les bounces » ; vérifier `has_bounced=True`. → NDR arrive = boucle OK sur mutualisée / VPS = confort ; NDR n'arrive pas = argument chiffré pour le VPS.
+- [ ] **3. Validation format+MX à la saisie** (prévention amont) : fiche contact + formulaire public + import (rejet du garbage évident, gratuit, illimité).
+- [ ] **4. `email_verified` tri-état + API togglable** (clé `.env`) aux points de saisie faible débit uniquement. Choisir le fournisseur (AbstractAPI 100/mois gratuit = dépannage ; palier payant si la prévention devient centrale).
+- [ ] **5. Scan bounce périodique** (au lieu du bouton manuel) : cron/APScheduler — mutualise avec le scan des demandes de diffusion (cf. section « Notification des demandes »).
+- [ ] **6. DÉCISION VPS / IP dédiée** — sur la base du test #2. **Chiffrage à produire (doc dédiée) :**
+  - *Périmètre A — mail seul (app reste sur home-servers)* : provisionner IP dédiée/VPS mail ; DNS SPF+DKIM pour la nouvelle IP ; `.env` (SMTP + activer `BOUNCE_IMAP_*`) ; finir/valider câblage `bounce_scanner`. **Coût logiciel faible** (code prêt), essentiel = deliverability + tests (~1 session).
+  - *Périmètre B — app entière sur VPS* : Docker + nginx/TLS + migrer volumes (pattern rodé aubaygues) + repoint DNS + décommissionner. Plus lourd mais maîtrisé. **Bonus : règle la fiabilité (fini les incidents UPS/coupure).**
+  - Combinables. Le **coût de migration doit être évalué et intégré au choix** (demande explicite Nicolas).
+- [note] Solution API = **béquille** assumée, à revoir selon la taille des imports. La cible durable = boucle bounce + IP dédiée.
+
 ### 📥 Import v2 — MVP-1 LIVRÉ (2026-08-05/06), MVP-2 à faire (urgence sénatoriales)
 Détail complet : `doc-travail/2026-08-06-import-v2-etat-et-suite.md`. Branche `design/claude-design-v2`, non déployé.
 - [x] Parseur **openpyxl (.xlsx) + csv/tsv**, décodage utf-8→cp1252 (Excel FR) — `1a45a66`
