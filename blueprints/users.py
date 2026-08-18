@@ -161,6 +161,7 @@ def profile():
         current_user.nom = request.form.get('nom', '').strip()
         current_user.prenom = request.form.get('prenom', '').strip()
         current_user.email = request.form.get('email', '').strip() or None
+        current_user.moderation_signature = request.form.get('moderation_signature', '').strip() or None
 
         password = request.form.get('password', '').strip()
         password_confirm = request.form.get('password_confirm', '').strip()

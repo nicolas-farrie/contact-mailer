@@ -29,6 +29,15 @@
         <input type="email" id="email" name="email" value="{{ current_user.email or '' }}">
     </div>
 
+    <div class="form-group">
+        <label for="moderation_signature">Signature de diffusion</label>
+        <input type="text" id="moderation_signature" name="moderation_signature" maxlength="120"
+               value="{{ current_user.moderation_signature or '' }}"
+               placeholder="ex : L'équipe diffusion, ou un pseudonyme">
+        <p class="field-help">Ce nom s'affiche en bas des mailings que <strong>vous</strong> envoyez ou validez
+            (option « Signer cette diffusion »). Laissez vide pour ne pas signer.</p>
+    </div>
+
     <fieldset class="form-fieldset">
         <legend>Changer le mot de passe</legend>
         <div class="form-group">
