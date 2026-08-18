@@ -28,7 +28,13 @@
                 <div class="sidebar-section">
                     <div class="sidebar-section-label">Travail</div>
                     <a class="sidebar-link{% if request.endpoint == 'listes.index' %} active{% endif %}" href="{{ url_for('listes.index') }}">Listes</a>
-                    <a class="sidebar-link{% if request.endpoint == 'contacts.index' %} active{% endif %}" href="{{ url_for('contacts.index') }}">Contacts</a>
+                    <a class="sidebar-link{% if request.blueprint in ['contacts', 'selection'] %} active{% endif %}" href="{{ url_for('contacts.index') }}">Contacts</a>
+                    {% if request.blueprint in ['contacts', 'selection'] %}
+                    <div class="sidebar-subnav">
+                        <a class="sidebar-sublink{% if request.blueprint == 'contacts' %} active{% endif %}" href="{{ url_for('contacts.index') }}">Tous les contacts</a>
+                        <a class="sidebar-sublink{% if request.blueprint == 'selection' %} active{% endif %}" href="{{ url_for('selection.view') }}" title="Sélection courante : liste de travail transitoire">★ Sélection courante{% if selection_count %} <span class="sel-badge">{{ selection_count }}</span>{% endif %}</a>
+                    </div>
+                    {% endif %}
                     <a class="sidebar-link{% if request.blueprint == 'mailing' %} active{% endif %}" href="{{ url_for('mailing.history') }}">Mailing</a>
                     {% if request.blueprint == 'mailing' %}
                     <div class="sidebar-subnav">
@@ -40,7 +46,6 @@
                     </div>
                     {% endif %}
                     <a class="sidebar-link{% if request.endpoint in ['formulaires.index', 'formulaires.new', 'formulaires.edit', 'formulaires.detail'] %} active{% endif %}" href="{{ url_for('formulaires.index') }}">Formulaires</a>
-                    <a class="sidebar-link{% if request.blueprint == 'selection' %} active{% endif %}" href="{{ url_for('selection.view') }}" title="Sélection courante : liste de travail transitoire">Sélection{% if selection_count %} <span class="sel-badge">{{ selection_count }}</span>{% endif %}</a>
                 </div>
                 {% if current_user.is_admin %}
                 <div class="sidebar-section">
