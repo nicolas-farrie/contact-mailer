@@ -99,9 +99,8 @@
                 {% if submission_unknown_lists %}
                 <p class="hint" style="color:var(--danger); margin:0.25rem 0 0.5rem;">⚠ Liste(s) non reconnue(s) dans le sujet de la demande : <strong>{{ submission_unknown_lists|join(', ') }}</strong> — à sélectionner à la main ci-dessous.</p>
                 {% endif %}
-                <input type="search" class="rail-search" id="rail-search" placeholder="Rechercher une liste…" onkeyup="filterLists()" autocomplete="off"
-                       enterkeyhint="done"
-                       onkeydown="if(event.key==='Enter')event.preventDefault();">
+                <input type="text" class="rail-search js-enter-none" id="rail-search" placeholder="Rechercher une liste…"
+                       onkeyup="filterLists()" autocomplete="off" enterkeyhint="done">
                 <div class="rail-lists" id="rail-lists">
                     {% if selection_count %}
                     <label class="rail-list-item rail-list-selection" data-nom="★ sélection courante"

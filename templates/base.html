@@ -101,6 +101,21 @@
     </div>
 
     <script>
+    // Touche Entrée dans un champ de recherche : soumettre le formulaire
+    // (.js-enter-submit) ou la neutraliser (.js-enter-none). Corrige le clavier
+    // mobile qui affiche « Suivant » quand d'autres champs suivent (→ recherche
+    // impossible à valider) et évite un submit accidentel sur un filtre live.
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+        var el = e.target;
+        if (!el || !el.classList) return;
+        if (el.classList.contains('js-enter-submit')) {
+            e.preventDefault();
+            if (el.form) el.form.submit();
+        } else if (el.classList.contains('js-enter-none')) {
+            e.preventDefault();
+        }
+    });
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.data-table th[data-sort]').forEach(function(th) {
             th.style.cursor = 'pointer';

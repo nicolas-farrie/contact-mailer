@@ -88,9 +88,8 @@
 <div class="contacts-toolbar">
     <div class="search-wrap">
         <span class="search-ico" aria-hidden="true">⌕</span>
-        <input type="search" id="f-search" class="search-input" placeholder="Rechercher un formulaire…" oninput="applyForms()"
-               enterkeyhint="done"
-               onkeydown="if(event.key==='Enter')event.preventDefault();">
+        <input type="text" id="f-search" class="search-input js-enter-none" placeholder="Rechercher un formulaire…"
+               oninput="applyForms()" enterkeyhint="done">
     </div>
     <select id="f-status" class="filter-pill" onchange="applyForms()">
         <option value="">Statut : Tous</option>
