@@ -37,7 +37,9 @@
 <form method="GET" class="contacts-toolbar" id="filter-form">
     <div class="search-wrap">
         <span class="search-ico" aria-hidden="true">⌕</span>
-        <input type="text" name="q" value="{{ search }}" placeholder="Rechercher un nom ou un email…" class="search-input">
+        <input type="search" name="q" value="{{ search }}" placeholder="Rechercher un nom ou un email…" class="search-input"
+               enterkeyhint="search"
+               onkeydown="if(event.key==='Enter'){event.preventDefault(); this.form.submit();}">
     </div>
     <select name="liste" class="filter-pill" onchange="this.form.submit()">
         <option value="">Liste : Toutes</option>
