@@ -324,11 +324,13 @@ def parse_conditions(args):
     return out
 
 
-def apply_conditions(query, conditions):
-    """Applique les conditions (ET) à une query Contact. Les conditions invalides
-    (prédicat None) sont ignorées silencieusement."""
-    for c in conditions:
-        pred = build_predicate(c['field'], c['op'], c.get('value'))
-        if pred is not None:
-            query = query.filter(pred)
-    return query
+def apply_conditions(query, conditions, join='and'):
+    """Applique les conditions à une query Contact, combinées en ET (défaut) ou en OU
+    (`join='or'`). Les conditions invalides (prédicat None) sont ignorées.
+    Note : le bloc avancé reste ANDé avec les filtres simples de la page ; `join` ne
+    joue qu'ENTRE les conditions avancées → (filtres simples) ET (adv1 OU adv2 …)."""
+    preds = [p for p in (build_predicate(c['field'], c['op'], c.get('value')) for c in conditions)
+             if p is not None]
+    if not preds:
+        return query
+    return query.filter(db.or_(*preds) if join == 'or' else db.and_(*preds))

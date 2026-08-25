@@ -118,9 +118,9 @@ def _filtered_contacts_query(args):
             )
         )
 
-    # Filtres avancés (P1) : conditions typées sur les champs standard, en ET.
-    # Additif aux pills simples ci-dessus. Cf. contact_filters.py.
-    query = apply_conditions(query, parse_conditions(args))
+    # Filtres avancés : conditions typées (champs standard + perso), combinées en ET
+    # (défaut) ou en OU (af.join=or). Additif aux pills simples. Cf. contact_filters.py.
+    query = apply_conditions(query, parse_conditions(args), args.get('af.join', 'and'))
     return query
 
 
@@ -154,7 +154,8 @@ def index():
                            search=request.args.get('q', '').strip(),
                            selection_ids=ContactSet.for_user(current_user.id).ids(),
                            adv_meta=filter_ui_metadata(),
-                           adv_conditions=conditions_for_ui(request.args))
+                           adv_conditions=conditions_for_ui(request.args),
+                           adv_join=request.args.get('af.join', 'and'))
 
 
 @bp.route('/contacts/new', methods=['GET', 'POST'])

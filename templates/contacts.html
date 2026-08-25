@@ -92,6 +92,11 @@
         {% if completude_filter %}<input type="hidden" name="completude" value="{{ completude_filter }}">{% endif %}
         {% if envoi_filter %}<input type="hidden" name="envoi" value="{{ envoi_filter }}">{% endif %}
         {% if recent_filter %}<input type="hidden" name="recent" value="{{ recent_filter }}">{% endif %}
+        <div class="adv-join" style="margin-bottom:0.5rem;font-size:0.9rem;">
+            Correspondre à
+            <label class="checkbox-inline" style="margin-left:0.4rem;"><input type="radio" name="af.join" value="and"{% if adv_join != 'or' %} checked{% endif %}> toutes les conditions (ET)</label>
+            <label class="checkbox-inline" style="margin-left:0.6rem;"><input type="radio" name="af.join" value="or"{% if adv_join == 'or' %} checked{% endif %}> au moins une (OU)</label>
+        </div>
         <div id="adv-rows"></div>
         <div class="adv-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
             <button type="button" class="btn btn-small btn-secondary" onclick="advAddRow()">+ Ajouter une condition</button>
