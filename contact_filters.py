@@ -10,6 +10,8 @@ Moteur actif détectable via `db.engine.dialect.name` ('sqlite' | 'postgresql').
 """
 from datetime import datetime, timedelta
 
+from sqlalchemy import func, cast, Float
+
 from models import db, Contact, Liste
 import fields
 
@@ -45,7 +47,7 @@ def filter_ui_metadata():
     Consommé tel quel par le JS de l'UI (sérialisé en JSON)."""
     from helpers import listes_sorted
     fmeta = []
-    for f in fields.contact_fields(include_custom=False):
+    for f in fields.contact_fields(include_custom=True):   # inclut les champs perso (P2)
         e = {'key': f.key, 'label': f.label, 'type': f.type, 'group': f.group}
         if f.type == 'select':
             e['options'] = list(fields.field_options(f))
@@ -146,6 +148,95 @@ def _standard_type(field_key):
     return f.type if f else None
 
 
+# ============ Champs perso (P2) — stockés en JSON dans Contact.custom_fields ============
+# Valeurs stockées EN TEXTE même pour number/checkbox (ex. {"circo":"5"}, {"nouvel_elu":"1"}).
+# Le « vide » est souvent le JSON null → json_extract renvoie NULL.
+
+# Valeurs considérées « vraies » pour un checkbox (tolérant aux origines d'import).
+_TRUTHY = ('1', 'true', 'True', 'TRUE', 'oui', 'Oui', 'OUI', 'on', 'x', 'X', 'vrai', 'Vrai', 'yes')
+
+
+def _json_value(key):
+    """Accès à une valeur de champ perso.
+    # [PG-PORT] SQLite `json_extract(custom_fields,'$.key')` → Postgres JSONB
+    #           `custom_fields ->> 'key'` (via Contact.custom_fields[key].astext)."""
+    return func.json_extract(Contact.custom_fields, '$.' + key)
+
+
+def _date_text_predicate(jv, op, value):
+    """Champ perso date stocké en texte ISO ('YYYY-MM-DD…') → comparaison lexicale valide."""
+    if op == 'before':
+        return jv < value if value else None
+    if op == 'after':
+        return jv >= value if value else None
+    if op == 'between':
+        lo, hi = value if isinstance(value, (list, tuple)) else (None, None)
+        conds = []
+        if lo:
+            conds.append(jv >= lo)
+        if hi:
+            conds.append(jv <= hi)
+        return db.and_(*conds) if conds else None
+    return None
+
+
+def custom_field_predicate(key, ftype, op, value):
+    """Prédicat sur un champ perso (JSON). SEUL point qui touche au stockage JSON →
+    si migration EAV/Postgres, on ne réécrit QUE cette fonction (cf. décision archi)."""
+    jv = _json_value(key)
+    if op == 'is_empty':
+        return db.or_(jv.is_(None), jv == '')
+    if op == 'is_not_empty':
+        return db.and_(jv.isnot(None), jv != '')
+
+    if ftype == 'checkbox':
+        if op == 'is_true':
+            return jv.in_(_TRUTHY)
+        if op == 'is_false':
+            return db.or_(jv.is_(None), jv.notin_(_TRUTHY))
+        return None
+
+    if ftype == 'number':
+        num = cast(jv, Float)   # texte → numérique (sinon comparaison lexicale fausse). [PG-PORT] CAST identique.
+        if op in ('eq', 'ne', 'lt', 'gt'):
+            try:
+                v = float(value)
+            except (TypeError, ValueError):
+                return None
+            return {'eq': num == v, 'ne': num != v, 'lt': num < v, 'gt': num > v}[op]
+        if op == 'between':
+            lo, hi = value if isinstance(value, (list, tuple)) else (None, None)
+            conds = []
+            try:
+                if lo not in (None, ''):
+                    conds.append(num >= float(lo))
+                if hi not in (None, ''):
+                    conds.append(num <= float(hi))
+            except (TypeError, ValueError):
+                return None
+            return db.and_(*conds) if conds else None
+        return None
+
+    if ftype == 'date':
+        return _date_text_predicate(jv, op, value)
+
+    # text / select / autres : opérateurs texte sur json_extract
+    if value in (None, ''):
+        return None
+    pat = _like_escape(str(value))
+    if op == 'contains':
+        return jv.ilike(f'%{pat}%', escape='\\')
+    if op == 'equals':
+        return jv.ilike(pat, escape='\\')
+    if op == 'starts_with':
+        return jv.ilike(f'{pat}%', escape='\\')
+    if op == 'is':
+        return jv == value
+    if op == 'is_not':
+        return db.or_(jv != value, jv.is_(None))
+    return None
+
+
 def build_predicate(field_key, op, value):
     """Condition → expression SQLAlchemy (champs STANDARD + pseudo-champs).
     Renvoie None si champ inconnu (→ champ perso, P2), opérateur non géré, ou valeur
@@ -173,7 +264,11 @@ def build_predicate(field_key, op, value):
     col = getattr(Contact, field_key, None)
     ftype = _standard_type(field_key)
     if col is None or ftype is None:
-        return None   # champ perso / inconnu → P2
+        # --- champ perso (P2) : JSON, derrière l'abstraction custom_field_predicate ---
+        fdef = fields.field_map().get(field_key)   # include_custom=True
+        if fdef is not None and fdef.source == 'custom':
+            return custom_field_predicate(field_key, fdef.type, op, value)
+        return None   # champ inconnu
 
     if op == 'is_empty':
         return _empty(col)
