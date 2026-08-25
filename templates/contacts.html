@@ -80,6 +80,98 @@
     <a href="{{ url_for('settings.trash') }}" class="toolbar-trash">Corbeille</a>
 </form>
 
+{# Filtres avancés (P3) : conditions typées sur n'importe quel champ standard, en ET.
+   Émet des params af<i>.field/op/val consommés par contact_filters (P1). #}
+<details class="card adv-filters" id="adv-filters"{% if adv_conditions %} open{% endif %} style="margin-bottom:0.75rem;padding:0.5rem 0.9rem;">
+    <summary style="cursor:pointer;font-weight:600;">Filtres avancés{% if adv_conditions %} <span class="count">{{ adv_conditions|length }}</span>{% endif %}</summary>
+    <form method="GET" id="adv-form" style="margin-top:0.6rem;">
+        {% if search %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
+        {% if liste_filter %}<input type="hidden" name="liste" value="{{ liste_filter }}">{% endif %}
+        {% if source_filter %}<input type="hidden" name="source" value="{{ source_filter }}">{% endif %}
+        {% if statut_filter %}<input type="hidden" name="statut" value="{{ statut_filter }}">{% endif %}
+        {% if completude_filter %}<input type="hidden" name="completude" value="{{ completude_filter }}">{% endif %}
+        {% if envoi_filter %}<input type="hidden" name="envoi" value="{{ envoi_filter }}">{% endif %}
+        {% if recent_filter %}<input type="hidden" name="recent" value="{{ recent_filter }}">{% endif %}
+        <div id="adv-rows"></div>
+        <div class="adv-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
+            <button type="button" class="btn btn-small btn-secondary" onclick="advAddRow()">+ Ajouter une condition</button>
+            <button type="submit" class="btn btn-small btn-primary">Appliquer</button>
+            <a href="{{ url_for('contacts.index') }}" class="btn btn-small btn-secondary">Effacer</a>
+        </div>
+        <p class="hint" style="margin-top:0.4rem;">Conditions combinées en <strong>ET</strong>. <span class="text-muted">(Champs personnalisés : bientôt.)</span></p>
+    </form>
+</details>
+<style>
+    #adv-rows .adv-row { display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap; margin-bottom:0.4rem; }
+    #adv-rows .adv-row select, #adv-rows .adv-row input { padding:0.25rem 0.4rem; }
+    #adv-rows .adv-rm { border:none; background:transparent; color:var(--danger,#dc2626); cursor:pointer; font-size:1rem; padding:0 0.3rem; }
+</style>
+<script>
+var ADV_META = {{ adv_meta|tojson }};
+var ADV_CURRENT = {{ adv_conditions|tojson }};
+var advIdx = 0;
+function advFieldMeta(key){ return ADV_META.fields.find(function(f){ return f.key === key; }); }
+function advMk(tag, attrs){ var e = document.createElement(tag); for (var k in (attrs||{})) e[k] = attrs[k]; return e; }
+function advAddRow(cond){
+    var i = advIdx++;
+    var row = advMk('div', {className:'adv-row'}); row.dataset.i = i;
+    var fsel = advMk('select', {className:'adv-field'}); fsel.name = 'af'+i+'.field';
+    var groups = {};
+    ADV_META.fields.forEach(function(f){ (groups[f.group] = groups[f.group] || []).push(f); });
+    Object.keys(groups).forEach(function(g){
+        var og = advMk('optgroup', {label:g});
+        groups[g].forEach(function(f){ og.appendChild(advMk('option', {value:f.key, textContent:f.label})); });
+        fsel.appendChild(og);
+    });
+    fsel.onchange = function(){ advBuildOps(row); };
+    var osel = advMk('select', {className:'adv-op'}); osel.name = 'af'+i+'.op';
+    osel.onchange = function(){ advBuildValue(row); };
+    var vwrap = advMk('span', {className:'adv-val'});
+    var rm = advMk('button', {type:'button', className:'adv-rm', textContent:'✕', title:'Retirer'});
+    rm.onclick = function(){ row.remove(); };
+    row.append(fsel, osel, vwrap, rm);
+    document.getElementById('adv-rows').appendChild(row);
+    if (cond) fsel.value = cond.field;
+    advBuildOps(row, cond);
+}
+function advBuildOps(row, cond){
+    var fm = advFieldMeta(row.querySelector('.adv-field').value);
+    var osel = row.querySelector('.adv-op'); osel.innerHTML = '';
+    (ADV_META.operators[fm.type] || []).forEach(function(o){
+        osel.appendChild(advMk('option', {value:o.op, textContent:o.label}));
+    });
+    if (cond && cond.op) osel.value = cond.op;
+    advBuildValue(row, cond);
+}
+function advBuildValue(row, cond){
+    var fm = advFieldMeta(row.querySelector('.adv-field').value);
+    var op = row.querySelector('.adv-op').value;
+    var i = row.dataset.i;
+    var vwrap = row.querySelector('.adv-val'); vwrap.innerHTML = '';
+    if (['is_empty','is_not_empty','is_true','is_false'].indexOf(op) >= 0) return; // opérateur sans valeur
+    var t = fm.type;
+    if (t === 'select' || t === 'liste' || t === 'statut'){
+        var s = advMk('select'); s.name = 'af'+i+'.val';
+        (fm.options || []).forEach(function(o){
+            if (o && typeof o === 'object') s.appendChild(advMk('option', {value:o.value, textContent:o.label}));
+            else s.appendChild(advMk('option', {value:o, textContent:(o || '(vide)')}));
+        });
+        if (cond && cond.val != null) s.value = cond.val;
+        vwrap.appendChild(s);
+    } else if (t === 'date' || t === 'number'){
+        var itype = (t === 'date') ? 'date' : 'number';
+        vwrap.appendChild(advMk('input', {type:itype, name:'af'+i+'.val', value:(cond && cond.val != null ? cond.val : '')}));
+        if (op === 'between'){
+            vwrap.appendChild(document.createTextNode(' → '));
+            vwrap.appendChild(advMk('input', {type:itype, name:'af'+i+'.val2', value:(cond && cond.val2 != null ? cond.val2 : '')}));
+        }
+    } else {
+        vwrap.appendChild(advMk('input', {type:'text', name:'af'+i+'.val', value:(cond && cond.val != null ? cond.val : ''), placeholder:'valeur…'}));
+    }
+}
+if (ADV_CURRENT && ADV_CURRENT.length){ ADV_CURRENT.forEach(function(c){ advAddRow(c); }); }
+</script>
+
 {# Form cible des actions groupées (les cases la référencent via form="bulk-form") #}
 <form method="POST" action="{{ url_for('contacts.bulk_action') }}" id="bulk-form">
     <input type="hidden" name="action" id="bulk-action-input" value="">

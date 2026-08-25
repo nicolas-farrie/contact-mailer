@@ -14,7 +14,7 @@ from models import db, Contact, Liste, ContactSend, utcnow
 from config import Config
 from helpers import admin_required, listes_sorted
 from contact_set import ContactSet
-from contact_filters import parse_conditions, apply_conditions
+from contact_filters import parse_conditions, apply_conditions, filter_ui_metadata, conditions_for_ui
 import fields
 
 bp = Blueprint('contacts', __name__)
@@ -152,7 +152,9 @@ def index():
                            envoi_filter=request.args.get('envoi', '').strip(),
                            recent_filter=recent_filter,
                            search=request.args.get('q', '').strip(),
-                           selection_ids=ContactSet.for_user(current_user.id).ids())
+                           selection_ids=ContactSet.for_user(current_user.id).ids(),
+                           adv_meta=filter_ui_metadata(),
+                           adv_conditions=conditions_for_ui(request.args))
 
 
 @bp.route('/contacts/new', methods=['GET', 'POST'])

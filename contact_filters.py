@@ -23,14 +23,58 @@ OPERATORS_BY_TYPE = {
     'checkbox': ('is_true', 'is_false'),
 }
 
-# --- Pseudo-champs : pas une simple colonne, filtrage dédié ---
-PSEUDO_FIELDS = {
-    'liste':      {'label': 'Liste (appartenance)', 'type': 'liste',
-                   'operators': ('is_member', 'is_not_member')},
-    'statut':     {'label': 'Statut', 'type': 'statut', 'operators': ('is',)},
-    'created_at': {'label': "Date d'ajout", 'type': 'date',
-                   'operators': OPERATORS_BY_TYPE['date']},
+# Types pseudo-champs (filtrage dédié, cf. build_predicate).
+OPERATORS_BY_TYPE['liste'] = ('is_member', 'is_not_member')
+OPERATORS_BY_TYPE['statut'] = ('is',)
+
+# Libellés FR des opérateurs (pour l'UI du constructeur de filtres, P3).
+OP_LABELS = {
+    'contains': 'contient', 'equals': 'égal à', 'starts_with': 'commence par',
+    'is_empty': 'est vide', 'is_not_empty': 'non vide',
+    'is': 'est', 'is_not': "n'est pas",
+    'eq': '=', 'ne': '≠', 'lt': '<', 'gt': '>', 'between': 'entre',
+    'before': 'avant le', 'after': 'à partir du',
+    'is_true': 'oui', 'is_false': 'non',
+    'is_member': 'membre de', 'is_not_member': 'pas membre de',
 }
+
+
+def filter_ui_metadata():
+    """Métadata pour le constructeur de filtres (P3) : champs filtrables (clé, libellé,
+    type, groupe, options pour les select) + opérateurs par type avec libellés.
+    Consommé tel quel par le JS de l'UI (sérialisé en JSON)."""
+    from helpers import listes_sorted
+    fmeta = []
+    for f in fields.contact_fields(include_custom=False):
+        e = {'key': f.key, 'label': f.label, 'type': f.type, 'group': f.group}
+        if f.type == 'select':
+            e['options'] = list(fields.field_options(f))
+        fmeta.append(e)
+    # Pseudo-champs (groupe « Ciblage »)
+    fmeta.append({'key': 'liste', 'label': 'Liste (appartenance)', 'type': 'liste',
+                  'group': 'Ciblage', 'options': [{'value': l.id, 'label': l.nom} for l in listes_sorted()]})
+    fmeta.append({'key': 'statut', 'label': 'Statut', 'type': 'statut', 'group': 'Ciblage',
+                  'options': [{'value': 'abonne', 'label': 'Abonné'},
+                              {'value': 'desabonne', 'label': 'Désabonné'},
+                              {'value': 'bounce', 'label': 'Bounce'}]})
+    fmeta.append({'key': 'created_at', 'label': "Date d'ajout", 'type': 'date', 'group': 'Ciblage'})
+
+    operators = {t: [{'op': o, 'label': OP_LABELS.get(o, o)} for o in ops]
+                 for t, ops in OPERATORS_BY_TYPE.items()}
+    return {'fields': fmeta, 'operators': operators}
+
+
+def conditions_for_ui(args):
+    """Conditions courantes (depuis l'URL) au format plat {field, op, val, val2} pour
+    ré-hydrater l'UI au chargement."""
+    out = []
+    for c in parse_conditions(args):
+        v = c['value']
+        if isinstance(v, (list, tuple)):
+            out.append({'field': c['field'], 'op': c['op'], 'val': v[0], 'val2': v[1]})
+        else:
+            out.append({'field': c['field'], 'op': c['op'], 'val': v})
+    return out
 
 
 def _like_escape(s):
