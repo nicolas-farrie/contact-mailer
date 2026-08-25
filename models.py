@@ -406,6 +406,22 @@ class ImportMapping(db.Model):
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
 
+class ContactSegment(db.Model):
+    """Segment nommé = jeu de conditions de filtre avancé réutilisable (P4b).
+
+    Partagé (visible de tous), tracé par créateur — comme une Liste, mais c'est une
+    DÉFINITION de filtre (dynamique), pas un ensemble figé de contacts. Les conditions
+    sont stockées telles que produites par le constructeur : [{field, op, value}] +
+    mode de jointure. « Appliquer » = rejouer ces conditions sur la page Contacts."""
+    __tablename__ = 'contact_segment'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False, unique=True)
+    conditions = db.Column(db.JSON, nullable=False)      # [{field, op, value|[lo,hi]}]
+    join_mode = db.Column(db.String(4), default='and')   # 'and' | 'or' (mot 'join' réservé SQL)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+
 class ContactSetMember(db.Model):
     """Membre d'un ContactSet = ensemble de contacts identifié par une CLÉ de namespace.
 

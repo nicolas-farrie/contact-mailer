@@ -84,6 +84,19 @@
    Émet des params af<i>.field/op/val consommés par contact_filters (P1). #}
 <details class="card adv-filters" id="adv-filters"{% if adv_conditions %} open{% endif %} style="margin-bottom:0.75rem;padding:0.5rem 0.9rem;">
     <summary style="cursor:pointer;font-weight:600;">Filtres avancés{% if adv_conditions %} <span class="count">{{ adv_conditions|length }}</span>{% endif %}</summary>
+    {% if segments %}
+    <div class="adv-segments" style="margin-top:0.5rem;font-size:0.9rem;">
+        <span class="text-muted">Segments enregistrés :</span>
+        {% for s in segments %}
+        <span class="seg-chip" style="display:inline-flex;align-items:center;gap:0.2rem;margin:0 0.2rem;padding:0.05rem 0.45rem;background:var(--gray-100,#f3f4f6);border-radius:999px;">
+            <a href="{{ url_for('contacts.segment_apply', id=s.id) }}" title="Appliquer ce segment">{{ s.name }}</a>
+            <form method="POST" action="{{ url_for('contacts.segment_delete', id=s.id) }}" style="display:inline" onsubmit="return confirm('Supprimer le segment « {{ s.name }} » ?')">
+                <button type="submit" title="Supprimer" style="border:none;background:none;color:var(--danger,#dc2626);cursor:pointer;padding:0;line-height:1;">×</button>
+            </form>
+        </span>
+        {% endfor %}
+    </div>
+    {% endif %}
     <form method="GET" id="adv-form" style="margin-top:0.6rem;">
         {% if search %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
         {% if liste_filter %}<input type="hidden" name="liste" value="{{ liste_filter }}">{% endif %}
@@ -102,6 +115,9 @@
             <button type="button" class="btn btn-small btn-secondary" onclick="advAddRow()">+ Ajouter une condition</button>
             <button type="submit" class="btn btn-small btn-primary">Appliquer</button>
             <a href="{{ url_for('contacts.index') }}" class="btn btn-small btn-secondary">Effacer</a>
+            <span style="flex-basis:100%;height:0;"></span>
+            <input type="text" name="name" placeholder="Nom du segment…" style="max-width:180px;padding:0.25rem 0.4rem;">
+            <button type="submit" formaction="{{ url_for('contacts.segment_save') }}" formmethod="post" class="btn btn-small btn-secondary" title="Enregistrer les conditions ci-dessus comme segment réutilisable">💾 Enregistrer comme segment</button>
         </div>
         <p class="hint" style="margin-top:0.4rem;">Conditions combinées en <strong>ET</strong>. <span class="text-muted">(Champs standards et personnalisés.)</span></p>
     </form>

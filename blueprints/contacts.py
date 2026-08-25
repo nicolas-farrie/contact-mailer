@@ -10,7 +10,7 @@ from datetime import timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
-from models import db, Contact, Liste, ContactSend, utcnow
+from models import db, Contact, Liste, ContactSend, ContactSegment, utcnow
 from config import Config
 from helpers import admin_required, listes_sorted
 from contact_set import ContactSet
@@ -155,7 +155,8 @@ def index():
                            selection_ids=ContactSet.for_user(current_user.id).ids(),
                            adv_meta=filter_ui_metadata(),
                            adv_conditions=conditions_for_ui(request.args),
-                           adv_join=request.args.get('af.join', 'and'))
+                           adv_join=request.args.get('af.join', 'and'),
+                           segments=ContactSegment.query.order_by(ContactSegment.name).all())
 
 
 @bp.route('/contacts/new', methods=['GET', 'POST'])
@@ -375,3 +376,69 @@ def resubscribe(id):
     db.session.commit()
     flash(f'{contact.prenom} {contact.nom} a été réabonné', 'success')
     return redirect(url_for('contacts.edit', id=contact.id))
+
+
+# === Segments nommés (P4b) : sauver/rejouer un jeu de filtres avancés ===
+
+def _segment_url(seg):
+    """URL /contacts rejouant un segment (params af<i>.field/op/val + af.join).
+    urlencode car les clés contiennent des points (incompatibles avec url_for(**kwargs))."""
+    from urllib.parse import urlencode
+    params = [('af.join', seg.join_mode or 'and')]
+    for i, c in enumerate(seg.conditions or []):
+        params.append((f'af{i}.field', c.get('field', '')))
+        params.append((f'af{i}.op', c.get('op', '')))
+        v = c.get('value')
+        if isinstance(v, (list, tuple)):
+            params.append((f'af{i}.val', v[0]))
+            params.append((f'af{i}.val2', v[1]))
+        elif v is not None:
+            params.append((f'af{i}.val', v))
+    return url_for('contacts.index') + '?' + urlencode(params)
+
+
+@bp.route('/segments/save', methods=['POST'])
+@login_required
+def segment_save():
+    """Enregistre les conditions avancées courantes (POST) comme segment nommé."""
+    name = (request.form.get('name') or '').strip()
+    if not name:
+        flash('Le nom du segment est requis.', 'error')
+        return redirect(request.referrer or url_for('contacts.index'))
+    conditions = parse_conditions(request.form)
+    if not conditions:
+        flash('Aucune condition à enregistrer.', 'error')
+        return redirect(request.referrer or url_for('contacts.index'))
+    if ContactSegment.query.filter(db.func.lower(ContactSegment.name) == name.lower()).first():
+        flash(f'Un segment nommé « {name} » existe déjà.', 'error')
+        return redirect(request.referrer or url_for('contacts.index'))
+    # normaliser la valeur "between" (tuple) en liste JSON-sérialisable
+    norm = []
+    for c in conditions:
+        v = c['value']
+        norm.append({'field': c['field'], 'op': c['op'],
+                     'value': list(v) if isinstance(v, tuple) else v})
+    db.session.add(ContactSegment(name=name, conditions=norm,
+                                  join_mode=request.form.get('af.join', 'and'),
+                                  created_by_id=current_user.id))
+    db.session.commit()
+    flash(f'Segment « {name} » enregistré.', 'success')
+    return redirect(_segment_url(ContactSegment.query.filter_by(name=name).first()))
+
+
+@bp.route('/segments/<int:id>/apply')
+@login_required
+def segment_apply(id):
+    """Rejoue un segment : redirige vers Contacts avec ses conditions en params."""
+    return redirect(_segment_url(ContactSegment.query.get_or_404(id)))
+
+
+@bp.route('/segments/<int:id>/delete', methods=['POST'])
+@login_required
+def segment_delete(id):
+    seg = ContactSegment.query.get_or_404(id)
+    nom = seg.name
+    db.session.delete(seg)
+    db.session.commit()
+    flash(f'Segment « {nom} » supprimé.', 'success')
+    return redirect(request.referrer or url_for('contacts.index'))

@@ -62,6 +62,7 @@ MIGRATIONS = [
     ("migrate_add_queue_last_error", "safe"),
     ("migrate_add_contact_set_member", "safe"),
     ("migrate_add_campaign_use_selection", "safe"),
+    ("migrate_add_contact_segment", "safe"),
 ]
 
 
