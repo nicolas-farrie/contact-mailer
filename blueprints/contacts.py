@@ -14,6 +14,7 @@ from models import db, Contact, Liste, ContactSend, utcnow
 from config import Config
 from helpers import admin_required, listes_sorted
 from contact_set import ContactSet
+from contact_filters import parse_conditions, apply_conditions
 import fields
 
 bp = Blueprint('contacts', __name__)
@@ -116,6 +117,10 @@ def _filtered_contacts_query(args):
                 Contact.adresse_ville.ilike(search_pattern)
             )
         )
+
+    # Filtres avancés (P1) : conditions typées sur les champs standard, en ET.
+    # Additif aux pills simples ci-dessus. Cf. contact_filters.py.
+    query = apply_conditions(query, parse_conditions(args))
     return query
 
 

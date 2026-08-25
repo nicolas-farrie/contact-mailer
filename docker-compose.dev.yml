@@ -13,6 +13,7 @@ services:
       - ./app.py:/app/app.py
       - ./models.py:/app/models.py
       - ./contact_set.py:/app/contact_set.py
+      - ./contact_filters.py:/app/contact_filters.py
       - ./tools:/app/tools
       - ./config.py:/app/config.py
       - ./extensions.py:/app/extensions.py
