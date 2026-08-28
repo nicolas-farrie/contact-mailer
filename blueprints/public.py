@@ -72,13 +72,17 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(username=username).first()
 
+        from audit import audit
         if user and check_password_hash(user.password_hash, password):
             if not user.is_active:
+                audit('login_denied', user=user, reason='inactive')
                 flash('Ce compte a été désactivé. Contactez un administrateur.', 'error')
                 return render_template('login.html')
             login_user(user)
+            audit('login', user=user)
             next_page = request.args.get('next')
             return redirect(next_page or url_for('contacts.index'))
+        audit('login_failed', username=(username or '')[:120])
         flash('Identifiants incorrects', 'error')
 
     return render_template('login.html')

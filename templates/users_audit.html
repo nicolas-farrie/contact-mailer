@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Journal de sécurité - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Journal de sécurité</h1>
+    <a href="{{ url_for('users.index') }}" class="btn btn-secondary">← Utilisateurs</a>
+</div>
+<p class="settings-hint" style="margin-bottom:0.75rem;">
+    Traçabilité des <strong>accès et des actions sur les données</strong> (finalité sécurité / RGPD) —
+    <strong>ce n'est pas un suivi d'activité</strong>. Conservation : {{ retention_months }} mois (purge automatique au-delà).
+    Les 500 entrées les plus récentes sont affichées.
+</p>
+
+<form method="GET" class="contacts-toolbar" style="margin-bottom:0.75rem;">
+    <select name="user" class="filter-pill" onchange="this.form.submit()">
+        <option value="">Utilisateur : tous</option>
+        {% for u in users %}<option value="{{ u.id }}"{% if u.id == f_user %} selected{% endif %}>{{ u.username }}</option>{% endfor %}
+    </select>
+    <select name="action" class="filter-pill" onchange="this.form.submit()">
+        <option value="">Action : toutes</option>
+        {% for a in actions %}<option value="{{ a }}"{% if a == f_action %} selected{% endif %}>{{ a }}</option>{% endfor %}
+    </select>
+    <select name="days" class="filter-pill" onchange="this.form.submit()">
+        <option value="">Période : toute</option>
+        <option value="1"{% if f_days == 1 %} selected{% endif %}>Dernières 24 h</option>
+        <option value="7"{% if f_days == 7 %} selected{% endif %}>7 jours</option>
+        <option value="30"{% if f_days == 30 %} selected{% endif %}>30 jours</option>
+    </select>
+    {% if f_user or f_action or f_days %}<a href="{{ url_for('users.audit') }}" class="btn btn-secondary btn-small">Réinitialiser</a>{% endif %}
+</form>
+
+<div class="card">
+<div class="table-responsive">
+<table class="data-table">
+    <thead><tr><th>Date (UTC)</th><th>Utilisateur</th><th>Action</th><th>Cible / détails</th><th>IP</th></tr></thead>
+    <tbody>
+        {% for e in entries %}
+        <tr>
+            <td style="white-space:nowrap">{{ e.ts.strftime('%d/%m/%Y %H:%M') if e.ts else '' }}</td>
+            <td>{{ e.username or '—' }}</td>
+            <td><span class="tag">{{ e.action }}</span></td>
+            <td class="text-muted">
+                {%- if e.target_type %}{{ e.target_type }}{% if e.target_id %} #{{ e.target_id }}{% endif %}{% endif -%}
+                {%- if e.details %} {{ e.details }}{% endif -%}
+            </td>
+            <td class="text-muted">{{ e.ip or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="empty-state-text">Aucune entrée.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endblock %}

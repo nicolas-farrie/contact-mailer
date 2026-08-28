@@ -3,11 +3,13 @@
 Endpoints : users.index, users.new, users.edit, users.delete,
 users.toggle_active, users.profile.
 """
+from datetime import timedelta
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
 
-from models import db, User, Contact
+from models import db, User, Contact, utcnow
 from helpers import admin_required
 
 bp = Blueprint('users', __name__)
@@ -16,9 +18,41 @@ bp = Blueprint('users', __name__)
 @bp.route('/users')
 @admin_required
 def index():
+    from audit import last_logins
     users_list = User.query.order_by(User.username).all()
     contacts = Contact.query.filter(Contact.is_deleted == False).order_by(Contact.nom, Contact.prenom).all()
-    return render_template('users.html', users=users_list, contacts=contacts)
+    return render_template('users.html', users=users_list, contacts=contacts,
+                           last_logins=last_logins())
+
+
+@bp.route('/users/audit')
+@admin_required
+def audit():
+    """Journal de sécurité (Tier 2) : traçabilité accès & données, PAS un suivi
+    d'activité. Filtrable par utilisateur / type d'action / période."""
+    from models import AuditLog
+    from audit import purge_old
+    from config import Config
+    purge_old(Config.AUDIT_RETENTION_MONTHS)   # rétention : purge opportuniste à l'ouverture
+
+    f_user = request.args.get('user', type=int)
+    f_action = (request.args.get('action') or '').strip()
+    f_days = request.args.get('days', type=int)
+
+    q = AuditLog.query
+    if f_user:
+        q = q.filter(AuditLog.user_id == f_user)
+    if f_action:
+        q = q.filter(AuditLog.action == f_action)
+    if f_days:
+        q = q.filter(AuditLog.ts >= utcnow() - timedelta(days=f_days))
+    entries = q.order_by(AuditLog.ts.desc()).limit(500).all()
+
+    users_list = User.query.order_by(User.username).all()
+    actions = [a[0] for a in db.session.query(AuditLog.action).distinct().order_by(AuditLog.action).all()]
+    return render_template('users_audit.html', entries=entries, users=users_list,
+                           actions=actions, f_user=f_user, f_action=f_action, f_days=f_days,
+                           retention_months=Config.AUDIT_RETENTION_MONTHS)
 
 
 @bp.route('/users/new', methods=['GET', 'POST'])
@@ -114,6 +148,9 @@ def edit(id):
 
         try:
             db.session.commit()
+            if password:
+                from audit import audit
+                audit('password_changed', user=user, by_admin=True)
             flash(f'Utilisateur "{username}" mis à jour', 'success')
             return redirect(url_for('users.index'))
         except Exception as e:
@@ -176,6 +213,9 @@ def profile():
 
         try:
             db.session.commit()
+            if password:
+                from audit import audit
+                audit('password_changed', user=current_user)
             flash('Profil mis à jour', 'success')
         except Exception as e:
             db.session.rollback()

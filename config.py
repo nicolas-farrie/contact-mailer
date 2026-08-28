@@ -49,6 +49,9 @@ class Config:
     # Niveau de log applicatif (DEBUG/INFO/WARNING/ERROR). Défaut INFO.
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
+    # Rétention du journal d'audit (mois) — purge auto au-delà (donnée perso, RGPD).
+    AUDIT_RETENTION_MONTHS = int(os.environ.get('AUDIT_RETENTION_MONTHS', 12))
+
     # Nom et couleur de l'instance (multi-instance, PWA manifest + icône)
     INSTANCE_NAME = os.environ.get('INSTANCE_NAME', '')
     INSTANCE_COLOR = os.environ.get('INSTANCE_COLOR', '#2563eb')

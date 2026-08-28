@@ -410,6 +410,23 @@ class ImportMapping(db.Model):
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
 
+class AuditLog(db.Model):
+    """Journal d'audit (Tier 2) : traçabilité sécurité & données personnelles — « qui a
+    fait quoi, quand ». PAS un suivi d'activité/navigation (cf. TODO « Logs & audit »).
+    Append-only ; le username est snapshoté (survit à la suppression du compte) ; l'IP
+    est optionnelle (toggle admin). Rétention bornée (purge auto, cf. audit.purge_old)."""
+    __tablename__ = 'audit_log'
+    id = db.Column(db.Integer, primary_key=True)
+    ts = db.Column(db.DateTime, default=utcnow, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # nullable : login échoué = pas de compte
+    username = db.Column(db.String(120))            # snapshot lisible
+    action = db.Column(db.String(50), index=True)   # login, login_failed, password_changed, …
+    target_type = db.Column(db.String(50), nullable=True)
+    target_id = db.Column(db.String(100), nullable=True)
+    details = db.Column(db.JSON, nullable=True)
+    ip = db.Column(db.String(64), nullable=True)
+
+
 class NotifiedSubmission(db.Model):
     """Anti-doublon des notifications de demandes de diffusion : un `Message-ID` du mail
     reçu = une seule alerte aux modérateurs, même si le scan (périodique OU à l'ouverture

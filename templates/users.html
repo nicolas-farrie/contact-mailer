@@ -63,12 +63,15 @@
         <h1>Utilisateurs <span class="count">{{ users|length }}</span></h1>
         <p class="hint">Comptes autorisés à se connecter à {{ app_name }}.</p>
     </div>
-    <button type="button" class="btn btn-primary" onclick="openModal('modal-new')">+ Nouvel utilisateur</button>
+    <div style="display:flex; gap:0.5rem;">
+        <a href="{{ url_for('users.audit') }}" class="btn btn-secondary" title="Traçabilité des accès et actions sur les données">Journal de sécurité</a>
+        <button type="button" class="btn btn-primary" onclick="openModal('modal-new')">+ Nouvel utilisateur</button>
+    </div>
 </div>
 
 <table class="data-table">
     <thead>
-        <tr><th>Utilisateur</th><th>Identifiant</th><th>Rôle</th><th>Actif</th><th class="col-actions">Actions</th></tr>
+        <tr><th>Utilisateur</th><th>Identifiant</th><th>Rôle</th><th>Dernière connexion</th><th>Actif</th><th class="col-actions">Actions</th></tr>
     </thead>
     <tbody>
     {% for u in users %}
@@ -84,6 +87,7 @@
         </td>
         <td><code>{{ u.username }}</code></td>
         <td><span class="role-pill {{ 'is-admin' if u.is_admin }}">{{ 'Administrateur' if u.is_admin else 'Utilisateur' }}</span></td>
+        <td class="text-muted" style="white-space:nowrap">{% set ll = last_logins.get(u.id) %}{{ ll.strftime('%d/%m/%Y %H:%M') if ll else '—' }}</td>
         <td><span class="status-dot {{ 'is-off' if not u.is_active }}">{{ 'Actif' if u.is_active else 'Inactif' }}</span></td>
         <td>
             <div class="table-actions">

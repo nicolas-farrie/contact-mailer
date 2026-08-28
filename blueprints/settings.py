@@ -40,6 +40,9 @@ def index():
                 # Notifier les modérateurs des nouvelles demandes de diffusion (daemon)
                 set_setting('submission_notify_enabled',
                             '1' if request.form.get('submission_notify') == 'on' else '0')
+                # Journal d'audit : enregistrer l'IP des connexions (donnée perso, optionnel)
+                set_setting('audit_log_ip_enabled',
+                            '1' if request.form.get('audit_ip') == 'on' else '0')
                 flash('Paramètres généraux enregistrés.', 'success')
 
         elif section == 'bounce':
@@ -107,6 +110,7 @@ def index():
                            bounce_configured=bool(Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER),
                            bounce_enabled=(get_setting('bounce_enabled', '1') != '0'),
                            submission_notify_enabled=(get_setting('submission_notify_enabled', '1') != '0'),
+                           audit_ip_enabled=(get_setting('audit_log_ip_enabled', '1') != '0'),
                            imap_configured=bool(Config.IMAP_HOST),
                            civilite_text='\n'.join(civilite_values))
 

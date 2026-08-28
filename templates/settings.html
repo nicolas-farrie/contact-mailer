@@ -36,6 +36,13 @@
                 </label>
                 <p class="field-help">Un email est envoyé aux utilisateurs actifs à l'arrivée d'une nouvelle demande{% if not imap_configured %} <strong>(boîte de demandes non configurée — sans effet)</strong>{% endif %}. Nécessite un scan périodique côté serveur (timer). Anti-doublon : une seule alerte par demande.</p>
             </div>
+            <div class="form-group">
+                <label class="checkbox-inline">
+                    <input type="checkbox" name="audit_ip" value="on"{% if audit_ip_enabled %} checked{% endif %}>
+                    <span>Enregistrer l'adresse IP dans le journal de sécurité</span>
+                </label>
+                <p class="field-help">L'IP des connexions est tracée dans le <a href="{{ url_for('users.audit') }}">journal de sécurité</a> (utile pour repérer une intrusion). L'IP est une donnée personnelle — décochez pour ne pas l'enregistrer.</p>
+            </div>
             <button type="submit" class="btn btn-primary">Enregistrer</button>
         </form>
     </section>
