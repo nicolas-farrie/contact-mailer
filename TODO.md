@@ -188,6 +188,28 @@ Ordre d'attaque convenu (26/08) : Reply-To (section dédiée plus haut) → bugs
 - [ ] **#5 — Recherche mobile peu visible** : à préciser (repro user à venir) ; probablement lié à #4.
 - [note] Autres remontées #32 déjà couvertes ailleurs : Reply-To (section dédiée) ; daemon de notif (section « Notification des demandes de diffusion »).
 
+### 🔐 Logs & Journal d'audit (analyse 2026-08-28) — Tier 1 EN COURS, Tier 2 à faire
+Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ; **Tier 2 = journal d'audit** (« qui a fait quoi » sur les données, en base + UI Admin). Principe directeur : tracer **données perso + sécurité/accès** (redevabilité RGPD), **JAMAIS le comportement** (navigation, recherches, fiches vues = flicage, exclu).
+
+**Tier 1 — logs système** (⏳ en cours 28/08) :
+- [ ] `logging.basicConfig` (niveau `LOG_LEVEL` env, défaut INFO, format horodaté) dans `app.py` — aujourd'hui aucune config → INFO avalé, pas de timestamp.
+- [ ] gunicorn `--capture-output --log-level info` (garder `--access-logfile -`).
+- [ ] Rotation Docker (compose `logging: json-file, max-size 10m, max-file 5`) — **par instance côté hôte (claude-prod)** : les compose prod sont propres à chaque instance.
+
+**Tier 2 — journal d'audit** (à faire ; **login = URGENT, contexte campagne électorale**) :
+- [ ] Table `AuditLog(id, ts, user_id, username_snapshot, action, target_type, target_id, details_json, ip?)` — append-only, snapshot du username (survit à la suppression), rétention BORNÉE (purge auto configurable ~12 mois : le journal est lui-même de la donnée perso), IP optionnelle/désactivable.
+- [ ] Helper `audit(action, target=…, **details)` + branchement des points clés.
+- [ ] **Événements pertinents** (cadre non-flicage) :
+  - **A. Accès/sécurité** : connexion **réussie** (qui/quand), connexion **ÉCHOUÉE** (identifiant tenté) ← **PRIORITÉ (campagne électorale)** ; changement de mot de passe. *(jamais le mot de passe)*
+  - **B. Comptes & droits** : user créé/modifié/désactivé/supprimé ; changement de rôle et de `is_moderator`.
+  - **C. Données perso (cœur RGPD)** : **export de contacts** (qui/combien/format — vecteur d'exfiltration, log le plus important) ; import (nb créés/màj) ; suppression en masse / purge définitive ; consentement en masse (désab/réab groupé).
+  - **D. Diffusion** : campagne envoyée (qui/listes/nb) — complète `ContactSend`.
+  - **E. Config sensible** : SMTP/bounce, création/suppression de champ perso (change le schéma).
+  - **NE PAS logger** : consultation de fiche, recherches, navigation, temps passé (flicage, exclu).
+- [ ] **Déjà en place à réutiliser** : `Contact.created_by_id/updated_by_id/deleted_by_id/deleted_at` (paternité par enregistrement), `ContactSend` (journal d'envoi). L'audit comble les trous (connexions, exports, opérations en masse, droits, config).
+- [ ] **UI dans Admin › Utilisateurs** : (1) journal global filtrable (utilisateur/type/période) sur le sous-ensemble A→E ; (2) par utilisateur sur sa fiche : dernière connexion + résumé actions sensibles. Libellé explicite « traçabilité sécurité/RGPD, pas un suivi d'activité ».
+- Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
+
 ## A faire - Améliorations
 - [x] Export vCard (réutiliser vcard_converter.py en sens inverse)
 - [~] Historique des campagnes envoyées (historique messages, envois // reste à faire : historique par contact)
