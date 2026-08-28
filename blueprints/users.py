@@ -52,6 +52,7 @@ def new():
             prenom=prenom,
             email=email or None,
             role=role,
+            is_moderator=request.form.get('is_moderator') == 'on',
             contact_id=request.form.get('contact_id', type=int) or None,
             moderation_signature=request.form.get('moderation_signature', '').strip() or None,
             is_active=True
@@ -104,6 +105,7 @@ def edit(id):
         user.prenom = prenom
         user.email = email or None
         user.role = role
+        user.is_moderator = request.form.get('is_moderator') == 'on'
         user.contact_id = contact_id
         user.moderation_signature = request.form.get('moderation_signature', '').strip() or None
 

@@ -65,6 +65,7 @@ MIGRATIONS = [
     ("migrate_add_contact_segment", "safe"),
     ("migrate_add_campaign_reply_to", "safe"),
     ("migrate_add_notified_submission", "safe"),
+    ("migrate_add_user_is_moderator", "safe"),
 ]
 
 

@@ -19,8 +19,14 @@ def notify_enabled():
 
 
 def _recipients():
-    return [u.email.strip() for u in User.query.filter_by(is_active=True).all()
-            if u.email and u.email.strip()]
+    """Destinataires des alertes = utilisateurs actifs marqués « modérateur » (avec
+    email). Repli sur les administrateurs si aucun modérateur n'est flaggé → jamais
+    d'alerte silencieuse."""
+    active = User.query.filter_by(is_active=True).all()
+    def emails(users):
+        return [u.email.strip() for u in users if u.email and u.email.strip()]
+    mods = emails([u for u in active if u.is_moderator])
+    return mods if mods else emails([u for u in active if u.is_admin])
 
 
 def _build_mailer(config):

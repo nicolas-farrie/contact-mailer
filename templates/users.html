@@ -35,6 +35,13 @@
         <input type="password" id="{{ idp }}password" name="password" {% if not user %}required{% endif %}>
     </div>
     <div class="form-group">
+        <label class="checkbox-inline">
+            <input type="checkbox" name="is_moderator" value="on"{% if user and user.is_moderator %} checked{% endif %}>
+            <span>Modérateur des demandes de diffusion</span>
+        </label>
+        <p class="hint">Reçoit par email les alertes de nouvelles demandes de diffusion. Indépendant du rôle admin. Si personne n'est modérateur, les alertes vont aux administrateurs.</p>
+    </div>
+    <div class="form-group">
         <label for="{{ idp }}modsig">Signature de modération</label>
         <input type="text" id="{{ idp }}modsig" name="moderation_signature" maxlength="120" value="{{ user.moderation_signature if user and user.moderation_signature else '' }}" placeholder="ex : L'équipe diffusion, ou un pseudonyme">
         <p class="hint">Ce nom apparaîtra publiquement en bas des diffusions que vous modérez. Laissez vide pour ne pas signer.</p>

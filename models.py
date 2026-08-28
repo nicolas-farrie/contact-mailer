@@ -133,6 +133,7 @@ class User(UserMixin, db.Model):
     prenom = db.Column(db.String(100))
     email = db.Column(db.String(200))
     role = db.Column(db.String(20), default='user')
+    is_moderator = db.Column(db.Boolean, default=False, nullable=False)  # reçoit les alertes de demandes de diffusion (≠ admin)
     moderation_signature = db.Column(db.String(120))  # pseudonyme public pour signer les diffusions modérées (optionnel)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=utcnow)
