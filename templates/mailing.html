@@ -360,10 +360,14 @@ document.getElementById('mailing-form').addEventListener('submit', function(e) {
 });
 
 // Vider le brouillon local (abandon réel — utile sur poste partagé)
+var _draftCleared = false;
 function clearDraft() {
     if (!confirm('Vider le brouillon en cours (sujet, message, options) ? Cette action est définitive.')) return;
-    localStorage.removeItem(DRAFT_KEY);
-    location.reload();
+    _draftCleared = true;                 // neutralise un dernier saveDraft (blur/unload)
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    // Repartir sur un compositeur VIERGE : un simple reload ré-appliquerait le
+    // préremplissage serveur (?from_submission / ?from_campaign) → form re-rempli.
+    window.location.href = "{{ url_for('mailing.compose') }}";
 }
 
 // === Signer : aperçu ===
@@ -431,6 +435,7 @@ function useSelectionChecked() {
     return !!(cb && cb.checked);
 }
 function saveDraft() {
+    if (_draftCleared) return;   // on vient de vider : ne pas ré-écrire un brouillon
     syncBody();
     const draft = {
         liste_ids: checkedListIds(),

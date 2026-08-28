@@ -344,11 +344,17 @@ def _read_tabular(path, filename):
             head = next(it)
         except StopIteration:
             wb.close(); return [], []
-        headers = [_cell_str(h) if h is not None else f'colonne {i+1}' for i, h in enumerate(head)]
+        # Ne garder que les colonnes à EN-TÊTE non vide : openpyxl gonfle souvent la
+        # dimension d'une vraie feuille avec des colonnes vides en fin → sinon on
+        # affiche des dizaines/centaines de « colonne N » fantômes. On mémorise l'index
+        # d'origine de chaque colonne réelle pour lire la bonne cellule dans les lignes.
+        cols = [(i, _cell_str(h)) for i, h in enumerate(head)
+                if h is not None and _cell_str(h).strip()]
+        headers = [name for _, name in cols]
         rows = []
         for r in it:
-            d = {h: ('' if (i >= len(r) or r[i] is None) else _cell_str(r[i]))
-                 for i, h in enumerate(headers)}
+            d = {name: ('' if (idx >= len(r) or r[idx] is None) else _cell_str(r[idx]))
+                 for idx, name in cols}
             if any(d.values()):
                 rows.append(d)
         wb.close()
