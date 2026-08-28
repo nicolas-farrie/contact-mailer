@@ -7,6 +7,8 @@ Assemble l'application via la factory create_app() : configuration, extensions
 Expose `app` au niveau module pour gunicorn (`app:app`) et les scripts
 d'administration (`from app import app, db, init_db`).
 """
+import logging
+
 from flask import Flask, url_for
 from werkzeug.security import generate_password_hash
 
@@ -81,8 +83,21 @@ def _selection_count():
     return ContactSet.for_user(current_user.id).count()
 
 
+def _configure_logging(config_object):
+    """Config unique du logging applicatif : niveau (LOG_LEVEL, défaut INFO) + format
+    horodaté. `force=True` prime sur un éventuel handler racine de gunicorn (les logs
+    de l'app utilisent le logger racine). Sortie stderr → capté par gunicorn/docker."""
+    level = getattr(logging, getattr(config_object, 'LOG_LEVEL', 'INFO'), logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+        force=True,
+    )
+
+
 def create_app(config_object=Config):
     """Factory applicative : configure et assemble l'app Flask."""
+    _configure_logging(config_object)
     app = Flask(__name__)
     app.config.from_object(config_object)
     app.wsgi_app = ReverseProxied(app.wsgi_app)

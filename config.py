@@ -46,6 +46,9 @@ class Config:
     # URL publique (pour les liens de désabonnement)
     BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
 
+    # Niveau de log applicatif (DEBUG/INFO/WARNING/ERROR). Défaut INFO.
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+
     # Nom et couleur de l'instance (multi-instance, PWA manifest + icône)
     INSTANCE_NAME = os.environ.get('INSTANCE_NAME', '')
     INSTANCE_COLOR = os.environ.get('INSTANCE_COLOR', '#2563eb')

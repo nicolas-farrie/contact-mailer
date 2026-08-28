@@ -5,6 +5,12 @@ services:
     # En dev local : commenter la ligne image et décommenter build
     # build: .
     restart: unless-stopped
+    # Rotation des logs (json-file) : borne l'espace disque (logs d'accès verbeux).
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     env_file:
       - .env
     ports:

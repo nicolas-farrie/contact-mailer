@@ -3,6 +3,11 @@ services:
   app:
     build: .
     restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     ports:
       # Cf. docker-compose.yml : restreindre à 127.0.0.1 (Docker contourne UFW sinon).
       # ⚠️ TEMPORAIRE : ouvert au LAN pour test mobile — REMETTRE 127.0.0.1 après.
