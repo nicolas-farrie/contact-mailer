@@ -317,6 +317,7 @@ class MailCampaign(db.Model):
     liste_id = db.Column(db.Integer, nullable=True)          # compat : 1re liste sélectionnée
     liste_ids = db.Column(db.JSON, nullable=True)            # multi-listes (dédoublonnées à l'envoi)
     use_selection = db.Column(db.Boolean, default=False)     # unionne la « sélection courante » de l'auteur
+    reply_to = db.Column(db.String(200), nullable=True)      # adresse de réponse (Reply-To) ≠ boîte d'envoi
     submission_id = db.Column(db.String(255), nullable=True)
     archived = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
@@ -339,6 +340,8 @@ class MailCampaign(db.Model):
             data['liste_ids'] = self.liste_ids
         if self.use_selection:
             data['use_selection'] = True
+        if self.reply_to:
+            data['reply_to'] = self.reply_to
         if self.submission_id:
             data['submission_id'] = self.submission_id
         if self.archived:

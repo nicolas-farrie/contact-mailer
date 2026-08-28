@@ -131,7 +131,7 @@ def compose():
     smtp_configured = bool(Config.SMTP_HOST and Config.SMTP_USER)
 
     # Pré-remplissage depuis l'historique (réutilisation par campaign_id)
-    prefill = {'name': '', 'subject': '', 'body': '', 'format': 'text', 'liste_ids': []}
+    prefill = {'name': '', 'subject': '', 'body': '', 'format': 'text', 'liste_ids': [], 'reply_to': ''}
     campaign_attachments = []   # PJ déjà enregistrées (réutilisation / retour édition)
     from_campaign_id = None
     sign_checked = bool(current_user.moderation_signature)
@@ -149,6 +149,7 @@ def compose():
                 'body': tpl.get('body', ''),
                 'format': tpl.get('format', 'text'),
                 'liste_ids': tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else []),
+                'reply_to': tpl.get('reply_to', ''),
             }
             import os as _os
             campaign_attachments = [_os.path.basename(p) for p in (tpl.get('attachments') or [])]
@@ -582,6 +583,10 @@ def _persist_campaign_from_form(reuse_id=None):
     body = request.form.get('body', '').strip()
     mail_format = request.form.get('format', 'text')
 
+    reply_to = (request.form.get('reply_to') or '').strip() or None
+    if reply_to and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', reply_to):
+        return None, "L'adresse « Répondre à » n'est pas valide."
+
     if not ((liste_ids or use_selection) and subject and body):
         return None, 'Sélectionnez au moins une liste (ou la sélection courante), un sujet et un message.'
 
@@ -684,6 +689,7 @@ def _persist_campaign_from_form(reuse_id=None):
                                       attachments=attachment_paths or None,
                                       liste_id=(liste_ids[0] if liste_ids else None),
                                       liste_ids=liste_ids, use_selection=use_selection,
+                                      reply_to=reply_to,
                                       submission_id=submission_id, name=name)
     return campaign_id, None
 
@@ -889,6 +895,7 @@ def _run_send(campaign):
     mail_format = tpl.get('format', 'text')
     include_unsubscribe = tpl.get('include_unsubscribe', False)
     attachments = tpl.get('attachments', [])
+    reply_to = tpl.get('reply_to')
 
     if mail_format == 'html':
         template = EmailTemplate(subject=tpl['subject'], body_text='', body_html=tpl['body'])
@@ -947,7 +954,7 @@ def _run_send(campaign):
             subj, body_text, body_html = template.render(contact, unsubscribe_url=unsub_url)
             mailer.send_single(contact['email'], subj, body_text, body_html,
                                unsubscribe_url=unsub_url, attachments=attachments,
-                               return_path=bounce_return_path)
+                               return_path=bounce_return_path, reply_to=reply_to)
             queue.mark_sent(item['id'])
             sent += 1
             if contact.get('id'):

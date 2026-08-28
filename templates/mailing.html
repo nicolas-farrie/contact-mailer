@@ -72,6 +72,12 @@
                            value="{{ prefill.subject }}"
                            placeholder="Ex : Invitation à notre réunion du {prenom}">
                 </div>
+                <div class="form-group">
+                    <label for="reply_to">Répondre à <span class="hint" style="font-weight:normal;">(facultatif — adresse où arrivent les réponses)</span></label>
+                    <input type="email" id="reply_to" name="reply_to" value="{{ prefill.reply_to }}"
+                           maxlength="200" placeholder="Ex : tete-de-liste@exemple.fr">
+                    <p class="hint">Par défaut, les réponses reviennent à la boîte d'envoi. Renseignez une adresse pour les rediriger (ex. la tête de liste). L'expéditeur affiché ne change pas.</p>
+                </div>
 
                 <input type="hidden" name="format" value="html">
                 <textarea id="body" name="body" rows="14"
@@ -430,6 +436,7 @@ function saveDraft() {
         liste_ids: checkedListIds(),
         use_selection: useSelectionChecked(),
         subject: document.getElementById('subject').value,
+        reply_to: document.getElementById('reply_to').value,
         body: bodyTextarea.value,
         include_unsubscribe: document.querySelector('input[name="include_unsubscribe"]').checked
     };
@@ -452,6 +459,7 @@ function restoreDraft() {
             if (s) s.checked = true;
         }
         if (draft.subject) document.getElementById('subject').value = draft.subject;
+        if (draft.reply_to) document.getElementById('reply_to').value = draft.reply_to;
         const body = draft.body || draft.body_html || draft.body_text;  // compat anciens brouillons
         if (body) bodyTextarea.value = body;
         if (draft.include_unsubscribe !== undefined) {

@@ -257,7 +257,8 @@ class MailQueue:
                               sent_by: str = None, include_unsubscribe: bool = False,
                               attachments: list = None, liste_id: int = None,
                               submission_id: str = None, liste_ids: list = None,
-                              name: str = None, use_selection: bool = False):
+                              name: str = None, use_selection: bool = False,
+                              reply_to: str = None):
         """Crée ou met à jour le template (sujet, corps, format…) d'une campagne."""
         camp = db.session.get(MailCampaign, campaign_id)
         if camp is None:
@@ -273,6 +274,7 @@ class MailQueue:
         camp.liste_id = liste_id
         camp.liste_ids = liste_ids
         camp.use_selection = bool(use_selection)
+        camp.reply_to = reply_to or None
         camp.submission_id = submission_id
         db.session.commit()
 
@@ -497,7 +499,7 @@ class Mailer:
 
     def send_single(self, to_email: str, subject: str, body_text: str, body_html: str = None,
                      unsubscribe_url: str = None, attachments: list = None,
-                     return_path: str = None) -> bool:
+                     return_path: str = None, reply_to: str = None) -> bool:
         """Envoie un email unique. Retourne True si succès."""
         from email.utils import formatdate
         from email.mime.base import MIMEBase
@@ -523,6 +525,11 @@ class Mailer:
             msg['Date'] = formatdate(localtime=True)
             msg['Message-ID'] = make_msgid(domain=self.sender_email.split('@')[1])
             msg['Content-Language'] = 'fr'
+
+            # Reply-To : les réponses partent vers cette adresse (≠ From, qui reste le
+            # domaine authentifié). N'entre PAS dans SPF/DKIM/DMARC → neutre pour le spam.
+            if reply_to:
+                msg['Reply-To'] = reply_to
 
             if return_path:
                 msg['Return-Path'] = f'<{return_path}>'
