@@ -179,6 +179,15 @@ Détail complet : `doc-travail/2026-08-06-import-v2-etat-et-suite.md`. Branche `
   - [ ][ ] **Portée retenue = PAR CAMPAGNE** (la tête de liste change selon l'envoi) : champ « Répondre à (facultatif) » dans le compositeur → colonne `MailCampaign.reply_to` (migration safe) → injecté à l'envoi. Optionnel plus tard : un **défaut** configurable (Paramètres/profil) pré-remplissant le champ.
   - [ ][ ] Effort ~½ session (migration `reply_to` + champ form + 1 ligne mailer + porter dans le round-trip compose→confirm→queue comme `use_selection`).
 
+### 📋 Retours test beta.2 (prompt #32, 2026-08-25) — filtres avancés OK, reste ces points
+Ordre d'attaque convenu (26/08) : Reply-To (section dédiée plus haut) → bugs rapides #3/#2 → daemon de notif (section « Notification des demandes ») → backup Paramètres. Responsive = plus tard.
+- [ ] **#3 (bug rapide) — « Vider le brouillon » n'efface pas** : `clearDraft()` (mailing.html) fait `removeItem(draft)+reload`, mais le reload **ré-applique le préremplissage serveur** si l'URL porte `?from_submission=` / `?from_campaign=` → le form se re-remplit. Fix probable : rediriger vers `/mailing` **propre** (sans params) au lieu de `location.reload()`. ~10 min. À confirmer : le cas était-il une demande/réutilisation ou un mailing vierge ?
+- [ ] **#2 (bug rapide) — import xlsx : 1022 colonnes affichées (même vides)** : `_read_xlsx` (imports.py) lit toute la dimension de la feuille + invente `colonne N` pour les vides. Fix : ne garder que les colonnes à **en-tête non vide** (tronquer les vides en fin). Rapide.
+- [ ] **#1 — Sauvegarde de la base dans Paramètres** : bouton snapshot/télécharger la base **avant un import risqué** (surtout création de champs perso). Garde-fou utilisateur (≠ backups de déploiement de claude-prod). Envisager aussi un **auto-backup avant import**. ~½–1 session.
+- [ ] **#4 — Responsive des listes (REPOUSSÉ, non bloquant)** : sur demi-écran/mobile, icônes/boutons d'action peu accessibles. Chantier CSS transverse (tableaux → cartes/scroll sur petit écran) → **candidat CLD** (parti pris design).
+- [ ] **#5 — Recherche mobile peu visible** : à préciser (repro user à venir) ; probablement lié à #4.
+- [note] Autres remontées #32 déjà couvertes ailleurs : Reply-To (section dédiée) ; daemon de notif (section « Notification des demandes de diffusion »).
+
 ## A faire - Améliorations
 - [x] Export vCard (réutiliser vcard_converter.py en sens inverse)
 - [~] Historique des campagnes envoyées (historique messages, envois // reste à faire : historique par contact)
