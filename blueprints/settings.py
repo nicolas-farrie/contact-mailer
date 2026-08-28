@@ -37,6 +37,9 @@ def index():
                 # <input type="color"> renvoie #rrggbb ; on valide par sécurité
                 if re.fullmatch(r'#[0-9a-fA-F]{6}', color):
                     set_setting('instance_color', color.lower())
+                # Notifier les modérateurs des nouvelles demandes de diffusion (daemon)
+                set_setting('submission_notify_enabled',
+                            '1' if request.form.get('submission_notify') == 'on' else '0')
                 flash('Paramètres généraux enregistrés.', 'success')
 
         elif section == 'bounce':
@@ -103,6 +106,8 @@ def index():
                            bounce_host=Config.BOUNCE_IMAP_HOST, bounce_user=Config.BOUNCE_IMAP_USER,
                            bounce_configured=bool(Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER),
                            bounce_enabled=(get_setting('bounce_enabled', '1') != '0'),
+                           submission_notify_enabled=(get_setting('submission_notify_enabled', '1') != '0'),
+                           imap_configured=bool(Config.IMAP_HOST),
                            civilite_text='\n'.join(civilite_values))
 
 

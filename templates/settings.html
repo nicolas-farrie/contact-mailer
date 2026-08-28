@@ -29,6 +29,13 @@
                 </div>
                 <p class="field-help">Couleur du logo et de l'<strong>icône d'onglet du navigateur</strong> — pour distinguer d'un coup d'œil les instances ouvertes.</p>
             </div>
+            <div class="form-group">
+                <label class="checkbox-inline">
+                    <input type="checkbox" name="submission_notify" value="on"{% if submission_notify_enabled %} checked{% endif %}>
+                    <span>Notifier les modérateurs des nouvelles demandes de diffusion</span>
+                </label>
+                <p class="field-help">Un email est envoyé aux utilisateurs actifs à l'arrivée d'une nouvelle demande{% if not imap_configured %} <strong>(boîte de demandes non configurée — sans effet)</strong>{% endif %}. Nécessite un scan périodique côté serveur (timer). Anti-doublon : une seule alerte par demande.</p>
+            </div>
             <button type="submit" class="btn btn-primary">Enregistrer</button>
         </form>
     </section>

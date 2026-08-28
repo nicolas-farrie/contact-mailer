@@ -409,6 +409,15 @@ class ImportMapping(db.Model):
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
 
+class NotifiedSubmission(db.Model):
+    """Anti-doublon des notifications de demandes de diffusion : un `Message-ID` du mail
+    reçu = une seule alerte aux modérateurs, même si le scan (périodique OU à l'ouverture
+    de la page) repasse sur la même demande."""
+    __tablename__ = 'notified_submission'
+    message_id = db.Column(db.String(500), primary_key=True)
+    notified_at = db.Column(db.DateTime, default=utcnow)
+
+
 class ContactSegment(db.Model):
     """Segment nommé = jeu de conditions de filtre avancé réutilisable (P4b).
 

@@ -284,7 +284,7 @@ def fetch_submissions(config, folder=None):
             # En-têtes + BODYSTRUCTURE : la BODYSTRUCTURE décrit la structure MIME
             # (donc le nombre de PJ) SANS télécharger le corps ni les pièces jointes →
             # la liste reste rapide même à grande échelle.
-            status, msg_data = conn.fetch(uid, '(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)] BODYSTRUCTURE)')
+            status, msg_data = conn.fetch(uid, '(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID)] BODYSTRUCTURE)')
             if status != 'OK' or not msg_data or not msg_data[0]:
                 continue
             msg = email.message_from_bytes(msg_data[0][1])
@@ -302,6 +302,7 @@ def fetch_submissions(config, folder=None):
                 'subject': _decode(msg.get('Subject', '')),
                 'date': _fmt_date(msg.get('Date', '')),
                 'attachment_count': att_count,
+                'message_id': (msg.get('Message-ID') or '').strip(),
             })
 
         # Plus récent en premier
