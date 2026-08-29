@@ -12,7 +12,8 @@ import unicodedata
 from datetime import datetime
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
-                   flash, Response)
+                   flash, Response, send_file, abort)
+from markupsafe import Markup
 from flask_login import login_required, current_user
 
 from models import db, Contact, Liste, CustomFieldDefinition, ImportMapping
@@ -450,6 +451,11 @@ def _genre_from_civilite(civ):
     return None
 
 
+def _field_label(key):
+    f = fields_registry.field_map().get(key)
+    return f.label if f else key
+
+
 def _build_dedup_index():
     """Index {(nom normalisé, prénom normalisé): [contacts]} des contacts non supprimés,
     pour un dédoublonnage INSENSIBLE à la casse et aux accents (FARRIE = FARRIÉ = farrié)
@@ -460,7 +466,11 @@ def _build_dedup_index():
     return idx
 
 
-def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, source, extra_listes, index=None):
+def _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, source, extra_listes, index=None, conflicts=None):
+    """`mode` : 'skip' (ne pas toucher les existants), 'fill' (compléter les champs
+    vides — défaut sûr), 'overwrite' (écraser avec le fichier). En mode 'fill', une
+    valeur du fichier différente d'un champ DÉJÀ REMPLI est un CONFLIT : non appliquée,
+    consignée dans `conflicts` (pour visibilité)."""
     """Importe une row MAPPÉE (keyée par clé de champ). Sans email = ACCEPTÉ.
     Dédup : UID puis composite email+nom+prénom (si email). Retourne (contact, action)."""
     email = (mapped.get('email') or '').strip()
@@ -498,24 +508,44 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing,
             if l not in contact.listes:
                 contact.listes.append(l)
 
+    def _note_conflict(contact, key, cur, newv):
+        if conflicts is not None:
+            conflicts.append({'nom': contact.nom, 'prenom': contact.prenom,
+                              'champ': _field_label(key), 'existant': str(cur),
+                              'fichier': str(newv)})
+
     def _write_fields(contact, overwrite):
-        # overwrite=False (mise à jour d'un existant) = NON DESTRUCTIF : on ne remplit que
-        # les champs VIDES, on n'écrase jamais une valeur déjà saisie.
+        # Champ VIDE → toujours rempli. Champ DÉJÀ REMPLI et différent : écrasé si
+        # overwrite, sinon laissé et consigné en conflit (visibilité). Un écart PUREMENT
+        # accent/casse/espaces (ex. Farrié/FARRIE, Montpellier/MONTPELLIER) n'est NI un
+        # conflit NI un écrasement — sinon la clé de dédup elle-même remonterait en conflit.
         for key, val in mapped.items():
             if not val or key in ('listes', 'uid'):
                 continue
             if key in col_keys:
                 cur = getattr(contact, key, '') or ''
-                if overwrite or not str(cur).strip():
-                    setattr(contact, key, _coerce_column(key, val))
+                newv = _coerce_column(key, val)
+                if not str(cur).strip():
+                    setattr(contact, key, newv)
+                elif str(cur).strip() != str(newv).strip() and nom_sort_key(str(cur)) != nom_sort_key(str(newv)):
+                    if overwrite:
+                        setattr(contact, key, newv)
+                    else:
+                        _note_conflict(contact, key, cur, newv)
             elif key in custom_keys:
                 coerced = _coerce_custom(custom_types.get(key, 'text'), val)
                 cf = dict(contact.custom_fields or {})
+                curv = str(cf.get(key) or '').strip()
                 if coerced is None:
                     if overwrite:
                         cf.pop(key, None)
-                elif overwrite or not str(cf.get(key) or '').strip():
+                elif not curv:
                     cf[key] = coerced
+                elif curv != str(coerced).strip() and nom_sort_key(curv) != nom_sort_key(str(coerced)):
+                    if overwrite:
+                        cf[key] = coerced
+                    else:
+                        _note_conflict(contact, key, curv, coerced)
                 contact.custom_fields = cf
         # Accord de genre auto (civilité fournie, pas de colonne Genre explicite).
         civ_in = (mapped.get('civilite') or '').strip()
@@ -529,10 +559,10 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing,
 
     if existing:
         _add_to_listes(existing)                    # rattaché aux listes cibles (additif)
-        if update_existing:
-            _write_fields(existing, overwrite=False)  # ENRICHIT les champs vides, sans écraser
-            return existing, 'updated'
-        return existing, 'skipped'                  # existant intact (mais rattaché aux listes)
+        if mode == 'skip':
+            return existing, 'skipped'              # existant intact (mais rattaché aux listes)
+        _write_fields(existing, overwrite=(mode == 'overwrite'))
+        return existing, 'updated'
 
     # Nouveau : colonnes NOT NULL initialisées à '' (contact « à compléter » autorisé)
     contact = Contact(nom='', prenom='', email='', source=(mapped.get('source') or source))
@@ -544,14 +574,16 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing,
     return contact, 'created'
 
 
-def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra_listes):
-    """Compte created/updated/skipped SANS écrire (rollback à la fin)."""
+def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, mode, extra_listes):
+    """Compte created/updated/skipped + collecte les CONFLITS (fichier ≠ champ déjà
+    rempli, non appliqué en mode 'fill') SANS écrire (rollback à la fin)."""
     counts = {'created': 0, 'updated': 0, 'skipped': 0}
     sample = []
+    conflicts = []
     index = _build_dedup_index()
     for i, row in enumerate(rows):
         mapped = _apply_mapping(row, mapping)
-        _c, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, 'preview', extra_listes, index)
+        _c, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, 'preview', extra_listes, index, conflicts)
         counts[action] = counts.get(action, 0) + 1
         no_email = not (mapped.get('email') or '').strip()
         if no_email and action != 'skipped':
@@ -559,25 +591,27 @@ def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, update_existing
         if i < 6:
             sample.append({'mapped': mapped, 'action': action, 'no_email': no_email})
     db.session.rollback()   # défausse toute mutation — rien n'est persisté
-    return counts, sample
+    return counts, sample, conflicts
 
 
-def _run_import(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra_listes, user_id):
+def _run_import(rows, mapping, col_keys, custom_keys, custom_types, mode, extra_listes, user_id):
     # Auto-backup AVANT toute écriture : un import (surtout création de champs perso /
     # mise à jour en masse) est difficilement réversible → snapshot cohérent pour
     # pouvoir revenir en arrière. Best-effort (ne bloque pas l'import) mais loggé.
     from datetime import datetime as _dt
     from helpers import backup_database
-    counts = {'created': 0, 'updated': 0, 'skipped': 0, 'no_email': 0, 'backup': None}
+    counts = {'created': 0, 'updated': 0, 'skipped': 0, 'no_email': 0,
+              'backup': None, 'conflicts': 0, 'conflicts_file': None}
     try:
         counts['backup'] = backup_database(f"data/backups/pre-import-{_dt.now().strftime('%Y%m%d-%H%M%S')}.db")
     except Exception:
         import logging
         logging.exception('auto-backup pré-import échoué (import poursuivi)')
+    conflicts = []   # en mode 'fill' : valeurs du fichier NON appliquées (champ déjà rempli)
     index = _build_dedup_index()
     for row in rows:
         mapped = _apply_mapping(row, mapping)
-        contact, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, 'Import', extra_listes, index)
+        contact, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, 'Import', extra_listes, index, conflicts)
         if action == 'created':
             contact.created_by_id = user_id
             db.session.add(contact)
@@ -585,7 +619,26 @@ def _run_import(rows, mapping, col_keys, custom_keys, custom_types, update_exist
         if not (mapped.get('email') or '').strip() and action != 'skipped':
             counts['no_email'] += 1
     db.session.commit()
+    # Trace des conflits (champs non écrasés) → CSV téléchargeable : sinon, sur des
+    # milliers de lignes, une valeur du fichier ignorée passe totalement inaperçue.
+    counts['conflicts'] = len(conflicts)
+    if conflicts:
+        counts['conflicts_file'] = _write_conflicts_csv(conflicts)
     return counts
+
+
+def _write_conflicts_csv(conflicts):
+    """Écrit les conflits dans data/import-conflicts-<ts>.csv et renvoie le nom du fichier."""
+    import csv
+    from datetime import datetime as _dt
+    fname = f"import-conflicts-{_dt.now().strftime('%Y%m%d-%H%M%S')}.csv"
+    path = os.path.join('data', fname)
+    with open(path, 'w', newline='', encoding='utf-8-sig') as f:
+        w = csv.writer(f)
+        w.writerow(['Nom', 'Prénom', 'Champ', 'Valeur conservée (en base)', 'Valeur du fichier (ignorée)'])
+        for c in conflicts:
+            w.writerow([c['nom'], c['prenom'], c['champ'], c['existant'], c['fichier']])
+    return fname
 
 
 def _mapping_from_form(form):
@@ -625,18 +678,19 @@ def _best_saved(headers, saved_list):
 
 
 def _render_mapping(token, ext, filename, headers, rows, mapping, list_id,
-                    new_list_name, update_existing, saved_mappings,
-                    applied_mapping=None, previewed=False, counts=None):
+                    new_list_name, existing_mode, saved_mappings,
+                    applied_mapping=None, previewed=False, counts=None, conflicts=None):
     """Rendu unique de l'écran de mapping (upload, aperçu, save, apply)."""
     return render_template('import_mapping.html',
                            token=token, ext=ext, filename=filename,
                            headers=headers, sample_rows=rows[:5], nrows=len(rows),
                            targets=_import_targets(), mapping=mapping,
                            listes=_active_listes(), list_id=list_id,
-                           new_list_name=new_list_name, update_existing=update_existing,
+                           new_list_name=new_list_name, existing_mode=existing_mode,
                            dedup_ok=_dedup_ok(mapping), new_field_types=_NEW_FIELD_TYPES,
                            saved_mappings=saved_mappings, applied_mapping=applied_mapping,
                            previewed=previewed, counts=counts,
+                           conflicts=(conflicts or [])[:20], conflicts_total=len(conflicts or []),
                            field_map=fields_registry.field_map())
 
 
@@ -809,7 +863,7 @@ def index():
         return _render_mapping(token, ext, file.filename, headers, rows, mapping,
                                request.form.get('list_id', ''),
                                request.form.get('new_list_name', ''),
-                               request.form.get('update_existing') == 'on',
+                               request.form.get('existing_mode', 'fill'),
                                saved, applied_mapping=applied)
 
     return render_template('import.html', listes=listes)
@@ -829,7 +883,9 @@ def import_mapping():
     mapping = _mapping_from_form(request.form)
     list_id = request.form.get('list_id', '')
     new_list_name = request.form.get('new_list_name', '')
-    update_existing = request.form.get('update_existing') == 'on'
+    existing_mode = request.form.get('existing_mode', 'fill')
+    if existing_mode not in ('skip', 'fill', 'overwrite'):
+        existing_mode = 'fill'
     action = request.form.get('action', 'preview')
 
     try:
@@ -851,7 +907,7 @@ def import_mapping():
         else:
             flash('Mapping enregistré introuvable.', 'error')
         return _render_mapping(token, ext, filename, headers, rows, mapping, list_id,
-                               new_list_name, update_existing, saved_mappings,
+                               new_list_name, existing_mode, saved_mappings,
                                applied_mapping=(sm.name if sm else None))
 
     # Création éventuelle de champs perso demandés à l'import (colonnes « __new__ »).
@@ -877,7 +933,7 @@ def import_mapping():
             flash(f'Mapping « {name} » enregistré ({len(to_save)} colonne(s)).', 'success')
             saved_mappings = _saved_mappings()
         return _render_mapping(token, ext, filename, headers, rows, mapping, list_id,
-                               new_list_name, update_existing, saved_mappings)
+                               new_list_name, existing_mode, saved_mappings)
 
     col_keys, custom_keys = _key_sets()
     custom_types = _custom_types()
@@ -886,15 +942,15 @@ def import_mapping():
     # Garde-fou : mettre à jour sans clé d'identification créerait des doublons
     # quasi-vides au lieu de retrouver les contacts. On BLOQUE l'import réel et on
     # renvoie l'utilisateur à l'écran (avertissement + message) au lieu de subir.
-    blocked = update_existing and not _dedup_ok(mapping)
+    blocked = existing_mode != 'skip' and not _dedup_ok(mapping)
     if action == 'run' and blocked:
         flash("Mise à jour impossible sans clé d'identification : associez « Nom » et "
-              "« Prénom » (ou l'UID) pour retrouver les contacts existants — ou décochez "
-              "« Mettre à jour les contacts existants » pour créer de nouveaux contacts.", 'error')
+              "« Prénom » (ou l'UID) pour retrouver les contacts existants — ou choisissez "
+              "« Ne pas toucher aux contacts existants » pour créer de nouveaux contacts.", 'error')
 
     if action == 'run' and not blocked:
         try:
-            counts = _run_import(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra, current_user.id)
+            counts = _run_import(rows, mapping, col_keys, custom_keys, custom_types, existing_mode, extra, current_user.id)
         except Exception as e:
             db.session.rollback()
             flash(f'Erreur import : {e}', 'error')
@@ -908,6 +964,11 @@ def import_mapping():
         if counts.get('no_email'):
             msg += f" — dont {counts['no_email']} sans email (à compléter)"
         flash(msg + '.', 'success')
+        if counts.get('conflicts'):
+            dl = url_for('imports.download_conflicts', fname=counts['conflicts_file'])
+            flash(Markup(f"⚠ {counts['conflicts']} valeur(s) du fichier <strong>non appliquée(s)</strong> : "
+                         f"le champ était déjà rempli et différent (mode « compléter »). "
+                         f'<a href="{dl}">Télécharger le détail (CSV)</a> pour vérifier.'), 'warning')
         if counts.get('backup'):
             import os as _os
             flash(f"Sauvegarde de sécurité créée avant l'import : {_os.path.basename(counts['backup'])}", 'info')
@@ -916,11 +977,25 @@ def import_mapping():
             return redirect(url_for('contacts.index', liste=redirect_list_id))
         return redirect(url_for('contacts.index'))
 
-    # « Tester l'import » (dry-run, rien écrit) → compteurs uniquement
-    counts, _sample = _dry_run(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra)
+    # « Tester l'import » (dry-run, rien écrit) → compteurs + conflits prévus
+    counts, _sample, conflicts = _dry_run(rows, mapping, col_keys, custom_keys, custom_types, existing_mode, extra)
     return _render_mapping(token, ext, filename, headers, rows, mapping, list_id,
-                           new_list_name, update_existing, saved_mappings,
-                           previewed=True, counts=counts)
+                           new_list_name, existing_mode, saved_mappings,
+                           previewed=True, counts=counts, conflicts=conflicts)
+
+
+@bp.route('/import/conflicts/<fname>')
+@admin_required
+def download_conflicts(fname):
+    """Télécharge le CSV des conflits d'un import (valeurs du fichier non appliquées).
+    `fname` est un basename produit par _write_conflicts_csv (anti-traversal)."""
+    if os.path.basename(fname) != fname or not fname.startswith('import-conflicts-'):
+        abort(404)
+    path = os.path.join('data', fname)
+    if not os.path.exists(path):
+        abort(404)
+    return send_file(os.path.abspath(path), as_attachment=True,
+                     download_name=fname, mimetype='text/csv')
 
 
 @bp.route('/import/template')

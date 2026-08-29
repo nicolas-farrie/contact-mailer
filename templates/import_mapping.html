@@ -37,7 +37,30 @@
 </div>
 {% endif %}
 
-{% if update_existing and not dedup_ok %}
+{% if previewed and conflicts_total %}
+<div class="info-box" style="border-left:4px solid var(--warning, #d68910);">
+    <h3 style="margin-top:0;">⚠ {{ conflicts_total }} conflit{{ 's' if conflicts_total > 1 }} — valeur(s) du fichier <em>non appliquée(s)</em></h3>
+    <p class="hint">En mode « <strong>Compléter</strong> », un champ <strong>déjà rempli</strong> dont la valeur du fichier <strong>diffère</strong> n'est <strong>pas</strong> écrasé. Voici ce qui serait ignoré (au réel, un CSV complet est téléchargeable) :</p>
+    <div class="table-responsive">
+    <table class="data-table">
+        <thead><tr><th>Contact</th><th>Champ</th><th>Valeur conservée</th><th>Valeur du fichier (ignorée)</th></tr></thead>
+        <tbody>
+            {% for c in conflicts %}
+            <tr>
+                <td>{{ c.nom }} {{ c.prenom }}</td>
+                <td>{{ c.champ }}</td>
+                <td style="color:var(--text-muted)">{{ c.existant | truncate(40) }}</td>
+                <td><strong>{{ c.fichier | truncate(40) }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% if conflicts_total > conflicts|length %}<p class="hint">… et {{ conflicts_total - conflicts|length }} autre(s). Choisissez « Écraser » ci-dessous si le fichier fait foi.</p>{% endif %}
+</div>
+{% endif %}
+
+{% if existing_mode != 'skip' and not dedup_ok %}
 <div class="info-box" style="border-left:4px solid var(--danger, #c0392b);">
     <h3 style="margin-top:0;">⚠ Aucune clé de dédoublonnage</h3>
     <p>Pour retrouver des contacts <strong>déjà présents</strong> et les mettre à jour, il faut mapper soit
@@ -135,9 +158,19 @@
             <p class="hint">Après l'import, vous serez redirigé vers cette liste. Un nom de nouvelle liste est prioritaire sur la sélection.</p>
         </div>
         <div class="form-group">
-            <label class="checkbox-label">
-                <input type="checkbox" name="update_existing" {{ 'checked' if update_existing }}>
-                Mettre à jour les contacts existants et fusionner les listes
+            <label>Contacts déjà présents (même UID, ou Nom + Prénom [+ email])</label>
+            <p class="hint" style="margin-top:0;">Dans tous les cas, la <strong>liste cible est ajoutée</strong> et les listes existantes sont <strong>conservées</strong> (jamais de perte d'adhésion).</p>
+            <label class="radio-label" style="display:block;margin:0.3rem 0;">
+                <input type="radio" name="existing_mode" value="skip" {{ 'checked' if existing_mode == 'skip' }}>
+                <strong>Ne pas toucher</strong> — n'importe que les nouveaux contacts (l'existant est laissé tel quel).
+            </label>
+            <label class="radio-label" style="display:block;margin:0.3rem 0;">
+                <input type="radio" name="existing_mode" value="fill" {{ 'checked' if existing_mode == 'fill' or not existing_mode }}>
+                <strong>Compléter</strong> (recommandé) — remplit seulement les <strong>champs vides</strong>. Un champ déjà rempli n'est <strong>jamais écrasé</strong> ; les écarts sont signalés en conflit.
+            </label>
+            <label class="radio-label" style="display:block;margin:0.3rem 0;">
+                <input type="radio" name="existing_mode" value="overwrite" {{ 'checked' if existing_mode == 'overwrite' }}>
+                <strong>Écraser</strong> — le fichier fait foi : remplace les valeurs existantes par celles du fichier. <span style="color:var(--danger,#c0392b)">À utiliser en connaissance de cause.</span>
             </label>
         </div>
     </div>
