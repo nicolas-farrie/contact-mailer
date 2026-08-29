@@ -31,10 +31,10 @@
         <div class="form-group">
             <label class="checkbox-label">
                 <input type="checkbox" name="update_existing" checked>
-                Mettre à jour les contacts existants et fusionner les listes
+                Compléter les contacts existants (remplir les champs vides)
             </label>
-            <p class="hint">Si coché : les contacts déjà présents (même UID, ou même email + nom + prénom) sont mis à jour.
-                Si décoché : les doublons détectés sont ignorés.</p>
+            <p class="hint"><strong>Sans risque de perte.</strong> Un contact déjà présent (même UID, ou même nom + prénom [+ email]) n'est <strong>jamais écrasé</strong> : ses listes actuelles sont conservées et la liste cible est simplement <strong>ajoutée</strong> ; ses données ne sont pas remplacées.
+                Si coché, on complète en plus ses <strong>champs vides</strong> à partir du fichier. Si décoché, les contacts existants ne sont pas modifiés (mais restent rattachés à la liste cible).</p>
         </div>
 
         <div class="form-actions">

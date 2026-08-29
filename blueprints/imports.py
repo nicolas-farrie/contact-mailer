@@ -210,37 +210,18 @@ def _import_contact_from_row(row, update_existing=False, source='Import'):
         return None, 'skipped'
 
     if existing and update_existing:
-        # Mettre à jour les champs non vides
-        if fields['nom']:
-            existing.nom = fields['nom']
-        if fields['prenom']:
-            existing.prenom = fields['prenom']
-        if fields['genre']:
-            existing.genre = fields['genre']
-        if fields['titre']:
-            existing.titre = fields['titre']
-        if fields['telephone']:
-            existing.telephone = fields['telephone']
-        if fields['organisation']:
-            existing.organisation = fields['organisation']
-        if fields['adresse_rue']:
-            existing.adresse_rue = fields['adresse_rue']
-        if fields['adresse_complement']:
-            existing.adresse_complement = fields['adresse_complement']
-        if fields['adresse_ville']:
-            existing.adresse_ville = fields['adresse_ville']
-        if fields['adresse_cp']:
-            existing.adresse_cp = fields['adresse_cp']
-        if fields['adresse_region']:
-            existing.adresse_region = fields['adresse_region']
-        if fields['adresse_pays']:
-            existing.adresse_pays = fields['adresse_pays']
-        if fields['notes']:
-            existing.notes = fields['notes']
+        # NON DESTRUCTIF : on ne remplit que les champs VIDES, jamais d'écrasement.
+        for k in ('nom', 'prenom', 'genre', 'titre', 'telephone', 'organisation',
+                  'adresse_rue', 'adresse_complement', 'adresse_ville', 'adresse_cp',
+                  'adresse_region', 'adresse_pays', 'notes'):
+            if fields.get(k) and not (getattr(existing, k, '') or '').strip():
+                setattr(existing, k, fields[k])
 
-        # Remplacement des listes par celles de l'import
+        # Listes : TOUJOURS ADDITIF (jamais de remplacement → pas de perte d'adhésions).
         if fields['listes']:
-            existing.listes = _get_or_create_listes(fields['listes'])
+            for l in _get_or_create_listes(fields['listes']):
+                if l not in existing.listes:
+                    existing.listes.append(l)
 
         return existing, 'updated'
 
@@ -443,7 +424,19 @@ def _coerce_column(key, val):
     par un nombre Excel (06123 → 6123) → on recomplète à 5 chiffres."""
     if key == 'adresse_cp' and val.isdigit() and 0 < len(val) < 5:
         return val.zfill(5)
+    if key == 'civilite':
+        return _normalize_civilite(val)
     return val
+
+
+def _normalize_civilite(civ):
+    """Uniformise la civilité vers les valeurs canoniques de l'app (Madame/Monsieur).
+    La cohérence est CRUCIALE : les champs conditionnels {civilite==Madame:…} deviennent
+    ingérables si le même sens s'écrit « Mme », « MME », « Madame »…"""
+    c = (civ or '').strip().lower().rstrip('.')
+    return {'m': 'Monsieur', 'mr': 'Monsieur', 'monsieur': 'Monsieur', 'mister': 'Monsieur',
+            'mme': 'Madame', 'madame': 'Madame', 'mlle': 'Madame', 'mademoiselle': 'Madame',
+            }.get(c, civ)
 
 
 def _genre_from_civilite(civ):
@@ -477,52 +470,58 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing,
             q = q.filter_by(email=email)
         existing = q.first()
 
-    if existing and not update_existing:
-        return existing, 'skipped'
-
     listes_names = sorted(set(_parse_liste_names(mapped.get('listes', '')) + list(extra_listes)))
 
-    def _write(contact):
+    def _add_to_listes(contact):
+        # TOUJOURS ADDITIF : un import ne retire JAMAIS un contact de ses listes existantes.
+        # (Avant : `contact.listes = objs` écrasait les adhésions → perte de données.)
+        if not listes_names:
+            return
+        for l in _get_or_create_listes(listes_names):
+            if l not in contact.listes:
+                contact.listes.append(l)
+
+    def _write_fields(contact, overwrite):
+        # overwrite=False (mise à jour d'un existant) = NON DESTRUCTIF : on ne remplit que
+        # les champs VIDES, on n'écrase jamais une valeur déjà saisie.
         for key, val in mapped.items():
             if not val or key in ('listes', 'uid'):
                 continue
             if key in col_keys:
-                setattr(contact, key, _coerce_column(key, val))
+                cur = getattr(contact, key, '') or ''
+                if overwrite or not str(cur).strip():
+                    setattr(contact, key, _coerce_column(key, val))
             elif key in custom_keys:
                 coerced = _coerce_custom(custom_types.get(key, 'text'), val)
                 cf = dict(contact.custom_fields or {})
                 if coerced is None:
-                    cf.pop(key, None)   # valeur « fausse »/vide → champ laissé absent
-                else:
+                    if overwrite:
+                        cf.pop(key, None)
+                elif overwrite or not str(cf.get(key) or '').strip():
                     cf[key] = coerced
                 contact.custom_fields = cf
-        # Accord de genre auto : si la civilité est fournie mais PAS de colonne Genre
-        # explicite, on déduit le genre grammatical (M./Monsieur→Masculin, Mme→Féminin).
-        # Une colonne Genre du fichier reste prioritaire ; ambiguïté → défaut (Inclusif).
+        # Accord de genre auto (civilité fournie, pas de colonne Genre explicite).
         civ_in = (mapped.get('civilite') or '').strip()
         if civ_in and not (mapped.get('genre') or '').strip():
             derived = _genre_from_civilite(civ_in)
-            if derived:
+            cur_g = (getattr(contact, 'genre', '') or '').strip()
+            if derived and (overwrite or not cur_g or cur_g == 'Inclusif'):
                 contact.genre = derived
         if uid and not contact.uid:
             contact.uid = uid
-        if listes_names:
-            objs = _get_or_create_listes(listes_names)
-            if update_existing and existing is contact:
-                contact.listes = objs
-            else:
-                for l in objs:
-                    if l not in contact.listes:
-                        contact.listes.append(l)
 
-    if existing and update_existing:
-        _write(existing)
-        return existing, 'updated'
+    if existing:
+        _add_to_listes(existing)                    # rattaché aux listes cibles (additif)
+        if update_existing:
+            _write_fields(existing, overwrite=False)  # ENRICHIT les champs vides, sans écraser
+            return existing, 'updated'
+        return existing, 'skipped'                  # existant intact (mais rattaché aux listes)
 
     # Nouveau : colonnes NOT NULL initialisées à '' (contact « à compléter » autorisé)
     contact = Contact(nom='', prenom='', email='', source=(mapped.get('source') or source))
     db.session.add(contact)   # en session AVANT d'attacher les listes (sinon l'assoc n'est pas prise)
-    _write(contact)
+    _write_fields(contact, overwrite=True)
+    _add_to_listes(contact)
     return contact, 'created'
 
 
