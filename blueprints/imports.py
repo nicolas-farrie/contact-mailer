@@ -17,7 +17,7 @@ from flask_login import login_required, current_user
 
 from models import db, Contact, Liste, CustomFieldDefinition, ImportMapping
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
-from helpers import admin_required, slugify_key, listes_sorted
+from helpers import admin_required, slugify_key, listes_sorted, nom_sort_key
 import fields as fields_registry
 
 bp = Blueprint('imports', __name__)
@@ -450,7 +450,17 @@ def _genre_from_civilite(civ):
     return None
 
 
-def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, source, extra_listes):
+def _build_dedup_index():
+    """Index {(nom normalisé, prénom normalisé): [contacts]} des contacts non supprimés,
+    pour un dédoublonnage INSENSIBLE à la casse et aux accents (FARRIE = FARRIÉ = farrié)
+    en O(n) global (au lieu d'une requête exacte par ligne, sensible casse/accents)."""
+    idx = {}
+    for c in Contact.query.filter_by(is_deleted=False).all():
+        idx.setdefault((nom_sort_key(c.nom), nom_sort_key(c.prenom)), []).append(c)
+    return idx
+
+
+def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, source, extra_listes, index=None):
     """Importe une row MAPPÉE (keyée par clé de champ). Sans email = ACCEPTÉ.
     Dédup : UID puis composite email+nom+prénom (si email). Retourne (contact, action)."""
     email = (mapped.get('email') or '').strip()
@@ -461,14 +471,21 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing,
     existing = None
     if uid:
         existing = Contact.query.filter_by(uid=uid, is_deleted=False).first()
-    if not existing and nom and prenom:
-        # Dédoublonnage par nom+prénom ; l'email affine quand il est présent
-        # (familles au même email distinguées par le prénom). Sans email — cas
-        # fréquent (fichier « maires » = 0 email) — nom+prénom suffit à retrouver.
-        q = Contact.query.filter_by(nom=nom, prenom=prenom, is_deleted=False)
+    key = (nom_sort_key(nom), nom_sort_key(prenom)) if (nom and prenom) else None
+    if not existing and key is not None:
+        # Dédoublonnage nom+prénom INSENSIBLE casse/accents (via index normalisé).
+        # L'email affine quand présent (familles au même email distinguées par le
+        # prénom). Sans email — cas fréquent (fichier « maires » = 0 email) — le
+        # nom+prénom normalisé suffit à retrouver.
+        if index is not None:
+            candidates = index.get(key, [])
+        else:   # défensif (appel hors _run_import/_dry_run) : requête exacte
+            candidates = Contact.query.filter_by(nom=nom, prenom=prenom, is_deleted=False).all()
         if email:
-            q = q.filter_by(email=email)
-        existing = q.first()
+            el = email.lower()
+            existing = next((c for c in candidates if (c.email or '').strip().lower() == el), None)
+        else:
+            existing = candidates[0] if candidates else None
 
     listes_names = sorted(set(_parse_liste_names(mapped.get('listes', '')) + list(extra_listes)))
 
@@ -522,6 +539,8 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing,
     db.session.add(contact)   # en session AVANT d'attacher les listes (sinon l'assoc n'est pas prise)
     _write_fields(contact, overwrite=True)
     _add_to_listes(contact)
+    if index is not None and key is not None:
+        index.setdefault(key, []).append(contact)   # dédup des lignes suivantes du même import
     return contact, 'created'
 
 
@@ -529,9 +548,10 @@ def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, update_existing
     """Compte created/updated/skipped SANS écrire (rollback à la fin)."""
     counts = {'created': 0, 'updated': 0, 'skipped': 0}
     sample = []
+    index = _build_dedup_index()
     for i, row in enumerate(rows):
         mapped = _apply_mapping(row, mapping)
-        _c, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, 'preview', extra_listes)
+        _c, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, 'preview', extra_listes, index)
         counts[action] = counts.get(action, 0) + 1
         no_email = not (mapped.get('email') or '').strip()
         if no_email and action != 'skipped':
@@ -554,9 +574,10 @@ def _run_import(rows, mapping, col_keys, custom_keys, custom_types, update_exist
     except Exception:
         import logging
         logging.exception('auto-backup pré-import échoué (import poursuivi)')
+    index = _build_dedup_index()
     for row in rows:
         mapped = _apply_mapping(row, mapping)
-        contact, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, 'Import', extra_listes)
+        contact, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, 'Import', extra_listes, index)
         if action == 'created':
             contact.created_by_id = user_id
             db.session.add(contact)
