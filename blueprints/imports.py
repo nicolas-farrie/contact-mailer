@@ -446,6 +446,17 @@ def _coerce_column(key, val):
     return val
 
 
+def _genre_from_civilite(civ):
+    """Genre grammatical déduit de la civilité (pour l'accord des mailings).
+    Renvoie None si ambigu (Mx/Autre…) → on garde le défaut (Inclusif)."""
+    c = (civ or '').strip().lower().rstrip('.')
+    if c in ('m', 'mr', 'monsieur'):
+        return 'Masculin'
+    if c in ('mme', 'mlle', 'madame', 'mademoiselle'):
+        return 'Féminin'
+    return None
+
+
 def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, source, extra_listes):
     """Importe une row MAPPÉE (keyée par clé de champ). Sans email = ACCEPTÉ.
     Dédup : UID puis composite email+nom+prénom (si email). Retourne (contact, action)."""
@@ -485,6 +496,14 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing,
                 else:
                     cf[key] = coerced
                 contact.custom_fields = cf
+        # Accord de genre auto : si la civilité est fournie mais PAS de colonne Genre
+        # explicite, on déduit le genre grammatical (M./Monsieur→Masculin, Mme→Féminin).
+        # Une colonne Genre du fichier reste prioritaire ; ambiguïté → défaut (Inclusif).
+        civ_in = (mapped.get('civilite') or '').strip()
+        if civ_in and not (mapped.get('genre') or '').strip():
+            derived = _genre_from_civilite(civ_in)
+            if derived:
+                contact.genre = derived
         if uid and not contact.uid:
             contact.uid = uid
         if listes_names:
