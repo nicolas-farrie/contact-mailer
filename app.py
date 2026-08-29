@@ -8,9 +8,27 @@ Expose `app` au niveau module pour gunicorn (`app:app`) et les scripts
 d'administration (`from app import app, db, init_db`).
 """
 import logging
+import sqlite3
 
 from flask import Flask, url_for
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from werkzeug.security import generate_password_hash
+
+
+@event.listens_for(Engine, 'connect')
+def _sqlite_pragmas(dbapi_connection, connection_record):
+    """Sur chaque connexion SQLite : mode WAL (meilleure concurrence — lecteurs ne
+    bloquent plus l'écrivain, utile pendant un long import) + synchronous=NORMAL
+    (bon compromis durabilité/perf recommandé avec WAL). WAL est persistant (en-tête
+    du fichier) ; le poser à la connexion est idempotent. ACID préservé.
+    NB : WAL crée des fichiers -wal/-shm → les backups passent par l'API sqlite3.backup
+    (cf. helpers.backup_database), pas par un cp brut."""
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cur = dbapi_connection.cursor()
+        cur.execute('PRAGMA journal_mode=WAL')
+        cur.execute('PRAGMA synchronous=NORMAL')
+        cur.close()
 
 from models import db, User
 from config import Config

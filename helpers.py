@@ -26,6 +26,27 @@ def slugify_key(label):
     return s
 
 
+def backup_database(dest_path):
+    """Copie COHÉRENTE de la base SQLite vers `dest_path` via l'API backup de sqlite3
+    — sûre même en mode WAL (un `cp` brut raterait les données encore dans le -wal).
+    Crée le dossier de destination au besoin. Renvoie le chemin ; peut lever."""
+    import sqlite3
+    from models import db
+    src = db.engine.url.database
+    if not src:
+        raise RuntimeError('Chemin de la base SQLite introuvable.')
+    os.makedirs(os.path.dirname(dest_path) or '.', exist_ok=True)
+    src_conn = sqlite3.connect(src)
+    dst_conn = sqlite3.connect(dest_path)
+    try:
+        with dst_conn:
+            src_conn.backup(dst_conn)
+    finally:
+        src_conn.close()
+        dst_conn.close()
+    return dest_path
+
+
 def nom_sort_key(nom):
     """Clé de tri alphabétique insensible à la casse ET aux accents. SQLite trie en
     BINARY (majuscules avant minuscules, accents après z) → ordre illisible ; ce

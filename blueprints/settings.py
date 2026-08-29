@@ -115,6 +115,24 @@ def index():
                            civilite_text='\n'.join(civilite_values))
 
 
+@bp.route('/settings/backup', methods=['POST'])
+@admin_required
+def backup_now():
+    """Sauvegarde manuelle de la base : snapshot serveur (data/backups/) + téléchargement.
+    Copie cohérente via l'API sqlite3.backup (sûre en WAL)."""
+    from datetime import datetime
+    from flask import send_file
+    from helpers import backup_database
+    ts = datetime.now().strftime('%Y%m%d-%H%M%S')
+    dest = f'data/backups/manual-{ts}.db'
+    try:
+        backup_database(dest)
+    except Exception as e:
+        flash(f'Sauvegarde échouée : {e}', 'error')
+        return redirect(url_for('settings.index'))
+    return send_file(dest, as_attachment=True, download_name=f'contacts-backup-{ts}.db')
+
+
 @bp.route('/settings/clear-login-bg', methods=['POST'])
 @admin_required
 def clear_login_bg():

@@ -525,7 +525,17 @@ def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, update_existing
 
 
 def _run_import(rows, mapping, col_keys, custom_keys, custom_types, update_existing, extra_listes, user_id):
-    counts = {'created': 0, 'updated': 0, 'skipped': 0, 'no_email': 0}
+    # Auto-backup AVANT toute écriture : un import (surtout création de champs perso /
+    # mise à jour en masse) est difficilement réversible → snapshot cohérent pour
+    # pouvoir revenir en arrière. Best-effort (ne bloque pas l'import) mais loggé.
+    from datetime import datetime as _dt
+    from helpers import backup_database
+    counts = {'created': 0, 'updated': 0, 'skipped': 0, 'no_email': 0, 'backup': None}
+    try:
+        counts['backup'] = backup_database(f"data/backups/pre-import-{_dt.now().strftime('%Y%m%d-%H%M%S')}.db")
+    except Exception:
+        import logging
+        logging.exception('auto-backup pré-import échoué (import poursuivi)')
     for row in rows:
         mapped = _apply_mapping(row, mapping)
         contact, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, update_existing, 'Import', extra_listes)
@@ -859,6 +869,9 @@ def import_mapping():
         if counts.get('no_email'):
             msg += f" — dont {counts['no_email']} sans email (à compléter)"
         flash(msg + '.', 'success')
+        if counts.get('backup'):
+            import os as _os
+            flash(f"Sauvegarde de sécurité créée avant l'import : {_os.path.basename(counts['backup'])}", 'info')
         # Retour sur la liste que l'on vient de peupler (sinon liste complète)
         if redirect_list_id:
             return redirect(url_for('contacts.index', liste=redirect_list_id))

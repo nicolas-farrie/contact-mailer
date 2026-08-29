@@ -47,6 +47,15 @@
         </form>
     </section>
 
+    <!-- Sauvegarde de la base -->
+    <section class="card settings-section">
+        <h2>Sauvegarde de la base</h2>
+        <p class="settings-hint">Télécharge une copie complète et cohérente de la base (contacts, listes, utilisateurs, journal…). À faire notamment <strong>avant un gros import</strong>. Un backup automatique est aussi créé côté serveur avant chaque import.</p>
+        <form method="POST" action="{{ url_for('settings.backup_now') }}">
+            <button type="submit" class="btn btn-secondary">⤓ Sauvegarder et télécharger la base</button>
+        </form>
+    </section>
+
     <!-- Envoi des emails (SMTP) -->
     <section class="card settings-section">
         <h2>Envoi des emails (SMTP)</h2>
