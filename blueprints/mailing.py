@@ -85,23 +85,30 @@ def _sign_body(body, mail_format, sign, signature):
     return body + f'\n\n— {signature}'
 
 
+def _mailable(c):
+    """Contact réellement joignable pour un envoi : ni désabonné, ni en erreur (bounce).
+    Exclure has_bounced évite de re-présenter une adresse en erreur (dégrade la
+    réputation SMTP — cf. reco LWS)."""
+    return not c.is_unsubscribed and not c.has_bounced
+
+
 def _recipients(liste_ids, use_selection=False):
-    """Union DÉDOUBLONNÉE (par id) des contacts actifs (non supprimés, non désabonnés)
-    des listes données ET — si `use_selection` — de la « sélection courante » de
-    l'utilisateur. Un contact présent dans plusieurs sources n'apparaît qu'une fois.
-    Ordre de première apparition (listes d'abord, puis sélection)."""
+    """Union DÉDOUBLONNÉE (par id) des contacts joignables (non supprimés, non
+    désabonnés, NON EN ERREUR/bounce) des listes données ET — si `use_selection` — de
+    la « sélection courante » de l'utilisateur. Un contact présent dans plusieurs
+    sources n'apparaît qu'une fois. Ordre de première apparition (listes puis sélection)."""
     seen = {}
     for lid in liste_ids:
         liste = Liste.query.get(lid)
         if not liste:
             continue
         for c in liste.active_contacts:
-            if not c.is_unsubscribed and c.id not in seen:
+            if _mailable(c) and c.id not in seen:
                 seen[c.id] = c
     if use_selection:
         from contact_set import ContactSet
         for c in ContactSet.for_user(current_user.id).contacts().all():
-            if not c.is_unsubscribed and c.id not in seen:
+            if _mailable(c) and c.id not in seen:
                 seen[c.id] = c
     return list(seen.values())
 
@@ -602,15 +609,27 @@ def _persist_campaign_from_form(reuse_id=None):
 
     include_unsubscribe = request.form.get('include_unsubscribe') == 'on'
 
-    # Union DÉDOUBLONNÉE des contacts actifs (désabonnés exclus) : listes + sélection courante
+    # Union DÉDOUBLONNÉE des contacts JOIGNABLES (désabonnés + bounces exclus) :
+    # listes + sélection courante
     recipients = _recipients(liste_ids, use_selection)
-    all_active_ids = {c.id for lst in listes for c in lst.active_contacts}
+    all_active = [c for lst in listes for c in lst.active_contacts]
     if use_selection:
         from contact_set import ContactSet
-        all_active_ids |= {c.id for c in ContactSet.for_user(current_user.id).contacts().all()}
-    excluded = len(all_active_ids) - len(recipients)
-    if excluded:
-        flash(f'{excluded} contact{"s" if excluded > 1 else ""} désabonné{"s" if excluded > 1 else ""} exclu{"s" if excluded > 1 else ""} de l\'envoi', 'info')
+        all_active += ContactSet.for_user(current_user.id).contacts().all()
+    # Décompte détaillé des exclusions (dédoublonné par id)
+    seen_ex = {}
+    for c in all_active:
+        if c.id not in seen_ex:
+            seen_ex[c.id] = c
+    n_unsub = sum(1 for c in seen_ex.values() if c.is_unsubscribed)
+    n_bounce = sum(1 for c in seen_ex.values() if c.has_bounced and not c.is_unsubscribed)
+    parts = []
+    if n_unsub:
+        parts.append(f'{n_unsub} désabonné{"s" if n_unsub > 1 else ""}')
+    if n_bounce:
+        parts.append(f'{n_bounce} en erreur (bounce)')
+    if parts:
+        flash(f'Exclus de l\'envoi : {", ".join(parts)}.', 'info')
 
     if not recipients:
         return None, 'Aucun contact actif (listes vides ou tous désabonnés).'
