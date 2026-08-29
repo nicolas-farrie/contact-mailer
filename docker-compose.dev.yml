@@ -27,6 +27,7 @@ services:
       - ./mailer.py:/app/mailer.py
       - ./fields.py:/app/fields.py
       - ./imap_submissions.py:/app/imap_submissions.py
+      - ./bounce_scanner.py:/app/bounce_scanner.py
       - ./submission_notifier.py:/app/submission_notifier.py
       - ./audit.py:/app/audit.py
       - ./templates:/app/templates

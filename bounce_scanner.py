@@ -44,16 +44,24 @@ def _decode_str(value):
 
 
 def _is_bounce(msg):
-    """Vérifie si le message est bien un bounce (DSN ou MAILER-DAEMON)."""
-    subject = _decode_str(msg.get('Subject', '')).lower()
+    """Vérifie si le message est bien un bounce (DSN ou MAILER-DAEMON).
+
+    Important quand on scanne la boîte D'ENVOI (qui reçoit aussi de vraies réponses) :
+    - signaux STRUCTURELS forts (From MAILER-DAEMON, Content-Type multipart/report) →
+      bounce sûr ;
+    - la détection par mots-clés de sujet est plus faible → on l'ignore si le sujet est
+      une RÉPONSE/TRANSFERT humain (Re:/Tr:/Fwd:…), pour éviter un faux positif qui
+      marquerait un contact réel « bounced » et déplacerait sa réponse."""
+    subject = _decode_str(msg.get('Subject', '')).lower().strip()
     from_addr = _decode_str(msg.get('From', '')).lower()
     content_type = msg.get_content_type() or ''
 
     if 'mailer-daemon' in from_addr:
         return True
-    if any(kw in subject for kw in _BOUNCE_SUBJECTS):
-        return True
     if 'multipart/report' in content_type:
+        return True
+    is_reply = subject.startswith(('re:', 're :', 'ré:', 'tr:', 'fwd:', 'fw:', 'tr :'))
+    if not is_reply and any(kw in subject for kw in _BOUNCE_SUBJECTS):
         return True
     return False
 
