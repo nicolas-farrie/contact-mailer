@@ -2,6 +2,8 @@
 
 Application web de gestion de contacts et d'envoi d'emails en masse, conçue pour un usage local et souverain (aucune donnée externalisée).
 
+> 📖 **Documentation utilisateur** : voir [`docs/`](docs/README.md) — démarrage en 5 mn, guides orientés tâches. Ce README reste la référence technique (dev/exploitation).
+
 ## Fonctionnalités
 
 ### Gestion des contacts
