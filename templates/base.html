@@ -69,6 +69,14 @@
                     <a class="sidebar-link{% if request.endpoint == 'imports.index' %} active{% endif %}" href="{{ url_for('imports.index') }}">Import / Export</a>
                 </div>
                 {% endif %}
+
+                {# Aide : doc utilisateur publique (site externe) — visible par tous #}
+                <div class="sidebar-section">
+                    <div class="sidebar-section-label">Aide</div>
+                    <a class="sidebar-link" href="https://contact-mailer.codeberg.page/"
+                       target="_blank" rel="noopener">📖 Documentation ↗</a>
+                    <a class="sidebar-link{% if request.endpoint == 'public.about' %} active{% endif %}" href="{{ url_for('public.about') }}">À propos</a>
+                </div>
             </nav>
             <div class="sidebar-user">
                 <span class="avatar-sm">{{ ((current_user.prenom or current_user.username or ' ')[0] ~ (current_user.nom or ' ')[0])|upper }}</span>
