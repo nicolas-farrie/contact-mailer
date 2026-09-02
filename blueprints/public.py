@@ -23,6 +23,14 @@ def _instance_identity():
 bp = Blueprint('public', __name__)
 
 
+@bp.route('/a-propos')
+def about():
+    """Page de présentation de l'application (accessible sans authentification)."""
+    name, _color = _instance_identity()
+    return render_template('about.html', product_name='Contact Mailer',
+                           instance_name=name, year=utcnow().year)
+
+
 # === PWA MANIFEST ===
 
 @bp.route('/manifest.json')

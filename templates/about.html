@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}À propos - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="about">
+    <div class="page-header">
+        <h1>À propos</h1>
+    </div>
+
+    <div class="card about-card">
+        <h2 class="about-name">{{ product_name }}</h2>
+        <p class="about-tagline">Votre relation aux contacts — simplement, proprement, chez vous.</p>
+        {% if instance_name and instance_name != product_name %}
+        <p class="hint">Cette instance fonctionne sous le nom «&nbsp;<strong>{{ instance_name }}</strong>&nbsp;».</p>
+        {% endif %}
+
+        <p>Un outil de <strong>gestion de contacts, d'envois et de préférences</strong> pensé pour les
+            <strong>petites structures</strong> : associations, collectifs, groupes militants. Pas de
+            superflu, pas de dépendance à un géant du web — vos données <strong>restent chez vous</strong>,
+            en français, dans le respect du RGPD.</p>
+
+        <h3>Ce qu'il sait faire</h3>
+        <ul class="about-features">
+            <li><strong>Contacts &amp; Listes</strong> — organiser, regrouper, retrouver ; champs
+                personnalisables, import/export vCard &amp; CSV, corbeille réversible.</li>
+            <li><strong>Mailing</strong> — composer un email soigné, prévisualiser, choisir ses
+                destinataires, suivre l'envoi ; réutiliser d'anciens messages, traiter les demandes de
+                diffusion.</li>
+            <li><strong>Formulaires de préférences</strong> — chaque contact choisit lui-même ce qu'il
+                reçoit et corrige ses informations, via un lien personnel — la <strong>vie privée comme
+                garde-fou</strong> dès la conception.</li>
+            <li><strong>Intégrations &amp; Paramètres</strong> — Seafile, BookStack ; apparence, valeurs
+                par défaut, champs personnalisés, utilisateurs.</li>
+        </ul>
+
+        <p>Chaque instance est <strong>indépendante</strong> : une structure, une base, une identité.</p>
+
+        <p class="about-doc">Besoin d'aide pour prendre l'outil en main ?
+            <a href="https://contact-mailer.codeberg.page/" target="_blank" rel="noopener">Consulter la
+                documentation ↗</a></p>
+
+        <hr class="about-sep">
+        <p class="about-credits">Conçu par <strong>Nicolas Farrié</strong>. Développé par
+            <strong>Nicolas Farrié &amp; Claude</strong> (Anthropic).</p>
+        <p class="about-version text-muted">v{{ config.APP_VERSION }} · {{ year }}</p>
+    </div>
+</div>
+
+<style>
+.about { max-width: 720px; margin: 0 auto; }
+.about-card { padding: 1.5rem 1.75rem; }
+.about-name { margin: 0 0 0.15rem; }
+.about-tagline { font-style: italic; color: var(--text-muted); margin: 0 0 1rem; }
+.about-card h3 { margin-top: 1.4rem; }
+.about-features { margin: 0.5rem 0 1rem; padding-left: 1.2rem; }
+.about-features li { margin-bottom: 0.5rem; }
+.about-doc { margin-top: 1rem; }
+.about-sep { border: none; border-top: 1px solid var(--border); margin: 1.4rem 0 1rem; }
+.about-credits { margin: 0 0 0.25rem; }
+.about-version { margin: 0; font-size: 0.85rem; }
+</style>
+{% endblock %}
