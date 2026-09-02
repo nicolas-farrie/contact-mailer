@@ -29,8 +29,10 @@ logs:
 
 # ── Documentation (site statique MkDocs) ─────────────────────────────────────
 # Dépendances isolées de l'app : pip install -r requirements-docs.txt
+# Écoute sur 0.0.0.0 (accès LAN, comme docker-compose.dev) : par défaut mkdocs ne
+# sert que sur 127.0.0.1, injoignable depuis une autre machine du réseau.
 docs-serve:
-	mkdocs serve
+	mkdocs serve -a 0.0.0.0:8000
 
 docs-build:
 	mkdocs build --strict
