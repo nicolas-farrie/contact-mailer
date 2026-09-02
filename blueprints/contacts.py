@@ -9,6 +9,8 @@ from datetime import timedelta
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
+from sqlalchemy import case
+from sqlalchemy.orm import selectinload
 
 from models import db, Contact, Liste, ContactSend, ContactSegment, utcnow
 from config import Config
@@ -18,6 +20,10 @@ from contact_filters import parse_conditions, apply_conditions, filter_ui_metada
 import fields
 
 bp = Blueprint('contacts', __name__)
+
+# Pagination de la liste Contacts : borne le HTML rendu (une base de milliers de
+# contacts générait ~14 Mo de HTML, d'où une latence d'affichage côté navigateur).
+CONTACTS_PER_PAGE = 100
 
 
 def _apply_form(contact, form):
@@ -131,11 +137,42 @@ def index():
     query = _filtered_contacts_query(request.args)
     recent_filter = request.args.get('recent', '').strip()
 
-    # « Ajoutés récemment » → les plus récents d'abord ; sinon tri alphabétique.
-    if recent_filter in ('7', '30'):
-        contacts_list = query.order_by(Contact.created_at.desc()).all()
+    # Eager-load des listes de chaque contact : le template lit `c.listes` par ligne
+    # (attribut data-k-listes) → sans ça, une requête SQL PAR contact (N+1). Avec
+    # selectinload : 2 requêtes au total, quel que soit le nombre de contacts.
+    # Tri SERVEUR (sur TOUTE la base, pas seulement la page affichée) : un clic sur un
+    # en-tête recharge en GET avec ?sort=&dir=. Le ORDER BY s'applique avant le LIMIT,
+    # donc la page N contient bien la bonne tranche du résultat trié globalement.
+    sort = request.args.get('sort', '')
+    direction = 'desc' if request.args.get('dir') == 'desc' else 'asc'
+    statut_rank = case((Contact.is_unsubscribed == True, 1),
+                       (Contact.has_bounced == True, 2), else_=0)
+    sort_columns = {'contact': [Contact.nom, Contact.prenom],
+                    'tel': [Contact.telephone],
+                    'statut': [statut_rank]}
+    if sort in sort_columns:
+        order = [c.desc() if direction == 'desc' else c.asc() for c in sort_columns[sort]]
+        order += [Contact.nom, Contact.prenom]          # départage stable
+    elif recent_filter in ('7', '30'):
+        order = [Contact.created_at.desc()]             # « ajoutés récemment »
     else:
-        contacts_list = query.order_by(Contact.nom, Contact.prenom).all()
+        order = [Contact.nom, Contact.prenom]           # défaut alphabétique
+    query = query.order_by(*order)
+
+    # Séquence complète des ids ordonnés (toutes pages) pour le Précédent/Suivant de la
+    # fiche contact : léger (ids seuls), garde la navigation cohérente sur TOUT le
+    # résultat filtré+trié, pas seulement la page.
+    all_ids = [i for (i,) in query.with_entities(Contact.id).all()]
+
+    # Pagination serveur (LIMIT/OFFSET) : on ne rend qu'une page → borne le HTML. Les
+    # liens conservent la querystring (page_args garde le tri ; sort_args l'exclut pour
+    # que cliquer un en-tête reparte à la page 1).
+    page = request.args.get('page', 1, type=int)
+    pagination = query.options(selectinload(Contact.listes))\
+        .paginate(page=page, per_page=CONTACTS_PER_PAGE, error_out=False)
+    contacts_list = pagination.items
+    page_args = {k: v for k, v in request.args.items() if k != 'page'}
+    sort_args = {k: v for k, v in request.args.items() if k not in ('page', 'sort', 'dir')}
     listes = listes_sorted()
     # Sources distinctes pour le filtre
     sources = db.session.query(Contact.source).filter(Contact.is_deleted == False).distinct().order_by(Contact.source).all()
@@ -143,6 +180,12 @@ def index():
 
     return render_template('contacts.html',
                            contacts=contacts_list,
+                           pagination=pagination,
+                           page_args=page_args,
+                           sort_args=sort_args,
+                           sort=sort,
+                           dir=direction,
+                           all_ids=all_ids,
                            listes=listes,
                            sources=sources,
                            liste_filter=request.args.get('liste', type=int),

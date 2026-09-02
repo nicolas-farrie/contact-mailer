@@ -20,11 +20,40 @@
     {% if c.notes %}<div class="summary-notes"><span class="sk">Notes</span>{{ c.notes }}</div>{% endif %}
 </div>
 {% endmacro %}
+{# Nav de pagination : liens Précédent/Suivant qui CONSERVENT la querystring courante
+   (filtres/recherche) via page_args. Rien si une seule page. #}
+{% macro pager(p, args) %}
+{% if p.pages and p.pages > 1 %}
+<nav class="pagination" aria-label="Pagination" style="display:flex;align-items:center;justify-content:center;gap:0.75rem;margin:0.5rem 0;flex-wrap:wrap;">
+    {% if p.has_prev %}<a class="btn btn-small btn-secondary" href="{{ url_for('contacts.index', page=p.prev_num, **args) }}">← Précédent</a>
+    {% else %}<span class="btn btn-small btn-secondary" style="opacity:0.45;pointer-events:none;">← Précédent</span>{% endif %}
+    <span class="text-muted" style="font-size:0.9rem;">Page {{ p.page }} / {{ p.pages }}</span>
+    {% if p.has_next %}<a class="btn btn-small btn-secondary" href="{{ url_for('contacts.index', page=p.next_num, **args) }}">Suivant →</a>
+    {% else %}<span class="btn btn-small btn-secondary" style="opacity:0.45;pointer-events:none;">Suivant →</span>{% endif %}
+</nav>
+{% endif %}
+{% endmacro %}
+{# En-tête de colonne TRIABLE côté serveur : lien GET qui bascule asc/desc et
+   conserve les filtres (sort_args). Le tri porte sur toute la base, pas la page. #}
+{% macro sorth(key, label) %}
+{% set active = (sort == key) %}
+{% set next_dir = 'desc' if (active and dir != 'desc') else 'asc' %}
+<th class="th-sort{{ ' is-sorted' if active }}">
+    <a href="{{ url_for('contacts.index', sort=key, dir=next_dir, **sort_args) }}">{{ label }}{{ ' ▲' if active and dir != 'desc' else (' ▼' if active and dir == 'desc' else '') }}</a>
+</th>
+{% endmacro %}
 {% set has_filter = search or liste_filter or source_filter or statut_filter or completude_filter or envoi_filter or recent_filter %}
+
+{# Icônes définies UNE fois (voir/éditer), référencées par <use> dans chaque ligne :
+   évite de répéter le tracé SVG complet à chaque contact (poids HTML + nœuds DOM). #}
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="ico-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+    <symbol id="ico-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+</svg>
 
 <div class="page-header">
     <div class="page-header-title">
-        <h1>Contacts <span class="count">{{ contacts|length }}</span></h1>
+        <h1>Contacts <span class="count">{{ pagination.total }}</span></h1>
         <p class="page-subtitle">Les personnes qui reçoivent vos envois.</p>
     </div>
     <div class="page-header-actions">
@@ -257,10 +286,10 @@ if (ADV_CURRENT && ADV_CURRENT.length){ ADV_CURRENT.forEach(function(c){ advAddR
         <thead>
             <tr>
                 <th class="col-checkbox"><input type="checkbox" id="select-all" title="Tout sélectionner"></th>
-                <th class="th-sort" data-k="contact">Contact</th>
-                <th class="th-sort" data-k="tel">Téléphone</th>
-                <th class="th-sort" data-k="listes">Listes</th>
-                <th class="th-sort" data-k="statut">Statut</th>
+                {{ sorth('contact', 'Contact') }}
+                {{ sorth('tel', 'Téléphone') }}
+                <th>Listes</th>
+                {{ sorth('statut', 'Statut') }}
                 <th class="col-edit"></th>
             </tr>
         </thead>
@@ -291,11 +320,11 @@ if (ADV_CURRENT && ADV_CURRENT.length){ ADV_CURRENT.forEach(function(c){ advAddR
                 <td class="col-edit">
                     <a href="{{ url_for('contacts.view', id=c.id, back_liste=liste_filter or '') }}"
                        class="icon-edit view-link" title="Voir la fiche" onclick="event.stopPropagation()" aria-label="Voir">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ico-eye"/></svg>
                     </a>
                     <a href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}"
                        class="icon-edit edit-link" title="Modifier la fiche" onclick="event.stopPropagation()" aria-label="Modifier">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ico-edit"/></svg>
                     </a>
                 </td>
             </tr>
@@ -312,8 +341,8 @@ if (ADV_CURRENT && ADV_CURRENT.length){ ADV_CURRENT.forEach(function(c){ advAddR
     </table>
 
     <div class="contacts-foot">
-        <span class="text-muted">{{ contacts|length }} contact{{ 's' if contacts|length > 1 }}</span>
-        <div class="pager" id="pager"></div>
+        <span class="text-muted">{{ pagination.total }} contact{{ 's' if pagination.total > 1 }}{% if pagination.pages > 1 %} — {{ contacts|length }} sur cette page{% endif %}</span>
+        <div class="pager" id="pager">{{ pager(pagination, page_args) }}</div>
     </div>
 </div>
 
@@ -333,10 +362,10 @@ if (ADV_CURRENT && ADV_CURRENT.length){ ADV_CURRENT.forEach(function(c){ advAddR
                 </div>
             </div>
             <a href="{{ url_for('contacts.view', id=c.id, back_liste=liste_filter or '') }}" class="icon-edit view-link" title="Voir">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ico-eye"/></svg>
             </a>
             <a href="{{ url_for('contacts.edit', id=c.id, back_liste=liste_filter or '') }}" class="icon-edit edit-link" title="Modifier">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ico-edit"/></svg>
             </a>
         </div>
         <div class="contact-card-body">
@@ -360,6 +389,7 @@ if (ADV_CURRENT && ADV_CURRENT.length){ ADV_CURRENT.forEach(function(c){ advAddR
     {% else %}
     <p class="empty">Aucun contact trouvé</p>
     {% endfor %}
+    {{ pager(pagination, page_args) }}
 </div>
 
 {# --- Modale : choix de liste (Ajouter / Transférer / Retirer) --- #}
@@ -532,76 +562,22 @@ document.querySelectorAll('.contact-card').forEach(function(card){
     });
 });
 
-// ---------- Tri (colonnes) — garde chaque résumé apparié à sa ligne ----------
-var mainRows = Array.from(document.querySelectorAll('.contact-row'));
-document.querySelectorAll('#contacts-table th.th-sort').forEach(function(th){
-    th.addEventListener('click', function(){
-        var key = th.dataset.k, numeric = (key === 'statut');
-        var asc = th.dataset.sortDir !== 'asc';
-        th.dataset.sortDir = asc ? 'asc' : 'desc';
-        document.querySelectorAll('#contacts-table th.th-sort').forEach(function(t){ t.classList.remove('sort-asc','sort-desc'); });
-        th.classList.add(asc ? 'sort-asc' : 'sort-desc');
-        mainRows.sort(function(a, b){
-            var av = a.getAttribute('data-k-' + key) || '', bv = b.getAttribute('data-k-' + key) || '';
-            var r = numeric ? (parseFloat(av) - parseFloat(bv)) : av.localeCompare(bv, 'fr', {numeric:true});
-            return asc ? r : -r;
-        });
-        var tbody = document.querySelector('#contacts-table tbody');
-        mainRows.forEach(function(row){ tbody.appendChild(row); var s = summaryOf(row); if (s) tbody.appendChild(s); });
-        page = 1; renderPage();
-    });
-});
-
-// ---------- Pagination client (toutes les lignes restent dans le DOM) ----------
-var PAGE_SIZE = 25;
-var page = 1;
-function pageCount(){ return Math.max(1, Math.ceil(mainRows.length / PAGE_SIZE)); }
-function renderPage(){
-    var start = (page - 1) * PAGE_SIZE, end = start + PAGE_SIZE;
-    mainRows.forEach(function(row, i){
-        var vis = (i >= start && i < end);
-        row.style.display = vis ? '' : 'none';
-        var s = summaryOf(row);
-        if (s) s.hidden = !(vis && row.classList.contains('is-open'));
-    });
-    renderPager();
-}
-function renderPager(){
-    var pager = document.getElementById('pager');
-    pager.innerHTML = '';
-    var total = pageCount();
-    if (total <= 1) return;
-    function btn(label, target, disabled, current){
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'pager-btn' + (current ? ' is-current' : '');
-        b.textContent = label; b.disabled = !!disabled;
-        if (!disabled && !current) b.onclick = function(){ page = target; renderPage(); };
-        pager.appendChild(b);
-    }
-    btn('‹ Précédent', page - 1, page === 1);
-    var from = Math.max(1, page - 2), to = Math.min(total, from + 4);
-    from = Math.max(1, to - 4);
-    if (from > 1) btn('1', 1, false, page === 1);
-    if (from > 2){ var e = document.createElement('span'); e.className='pager-gap'; e.textContent='…'; pager.appendChild(e); }
-    for (var p = from; p <= to; p++) btn(String(p), p, false, p === page);
-    if (to < total - 1){ var e2 = document.createElement('span'); e2.className='pager-gap'; e2.textContent='…'; pager.appendChild(e2); }
-    if (to < total) btn(String(total), total, false, page === total);
-    btn('Suivant ›', page + 1, page === total);
-}
+// Tri des colonnes ET pagination : désormais CÔTÉ SERVEUR (liens GET dans les
+// en-têtes via le macro `sorth`, et pagination LIMIT/OFFSET via le macro `pager`).
+// Le tri porte sur TOUTE la base ; la page N est la bonne tranche du résultat trié.
 
 // ---------- Séquence Précédent/Suivant (fiche vision) ----------
-// La liste ne filtre QUE côté serveur ; le client trie/pagine. mainRows = séquence
-// filtrée complète (toutes pages). On la dépose en session au moment où on ouvre une fiche.
+// Filtrage, tri ET pagination sont côté serveur. La séquence fournie par le serveur =
+// TOUT le résultat filtré+trié (toutes pages), déposée en session à l'ouverture d'une
+// fiche → le Précédent/Suivant reste cohérent au-delà de la page affichée.
+var NAV_SEQ = {{ all_ids | tojson }};
 function saveNavSeq(){
-    try { sessionStorage.setItem('contactNavSeq',
-        JSON.stringify(mainRows.map(function(r){ return parseInt(r.dataset.cid, 10); }))); } catch(_){}
+    try { sessionStorage.setItem('contactNavSeq', JSON.stringify(NAV_SEQ)); } catch(_){}
 }
 document.querySelectorAll('.view-link, .edit-link').forEach(function(a){ a.addEventListener('click', saveNavSeq); });
 
 // ---------- Init ----------
 restoreSel();
 updateCount();
-renderPage();
 </script>
 {% endblock %}
