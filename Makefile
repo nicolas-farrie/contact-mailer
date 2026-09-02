@@ -27,6 +27,21 @@ down:
 logs:
 	docker compose logs -f
 
+# ── Documentation (site statique MkDocs) ─────────────────────────────────────
+# Dépendances isolées de l'app : pip install -r requirements-docs.txt
+docs-serve:
+	mkdocs serve
+
+docs-build:
+	mkdocs build --strict
+
+# Publie le site sur Codeberg Pages : construit puis pousse le dossier site/ sur la
+# branche `pages` du remote Codeberg. Prérequis (voir deploy/docs-codeberg.md) :
+# un remote git `codeberg` pointant sur le dépôt Codeberg dédié à la doc.
+CODEBERG_REMOTE ?= codeberg
+docs-deploy: docs-build
+	ghp-import --no-jekyll --push --force --remote $(CODEBERG_REMOTE) --branch pages site
+
 # ── Déploiement distant ───────────────────────────────────────────────────────
 # Ajouter les serveurs ici : HOST=user@adresse  PATH=/chemin/sur/serveur
 
@@ -39,4 +54,4 @@ deploy-vps2:
 # Tout déployer d'un coup
 deploy-all: deploy-vps1 deploy-vps2
 
-.PHONY: dev dev-down build push up down logs deploy-vps1 deploy-vps2 deploy-all
+.PHONY: dev dev-down build push up down logs docs-serve docs-build docs-deploy deploy-vps1 deploy-vps2 deploy-all

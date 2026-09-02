@@ -1,0 +1,63 @@
+# Site de documentation (MkDocs + thème Material).
+# Source = le dossier docs/ (le même Markdown que dans le dépôt) → site statique.
+#
+#   Prévisualisation locale :  make docs-serve   (http://127.0.0.1:8000)
+#   Build statique :           make docs-build   (→ dossier site/, non versionné)
+#
+# Hébergement volontairement NON câblé ici : la sortie (site/) est 100 % portable
+# (auto-hébergé nginx, Codeberg/GitHub Pages, Scaleway/OVH…). On branchera le
+# déploiement une fois l'hébergeur choisi.
+
+site_name: Contact Mailer — Documentation
+site_description: Guides d'utilisation de l'application de gestion de contacts et d'emailing.
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: fr
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Passer en mode sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Passer en mode clair
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Accueil: README.md
+  - Démarrage en 5 mn: demarrage-5-min.md
+  - Guides:
+      - Segments & Sélection: guides/segments-et-selection.md
+  - Exploitation (admin): admin/README.md
+  - Décisions: decisions/README.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search:
+      lang: fr
+
+# Signale les liens internes cassés au build (garde-fou « véracité »).
+validation:
+  links:
+    absolute_links: relative_to_docs
+    unrecognized_links: warn

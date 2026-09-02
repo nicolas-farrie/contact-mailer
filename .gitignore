@@ -28,3 +28,6 @@ pycharm-dockerisation_token.txt
 
 # Documents de travail (notes de debug, protocoles) — gardés en local, hors git
 doc-travail/
+
+# Site de documentation généré par MkDocs (sortie de build, non versionnée)
+/site/

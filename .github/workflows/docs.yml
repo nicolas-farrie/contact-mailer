@@ -1,0 +1,30 @@
+# Valide le site de documentation à chaque changement dans docs/ ou la config MkDocs.
+# BUILD SEULEMENT (mkdocs build --strict) : garde-fou contre les liens internes cassés
+# et les pages hors sommaire. La PUBLICATION vers Codeberg Pages reste manuelle
+# (`make docs-deploy`) — voir deploy/docs-codeberg.md.
+name: docs
+
+on:
+  push:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-docs.txt
+      - run: mkdocs build --strict

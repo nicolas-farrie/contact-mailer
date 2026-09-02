@@ -1,0 +1,5 @@
+# Dépendances du SITE DE DOCUMENTATION uniquement (MkDocs + thème Material).
+# Séparé de requirements.txt : la doc ne fait pas partie de l'image applicative.
+#   Installation :  pip install -r requirements-docs.txt
+mkdocs-material>=9.5,<10
+ghp-import>=2.1          # publie le dossier site/ sur la branche `pages` (Codeberg Pages)
