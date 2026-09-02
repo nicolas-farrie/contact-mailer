@@ -29,14 +29,14 @@ supérieurs ne servent que quand le besoin apparaît.
 
 > L'idée directrice : **la complexité vit dans le nom d'un segment, pas à l'écran de l'utilisateur.**
 
-## Organisation des dossiers
+## Organisation
 
-| Dossier | Contenu | Public |
-|---|---|---|
-| `docs/` (ici) | Guides utilisateur | Utilisateurs finaux |
-| `docs/guides/` | Focus détaillés par tâche | Utilisateurs finaux |
-| `docs/admin/` | Exploitation (déploiement, sauvegarde, bounce, SMTP) | Admin / exploitant *(à venir)* |
-| `docs/decisions/` | Journal des décisions d'architecture (le « pourquoi ») | Mainteneurs *(à venir)* |
+Ce site rassemble les **guides utilisateur** : cette page d'accueil, le [Démarrage en 5
+mn](demarrage-5-min.md), et les [guides](guides/segments-et-selection.md) détaillés par tâche.
+
+> Les documents d'**exploitation** (déploiement, sauvegarde, bounce, SMTP) et le **journal des
+> décisions** d'architecture sont réservés aux mainteneurs : ils restent dans le dépôt et ne sont pas
+> publiés ici.
 
 ## Conventions de rédaction
 
