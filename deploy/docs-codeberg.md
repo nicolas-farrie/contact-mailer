@@ -9,18 +9,29 @@ branche `pages` que Codeberg sert automatiquement.
 
 ## Mise en place (une seule fois)
 
-1. **Compte Codeberg** : créer un compte sur https://codeberg.org (gratuit).
-2. **Dépôt de publication** : créer un dépôt, p. ex. `contact-mailer-docs` (peut être vide).
-   Codeberg Pages sert la branche `pages` de ce dépôt à l'adresse :
-   `https://<utilisateur>.codeberg.page/contact-mailer-docs/`
-   *(Astuce : un dépôt nommé exactement `pages` est servi à la racine
-   `https://<utilisateur>.codeberg.page/` — au choix.)*
-3. **Authentification** : ajouter sa **clé SSH** dans Codeberg (Settings → SSH keys), ou utiliser un
-   token HTTPS. On s'en sert pour le `git push`.
-4. **Remote git local** : depuis ce dépôt (contact-mailer), ajouter le remote Codeberg :
+Codeberg utilise le **nouveau serveur « git-pages »** : contenu **public**, sur une branche nommée
+**`pages`**, et un **webhook** qui déclenche le déploiement à chaque push. (L'ancien serveur, qui
+servait sans webhook, est refusé aux comptes/orgas récents.)
+
+1. **Compte Codeberg** : sur https://codeberg.org (gratuit).
+2. **Organisation** (pour une URL propre) : créer une orga, p. ex. `contact-mailer`. Le **nom de
+   l'orga = le sous-domaine** → `https://contact-mailer.codeberg.page/`.
+3. **Dépôt de publication PUBLIC**, nommé **`pages`**, sous l'orga (⚠ champ *Owner* = l'orga, pas le
+   compte perso). Un dépôt nommé `pages` est servi **à la racine** de l'orga (sinon `/<dépôt>/`).
+4. **Clé SSH** : ajouter sa clé publique dans Codeberg (Settings → SSH / GPG Keys → onglet SSH). Sert
+   au `git push`.
+5. **Remote git local** :
    ```bash
-   git remote add codeberg git@codeberg.org:<utilisateur>/contact-mailer-docs.git
+   git remote add codeberg git@codeberg.org:contact-mailer/pages.git
    ```
+6. **Webhook (indispensable, nouveau)** : dans le dépôt `pages` → **Settings → Webhooks → Add Webhook
+   → Forgejo** :
+   - **Target URL** : `https://contact-mailer.codeberg.page/`  *(le dépôt s'appelle `pages` → pas de
+     `/…` à la fin ; sinon, mettre `/<dépôt>`)*
+   - **Branch filter** : `pages`
+   - laisser POST / `application/json` par défaut, cocher *Active*, **Add Webhook**.
+
+   C'est ce webhook qui prévient le serveur pages à chaque push sur `pages`.
 
 ## Publier / mettre à jour
 

@@ -37,12 +37,14 @@ docs-serve:
 docs-build:
 	mkdocs build --strict
 
-# Publie le site sur Codeberg Pages : construit puis pousse le dossier site/ sur la
-# branche `pages` du remote Codeberg. Prérequis (voir deploy/docs-codeberg.md) :
-# un remote git `codeberg` pointant sur le dépôt Codeberg dédié à la doc.
+# Publie le site sur Codeberg Pages (nouveau serveur « git-pages ») : construit puis
+# pousse site/ sur la branche `pages` du remote Codeberg. Prérequis (voir
+# deploy/docs-codeberg.md) : un remote git `codeberg` ET un webhook Forgejo dans le
+# dépôt (c'est lui qui déclenche le déploiement à chaque push sur `pages`).
 CODEBERG_REMOTE ?= codeberg
+CODEBERG_BRANCH ?= pages
 docs-deploy: docs-build
-	ghp-import --no-jekyll --push --force --remote $(CODEBERG_REMOTE) --branch pages site
+	ghp-import --no-jekyll --push --force --remote $(CODEBERG_REMOTE) --branch $(CODEBERG_BRANCH) site
 
 # ── Déploiement distant ───────────────────────────────────────────────────────
 # Ajouter les serveurs ici : HOST=user@adresse  PATH=/chemin/sur/serveur
