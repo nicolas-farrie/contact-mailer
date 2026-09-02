@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, cast, Float
 
 from models import db, Contact, Liste
+from helpers import phone_digits, phone_digits_sql
 import fields
 
 # --- Opérateurs autorisés par type (métadata, sert aussi à l'UI en P3) ---
@@ -275,7 +276,21 @@ def build_predicate(field_key, op, value):
     if op == 'is_not_empty':
         return db.not_(_empty(col))
 
-    if ftype in ('text', 'email', 'tel', 'textarea'):
+    if ftype == 'tel':
+        # Téléphone : comparaison sur les CHIFFRES seuls (insensible aux séparateurs)
+        # → « 0622363940 » retrouve « 06 22 36 39 40 ». Cf. helpers.phone_digits.
+        digits = phone_digits(value)
+        if not digits:
+            return None
+        tel = phone_digits_sql(col)
+        if op == 'contains':
+            return tel.like(f'%{digits}%')
+        if op == 'equals':
+            return tel == digits
+        if op == 'starts_with':
+            return tel.like(f'{digits}%')
+
+    if ftype in ('text', 'email', 'textarea'):
         if value in (None, ''):
             return None
         pat = _like_escape(value)

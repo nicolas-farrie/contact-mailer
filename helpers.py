@@ -55,6 +55,27 @@ def nom_sort_key(nom):
     return ' '.join(''.join(c for c in s if not unicodedata.combining(c)).split())
 
 
+# --- Téléphone : comparaison insensible aux séparateurs ---------------------------
+# On stocke le numéro tel que saisi (« 06 22 36 39 40 ») ; pour la recherche, on
+# compare les CHIFFRES seuls de part et d'autre → « 0622363940 » retrouve le contact.
+_PHONE_SEPARATORS = (' ', '.', '-', '(', ')', ' ', '/')
+
+
+def phone_digits(s):
+    """Chiffres seuls d'une chaîne (côté Python), quel que soit le formatage."""
+    return re.sub(r'\D', '', s or '')
+
+
+def phone_digits_sql(col):
+    """Expression SQL : `col` dépouillé de ses séparateurs courants (espace, point,
+    tiret, parenthèses, /…), pour matcher un numéro indépendamment de son format.
+    Ne retire QUE les séparateurs (pas un éventuel « + » de préfixe international)."""
+    expr = col
+    for sep in _PHONE_SEPARATORS:
+        expr = db.func.replace(expr, sep, '')
+    return expr
+
+
 def listes_sorted(is_archived=False):
     """Listes triées lisiblement (cf. nom_sort_key). `is_archived` : False = actives
     (défaut), True = archivées, None = toutes. Source unique du tri des listes dans

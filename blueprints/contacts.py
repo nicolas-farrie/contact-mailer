@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from models import db, Contact, Liste, ContactSend, ContactSegment, utcnow
 from config import Config
-from helpers import admin_required, listes_sorted
+from helpers import admin_required, listes_sorted, phone_digits, phone_digits_sql
 from contact_set import ContactSet
 from contact_filters import parse_conditions, apply_conditions, filter_ui_metadata, conditions_for_ui
 import fields
@@ -114,15 +114,19 @@ def _filtered_contacts_query(args):
 
     if search:
         search_pattern = f'%{search}%'
-        query = query.filter(
-            db.or_(
-                Contact.nom.ilike(search_pattern),
-                Contact.prenom.ilike(search_pattern),
-                Contact.email.ilike(search_pattern),
-                Contact.organisation.ilike(search_pattern),
-                Contact.adresse_ville.ilike(search_pattern)
-            )
-        )
+        clauses = [
+            Contact.nom.ilike(search_pattern),
+            Contact.prenom.ilike(search_pattern),
+            Contact.email.ilike(search_pattern),
+            Contact.organisation.ilike(search_pattern),
+            Contact.adresse_ville.ilike(search_pattern),
+        ]
+        # Téléphone : recherche insensible aux séparateurs — on compare les CHIFFRES de
+        # la requête aux chiffres du numéro stocké (souvent formaté « 06 22 36 … »).
+        tel_digits = phone_digits(search)
+        if tel_digits:
+            clauses.append(phone_digits_sql(Contact.telephone).like(f'%{tel_digits}%'))
+        query = query.filter(db.or_(*clauses))
 
     # Filtres avancés : conditions typées (champs standard + perso), combinées en ET
     # (défaut) ou en OU (af.join=or). Additif aux pills simples. Cf. contact_filters.py.
