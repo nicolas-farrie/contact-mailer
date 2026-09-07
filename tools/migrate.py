@@ -2,11 +2,27 @@
 """
 Point d'entrée UNIQUE et STABLE des migrations DB (runner maison léger).
 
-Appelé après le restart du conteneur, quelle que soit la version de départ :
-    docker compose exec -T app python tools/migrate.py            # applique le pending
-    docker compose exec -T app python tools/migrate.py --dry-run  # liste sans écrire
-    docker compose exec -T app python tools/migrate.py --stamp    # baseline (marque tout appliqué SANS exécuter)
-    docker compose exec -T app python tools/migrate.py --safe-only # n'applique que les migrations additives (pré-cutover)
+Appelé après le restart du conteneur, quelle que soit la version de départ.
+
+⚠️ Utiliser `run`, PAS `exec` : quand le nouveau code attend une colonne que la
+migration n'a pas encore créée, l'app meurt au démarrage (gunicorn --preload) et
+part en boucle de redémarrage — `exec` exige un conteneur vivant, donc échoue avec
+« is restarting, wait until the container is running », exactement quand on a besoin
+de lui. `run` crée un conteneur neuf avec la même image et les mêmes volumes ; ce
+script n'importe pas l'app (sqlite3 direct), il tourne donc sans elle.
+Constaté en montant aubaygues de v2.2.1 à v2.3.0-beta.8 (colonne user.is_moderator).
+
+    docker compose run --rm --no-deps app python tools/migrate.py            # applique le pending
+    docker compose run --rm --no-deps app python tools/migrate.py --dry-run  # liste sans écrire
+    docker compose run --rm --no-deps app python tools/migrate.py --stamp    # baseline (marque tout appliqué SANS exécuter)
+    docker compose run --rm --no-deps app python tools/migrate.py --safe-only # n'applique que les migrations additives (pré-cutover)
+
+Séquence complète d'une montée de version :
+    1. sauvegarde   : tar czf backups/data-$(date +%Y%m%d-%H%M%S).tar.gz data
+    2. nouveau tag  : éditer l'image dans docker-compose.yml, puis docker compose pull
+    3. bascule      : docker compose up -d          (l'app peut boucler ici : normal)
+    4. migrations   : docker compose run --rm --no-deps app python tools/migrate.py
+    5. relance      : docker compose up -d          (l'app démarre pour de bon)
 
 Principes :
 - **Ledger** `schema_migrations(name, applied_at)` dans la base : source de vérité de
