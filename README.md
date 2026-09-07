@@ -298,4 +298,20 @@ Fonctionnement :
 
 ## Licence
 
-Usage privé.
+**GNU Affero General Public License v3.0 ou ultérieure** (AGPL-3.0-or-later) —
+texte complet dans [`LICENSE`](LICENSE).
+
+Copyright (C) 2026 Nicolas Farrié
+
+Vous êtes libre d'utiliser, étudier, modifier et redistribuer cette application.
+En contrepartie, l'AGPL impose que toute version modifiée **mise à disposition par le
+réseau** (et pas seulement redistribuée sous forme de fichiers) offre son code source à
+ses utilisateurs — c'est l'article 13, celui qui distingue l'AGPL de la GPL et qui a
+motivé ce choix : Contact Mailer est une application web, et sa promesse de
+souveraineté doit survivre à ses dérivés.
+
+Déployer l'application telle quelle, sans la modifier, n'impose aucune démarche.
+
+Dépendances tierces : toutes sous licences permissives compatibles (Flask, Werkzeug —
+BSD ; SQLAlchemy, Flask-Login, gunicorn, openpyxl, TinyMCE — MIT ; requests, vobject —
+Apache-2.0).
