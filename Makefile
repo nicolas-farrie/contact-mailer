@@ -1,16 +1,30 @@
 IMAGE  = ghcr.io/nicolas-farrie/contact-mailer
 VERSION = $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+# Identité de la build affichée sur /a-propos (cf. Dockerfile ARG/ENV) : le commit
+# exact lève l'ambiguïté d'un VERSION « -dirty », la date situe l'image dans le temps.
+GIT_COMMIT = $(shell git rev-parse --short HEAD 2>/dev/null || echo "")
+BUILD_DATE = $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# Écrit .version (describe + SHA de HEAD) : le conteneur n'a pas git et ne peut pas
+# recalculer le tag. Le SHA sert à détecter un fichier périmé (cf. config.py).
+version-file:
+	@printf '%s\n%s\n' "$(VERSION)" "$(GIT_COMMIT)" > .version
 
 # ── Dev local ────────────────────────────────────────────────────────────────
-dev:
+dev: version-file
 	docker compose -f docker-compose.dev.yml up --build
+
+# Comme `dev`, mais détaché (équivaut au `docker compose ... up -d` tapé à la main).
+dev-up: version-file
+	docker compose -f docker-compose.dev.yml up -d --build
 
 dev-down:
 	docker compose -f docker-compose.dev.yml down
 
 # ── Build & push ─────────────────────────────────────────────────────────────
-build:
-	docker build --build-arg APP_VERSION=$(VERSION) -t $(IMAGE):$(VERSION) -t $(IMAGE):latest .
+build: version-file
+	docker build --build-arg APP_VERSION=$(VERSION) --build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg BUILD_DATE=$(BUILD_DATE) -t $(IMAGE):$(VERSION) -t $(IMAGE):latest .
 	@echo "Image : $(IMAGE):$(VERSION)"
 
 push: build
@@ -58,4 +72,4 @@ deploy-vps2:
 # Tout déployer d'un coup
 deploy-all: deploy-vps1 deploy-vps2
 
-.PHONY: dev dev-down build push up down logs docs-serve docs-build docs-deploy deploy-vps1 deploy-vps2 deploy-all
+.PHONY: version-file dev dev-up dev-down build push up down logs docs-serve docs-build docs-deploy deploy-vps1 deploy-vps2 deploy-all

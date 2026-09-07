@@ -21,7 +21,7 @@
                 <div class="sidebar-brand-text">
                     <span class="sidebar-app-name">{{ app_name }}</span>
                     {% set display = config.DISPLAY_NAME or config.INSTANCE_NAME %}
-                    <span class="sidebar-meta" title="Version de l'image déployée">v{{ config.APP_VERSION }}{% if display %} · {{ display }}{% endif %}</span>
+                    <span class="sidebar-meta" title="Version de l'image déployée">{{ config.APP_VERSION }}{% if display %} · {{ display }}{% endif %}</span>
                 </div>
             </div>
             <nav class="sidebar-nav">

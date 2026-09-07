@@ -14,6 +14,11 @@ services:
       - "0.0.0.0:8100:8100"
     volumes:
       - ./data:/app/data
+      # Lecture seule : permet à config.py de lire le commit réellement monté
+      # (le code est hot-reloadé, la version figée au build serait fausse).
+      - ./.git:/app/.git:ro
+      # Tag de version (généré par `make version-file` ou le hook git post-commit).
+      - ./.version:/app/.version:ro
       # Hot-reload du code sans rebuild (pratique en dev)
       - ./app.py:/app/app.py
       - ./models.py:/app/models.py

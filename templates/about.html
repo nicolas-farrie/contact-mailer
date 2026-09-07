@@ -42,7 +42,18 @@
         <hr class="about-sep">
         <p class="about-credits">Conçu par <strong>Nicolas Farrié</strong>. Développé par
             <strong>Nicolas Farrié &amp; Claude</strong> (Anthropic).</p>
-        <p class="about-version text-muted">v{{ config.APP_VERSION }} · {{ year }}</p>
+        {# Pas de « v » en dur : la valeur est un git describe, qui porte déjà celui du tag. #}
+        <p class="about-version text-muted">{{ config.APP_VERSION }}{% if config.APP_VERSION_STALE %}
+            <span class="about-build-live" title="Tag lu dans .version, non régénéré depuis : se fier au commit ci-dessous">(périmé)</span>{% endif %} · {{ year }}</p>
+        {% if config.GIT_COMMIT or build_date %}
+        <p class="about-build text-muted">
+            {%- if config.GIT_COMMIT %}commit {{ config.GIT_COMMIT }}{% endif -%}
+            {%- if config.GIT_COMMIT and config.GIT_COMMIT_IS_LIVE %} <span class="about-build-live"
+                title="Commit lu au démarrage : le code monté a pu changer depuis">(code monté)</span>{% endif -%}
+            {%- if config.GIT_COMMIT and build_date %} · {% endif -%}
+            {%- if build_date %}build {{ build_date }}{% endif -%}
+        </p>
+        {% endif %}
     </div>
 </div>
 
@@ -58,5 +69,9 @@
 .about-sep { border: none; border-top: 1px solid var(--border); margin: 1.4rem 0 1rem; }
 .about-credits { margin: 0 0 0.25rem; }
 .about-version { margin: 0; font-size: 0.85rem; }
+/* Identité de build : secondaire par rapport à la version, mais sélectionnable
+   d'un coup (monospace) pour être collée dans un rapport de bug. */
+.about-build { margin: 0.15rem 0 0; font-size: 0.78rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.about-build-live { font-family: inherit; opacity: 0.75; }
 </style>
 {% endblock %}

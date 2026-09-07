@@ -31,3 +31,6 @@ doc-travail/
 
 # Site de documentation généré par MkDocs (sortie de build, non versionnée)
 /site/
+
+# Version générée (git describe + SHA de HEAD) — dérivée de git, jamais versionnée
+/.version

@@ -4,10 +4,70 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.absolute()
 
 
+def _git_head_short():
+    """SHA court de HEAD lu directement dans .git, sans le binaire git.
+
+    Sert de repli en dev : le conteneur monte le code en volumes (hot-reload), donc
+    la version figée au build ment dès le commit suivant. Lire HEAD au démarrage
+    donne le commit réellement monté. Renvoie '' hors dépôt git (cas de l'image).
+    """
+    try:
+        git_dir = BASE_DIR / '.git'
+        head = (git_dir / 'HEAD').read_text().strip()
+        if not head.startswith('ref: '):
+            return head[:7]  # HEAD détachée : le SHA est écrit tel quel
+        ref = head[5:].strip()
+        ref_file = git_dir / ref
+        if ref_file.exists():
+            return ref_file.read_text().strip()[:7]
+        # Référence empaquetée (git gc) : la retrouver dans packed-refs
+        for line in (git_dir / 'packed-refs').read_text().splitlines():
+            if line.endswith(' ' + ref):
+                return line.split(' ', 1)[0][:7]
+    except OSError:
+        pass
+    return ''
+
+
+def _version_file():
+    """(version, périmée) lues dans .version — généré par le Makefile ou le hook git.
+
+    Le conteneur n'a pas le binaire git : `git describe` (tag + distance) ne peut pas
+    être recalculé au runtime, on le lit donc dans ce fichier. Sa 2e ligne porte le SHA
+    de HEAD au moment de la génération ; le comparer à HEAD dit si le fichier a décroché
+    du code réellement monté — mieux vaut signaler un tag périmé que l'afficher pour vrai.
+    """
+    try:
+        lines = (BASE_DIR / '.version').read_text().split()
+    except OSError:  # absent, ou répertoire créé par un montage Docker sans fichier
+        return '', False
+    if not lines:
+        return '', False
+    described, stamped = lines[0], (lines[1] if len(lines) > 1 else '')
+    head = _git_head_short()
+    return described, bool(head and stamped and head != stamped)
+
+
+# Version : l'env prime (injecté au build en prod), sinon le fichier, sinon 'dev'.
+# 'dev' est le défaut du Dockerfile, donc traité comme « non renseigné ».
+_ENV_VERSION = os.environ.get('APP_VERSION', '')
+_FILE_VERSION, _FILE_STALE = _version_file()
+
+
 class Config:
     # Version de l'image, injectée au build (cf. Dockerfile ARG/ENV, Makefile) —
     # affichée dans le header pour identifier la version tournant sur chaque instance.
-    APP_VERSION = os.environ.get('APP_VERSION', 'dev')
+    APP_VERSION = (_ENV_VERSION if _ENV_VERSION != 'dev' else '') or _FILE_VERSION or 'dev'
+    # Vrai quand la version vient d'un .version qui a décroché du code monté.
+    APP_VERSION_STALE = _FILE_STALE and APP_VERSION == _FILE_VERSION
+
+    # Identité précise de la build, pour le débogage (affichée sur /a-propos).
+    # GIT_COMMIT vient du build en prod ; à défaut on lit HEAD au démarrage, ce qui
+    # couvre le dev où le code monté n'est pas celui de l'image.
+    GIT_COMMIT = os.environ.get('GIT_COMMIT', '') or _git_head_short()
+    BUILD_DATE = os.environ.get('BUILD_DATE', '')
+    # Vrai quand le commit n'a pas été figé au build : le code peut avoir bougé depuis.
+    GIT_COMMIT_IS_LIVE = not os.environ.get('GIT_COMMIT', '')
 
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
     SQLALCHEMY_DATABASE_URI = os.environ.get(

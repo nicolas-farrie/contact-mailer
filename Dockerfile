@@ -1,7 +1,14 @@
 FROM python:3.11-slim
 
+# Identité de la build, injectée par le Makefile (cf. cible `build`) : version
+# lisible, commit exact et date. Affichées sur /a-propos pour le débogage —
+# savoir quel code tourne réellement sur une instance.
 ARG APP_VERSION=dev
-ENV APP_VERSION=${APP_VERSION}
+ARG GIT_COMMIT=
+ARG BUILD_DATE=
+ENV APP_VERSION=${APP_VERSION} \
+    GIT_COMMIT=${GIT_COMMIT} \
+    BUILD_DATE=${BUILD_DATE}
 
 WORKDIR /app
 

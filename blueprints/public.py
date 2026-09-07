@@ -7,6 +7,7 @@ public.forgot_password, public.pwa_manifest, public.pwa_icon.
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify, Response, current_app)
 from flask_login import login_user, logout_user, login_required, current_user
+from datetime import datetime
 from werkzeug.security import check_password_hash
 
 from models import db, User, Contact, utcnow
@@ -23,12 +24,24 @@ def _instance_identity():
 bp = Blueprint('public', __name__)
 
 
+def _build_date_label():
+    """Date de build en clair (AAAA-MM-JJ HH:MM UTC) ; '' si non injectée au build."""
+    raw = Config.BUILD_DATE
+    if not raw:
+        return ''
+    try:
+        return datetime.strptime(raw, '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m-%d %H:%M UTC')
+    except ValueError:
+        return raw  # format inattendu : afficher tel quel plutôt que rien
+
+
 @bp.route('/a-propos')
 def about():
     """Page de présentation de l'application (accessible sans authentification)."""
     name, _color = _instance_identity()
     return render_template('about.html', product_name='Contact Mailer',
-                           instance_name=name, year=utcnow().year)
+                           instance_name=name, year=utcnow().year,
+                           build_date=_build_date_label())
 
 
 # === PWA MANIFEST ===
