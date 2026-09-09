@@ -62,6 +62,10 @@ class Connector:
 
     can_feed_lists = False
 
+    #: Libellé de l'entrée de menu vers ses groupes. « Bénévoles NOÉ » ne vaut que pour
+    #: NOÉ : c'est au connecteur de nommer ce qu'il apporte, pas au template.
+    feed_menu_label = ''
+
     def instance_key(self):
         """Identifie l'installation, pour ne pas mélanger deux sources du même service.
 
@@ -99,6 +103,7 @@ class Connector:
             'doc_url': self.doc_url,
             'configured': self.is_configured(),
             'can_feed_lists': self.can_feed_lists,
+            'feed_menu_label': self.feed_menu_label or self.label,
             'missing': self.missing_settings(),
             'target': self.target(),
         }
@@ -138,6 +143,7 @@ class NoeConnector(Connector):
     required_settings = ('NOE_URL', 'NOE_TOKEN', 'NOE_PROJECT_ID')
 
     can_feed_lists = True
+    feed_menu_label = 'Bénévoles NOÉ'
 
     def target(self):
         return Config.NOE_URL or ''

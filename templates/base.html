@@ -27,17 +27,21 @@
             <nav class="sidebar-nav">
                 <div class="sidebar-section">
                     <div class="sidebar-section-label">Travail</div>
-                    <a class="sidebar-link{% if request.endpoint == 'listes.index' %} active{% endif %}" href="{{ url_for('listes.index') }}">Listes</a>
-                    {# Hors du bloc « Configuration » (réservé aux admins) : alimenter une
-                       liste depuis les bénévoles est un geste de travail, pas un réglage,
-                       et la page est ouverte à tous (cf. api_integrations.noe). N'apparaît
-                       que si le connecteur est configuré, pour ne pas encombrer les
-                       instances qui n'utilisent pas NOÉ. #}
-                    {% for c in integrations_nav %}
-                    {% if c.name == 'noe' and c.configured %}
-                    <a class="sidebar-link{% if request.endpoint == 'api_integrations.noe' %} active{% endif %}" href="{{ url_for('api_integrations.noe') }}">Bénévoles NOÉ</a>
+                    <a class="sidebar-link{% if request.endpoint in ['listes.index', 'api_integrations.noe'] %} active{% endif %}" href="{{ url_for('listes.index') }}">Listes</a>
+                    {# Les sources externes qui alimentent des listes sont des sous-items de
+                       Listes : c'est de la liste qu'il s'agit, pas d'une rubrique à part.
+                       Hors du bloc « Configuration » (admins) car alimenter une liste est un
+                       geste de travail, pas un réglage — la page est ouverte à tous. Rien ne
+                       s'affiche si aucun connecteur n'alimente de listes. #}
+                    {% set feeders = integrations_nav | selectattr('configured') | selectattr('can_feed_lists') | list %}
+                    {% if feeders and request.endpoint in ['listes.index', 'api_integrations.noe'] %}
+                    <div class="sidebar-subnav">
+                        <a class="sidebar-sublink{% if request.endpoint == 'listes.index' %} active{% endif %}" href="{{ url_for('listes.index') }}">Toutes les listes</a>
+                        {% for c in feeders %}
+                        <a class="sidebar-sublink{% if request.endpoint == 'api_integrations.' ~ c.name %} active{% endif %}" href="{{ url_for('api_integrations.' ~ c.name) }}">{{ c.feed_menu_label }}</a>
+                        {% endfor %}
+                    </div>
                     {% endif %}
-                    {% endfor %}
                     <a class="sidebar-link{% if request.blueprint in ['contacts', 'selection'] %} active{% endif %}" href="{{ url_for('contacts.index') }}">Contacts</a>
                     {% if request.blueprint in ['contacts', 'selection'] %}
                     <div class="sidebar-subnav">
