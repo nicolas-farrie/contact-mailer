@@ -13,7 +13,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify)
 from flask_login import current_user, login_required
 
-from models import db, Contact, Liste, BookstackRole, utcnow
+from models import db, Contact, Liste, BookstackRole, ListSource, ExternalIdentity, utcnow
 from config import Config
 from connectors import all_status, get_connector
 from helpers import admin_required, listes_sorted
@@ -51,9 +51,13 @@ def noe():
         level = 'category'
 
     cfg = get_connector('noe')
+    # Pôles déjà rattachés à une liste : proposer « Alimenter » pour eux induirait en
+    # erreur, puisqu'une liste n'a qu'une source et qu'un pôle n'alimente qu'une liste.
+    fed_refs = {s.ref: s.liste.nom for s in ListSource.query.filter_by(
+        provider=cfg.name, instance=cfg.instance_key()).all()}
     ctx = {'level': level, 'configured': cfg.is_configured(), 'missing': cfg.missing_settings(),
            'project_name': '', 'groups': [], 'error': None, 'total': 0,
-           'active_tab': 'noe'}
+           'fed_refs': fed_refs, 'active_tab': 'noe'}
 
     if ctx['configured']:
         try:
@@ -75,6 +79,136 @@ def noe():
             ctx['error'] = str(e)
 
     return render_template('noe.html', **ctx)
+
+
+@bp.route('/integrations/noe/feed', methods=['GET', 'POST'])
+@login_required
+def noe_feed():
+    """Rattache un pôle NOÉ à une liste : analyse d'abord, alimentation ensuite.
+
+    Réutilise l'import existant (_dry_run / _run_import de blueprints.imports) sans le
+    modifier : le connecteur renvoie des dicts dont les clés sont déjà des noms de
+    champs, donc un mapping identité suffit. Même code, mêmes garde-fous, mêmes modes
+    de conflit que pour un fichier — une source d'API n'a pas à être un cas à part.
+    """
+    from blueprints.imports import _dry_run, _run_import, _key_sets, _custom_types
+
+    cfg = get_connector('noe')
+    if not cfg.is_configured():
+        flash('NOÉ non configuré.', 'error')
+        return redirect(url_for('api_integrations.noe'))
+
+    ref = (request.values.get('ref') or '').strip()
+    if not ref:
+        return redirect(url_for('api_integrations.noe'))
+
+    mode = request.values.get('mode', 'fill')
+    if mode not in ('skip', 'fill', 'overwrite'):
+        mode = 'fill'
+    action = request.values.get('action', '')
+
+    # Seules les listes SANS source peuvent être rattachées : une liste n'a qu'un maître.
+    libres = [l for l in listes_sorted(is_archived=False) if l.source is None]
+
+    try:
+        members = cfg.fetch_members(ref)
+    except RuntimeError as e:
+        flash(f'NOÉ injoignable : {e}', 'error')
+        return redirect(url_for('api_integrations.noe'))
+
+    ctx = {'ref': ref, 'members': members, 'listes': libres, 'mode': mode,
+           'counts': None, 'conflicts': None, 'unsubscribed': [], 'trashed': [],
+           'target_kind': request.values.get('target_kind', 'new'),
+           'new_list_name': request.values.get('new_list_name', ref),
+           'liste_id': request.values.get('liste_id', ''),
+           'active_tab': 'noe'}
+
+    # Ce que l'utilisateur doit savoir avant d'écrire : les désabonnés ne recevront rien
+    # malgré leur présence dans la liste, et un contact en corbeille serait recréé en
+    # double par l'import (qui ne cherche que parmi les vivants).
+    emails = [m['email'].strip().lower() for m in members if m.get('email')]
+    if emails:
+        rows = Contact.query.filter(db.func.lower(Contact.email).in_(emails)).all()
+        ctx['unsubscribed'] = [c for c in rows if not c.is_deleted and c.is_unsubscribed]
+        ctx['trashed'] = [c for c in rows if c.is_deleted]
+
+    if action in ('preview', 'run'):
+        col_keys, custom_keys = _key_sets()
+        custom_types = _custom_types()
+        # Mapping identité : les clés du connecteur SONT des clés de champs.
+        # `source` s'y ajoute pour tracer l'origine des fiches créées : _import_mapped
+        # l'honore à la création (imports.py) et écrirait « Import » sinon, ce qui ferait
+        # perdre de quel service elles viennent.
+        mapping = {k: k for k in ('email', 'prenom', 'nom', 'telephone', 'source')}
+        rows_in = [dict({k: m.get(k, '') for k in mapping}, source=cfg.label)
+                   for m in members]
+
+        if action == 'preview':
+            counts, _s, conflicts = _dry_run(rows_in, mapping, col_keys, custom_keys,
+                                             custom_types, mode, [])
+            ctx['counts'], ctx['conflicts'] = counts, conflicts
+            return render_template('noe_feed.html', **ctx)
+
+        # === Alimentation réelle ===
+        liste = None
+        if ctx['target_kind'] == 'existing':
+            liste = Liste.query.get(int(ctx['liste_id'])) if ctx['liste_id'] else None
+            if liste is None or liste.source is not None:
+                flash('Choisissez une liste sans source.', 'error')
+                return render_template('noe_feed.html', **ctx)
+        else:
+            nom = (ctx['new_list_name'] or ref).strip()
+            if Liste.query.filter_by(nom=nom).first():
+                flash(f'Une liste « {nom} » existe déjà — choisissez-la ou changez de nom.', 'error')
+                return render_template('noe_feed.html', **ctx)
+            liste = Liste(nom=nom, created_by_id=current_user.id)
+            db.session.add(liste)
+            db.session.flush()
+
+        # _run_import attend des NOMS de listes (cf. _get_or_create_listes), pas des
+        # objets : la liste vient d'être créée, elle sera retrouvée par son nom.
+        counts = _run_import(rows_in, mapping, col_keys, custom_keys, custom_types,
+                             mode, [liste.nom], current_user.id)
+
+        # La source : à partir d'ici la liste est un reflet, non modifiable à la main.
+        liste.source = ListSource(provider=cfg.name, instance=cfg.instance_key(),
+                                  ref=ref, label=ref, last_sync_at=utcnow())
+        _link_identities(cfg, members)
+        db.session.commit()
+
+        flash(f"« {liste.nom} » est alimentée depuis {cfg.label} : "
+              f"{counts['created']} créés, {counts['updated']} mis à jour, "
+              f"{counts['skipped']} inchangés.", 'success')
+        if ctx['unsubscribed']:
+            flash(f"{len(ctx['unsubscribed'])} contact(s) de cette liste sont désabonnés : "
+                  f"ils n'y recevront aucun envoi.", 'warning')
+        return redirect(url_for('contacts.index', liste=liste.id))
+
+    return render_template('noe_feed.html', **ctx)
+
+
+def _link_identities(connector, members):
+    """Apparie durablement chaque membre à son contact, par email puis par identité.
+
+    C'est ce qui rend les synchronisations suivantes indépendantes de l'email : si une
+    personne change d'adresse chez elle ou chez nous, l'identité externe garde le lien.
+    N'écrase jamais un appariement existant.
+    """
+    instance = connector.instance_key()
+    for m in members:
+        ext_id, email = (m.get('ext_id') or '').strip(), (m.get('email') or '').strip().lower()
+        if not ext_id or not email:
+            continue
+        known = ExternalIdentity.query.filter_by(provider=connector.name,
+                                                 instance=instance,
+                                                 external_id=ext_id).first()
+        if known:
+            continue
+        contact = Contact.query.filter(db.func.lower(Contact.email) == email,
+                                       Contact.is_deleted == False).first()
+        if contact:
+            db.session.add(ExternalIdentity(contact_id=contact.id, provider=connector.name,
+                                            instance=instance, external_id=ext_id))
 
 
 # === BOOKSTACK ===

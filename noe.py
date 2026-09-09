@@ -236,6 +236,12 @@ def build_group_index(client, level='category', project=None):
             'telephone': _normalize_phone(
                 (reg.get('formAnswers') or {}).get(phone_key)) if phone_key else '',
             'groupes': sorted(names),
+            # Identité NOÉ de la personne, pour l'apparier durablement côté
+            # contact-mailer (cf. ExternalIdentity) : c'est elle qui rend les
+            # synchronisations suivantes idempotentes, là où l'email peut changer.
+            # L'utilisateur plutôt que l'inscription : une même personne a une
+            # inscription par projet, mais un seul compte.
+            'ext_id': user.get('_id') or '',
         }
 
         # GROUP_ALL rassemble tout le monde, y compris qui n'a pas encore de créneau.

@@ -56,7 +56,14 @@
         <tr>
             <td>{{ g.name }}</td>
             <td>{{ g.count }}</td>
-            <td class="actions-cell"><span class="hint">Import à venir</span></td>
+            <td class="actions-cell">
+                {% if g.name in fed_refs %}
+                <span class="hint">⟳ déjà rattaché à « {{ fed_refs[g.name] }} »</span>
+                {% else %}
+                <a href="{{ url_for('api_integrations.noe_feed', ref=g.name) }}"
+                   class="btn btn-small btn-secondary">Alimenter une liste</a>
+                {% endif %}
+            </td>
         </tr>
         {% else %}
         <tr><td colspan="3" class="hint">Aucun groupe : personne n'est encore inscrit à un créneau.</td></tr>

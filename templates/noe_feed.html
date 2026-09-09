@@ -1,0 +1,105 @@
+{% extends "settings_layout.html" %}
+{% block title %}Alimenter une liste depuis {{ ref }} - {{ app_name }}{% endblock %}
+
+{% block settings_content %}
+<div class="page-header">
+    <h1>Alimenter une liste depuis « {{ ref }} »</h1>
+    <a href="{{ url_for('api_integrations.noe') }}" class="back-link">← Retour aux pôles</a>
+</div>
+
+<div class="info-box">
+    <p><strong>{{ members|length }} bénévole{{ 's' if members|length > 1 }}</strong> dans ce pôle.
+        Une fois la liste rattachée, son contenu suivra NOÉ : ajouts et retraits se feront
+        à la synchronisation, et plus à la main.</p>
+</div>
+
+{% if unsubscribed %}
+<div class="alert alert-warning">
+    <strong>{{ unsubscribed|length }} désabonné{{ 's' if unsubscribed|length > 1 }} parmi ces bénévoles.</strong>
+    Ils entreront bien dans la liste, mais <strong>ne recevront aucun envoi</strong> — leur
+    désabonnement est respecté et n'est jamais annulé par une synchronisation.
+    <ul class="noe-detail">
+        {% for c in unsubscribed %}<li>{{ c.prenom }} {{ c.nom }} — {{ c.email }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if trashed %}
+<div class="alert alert-warning">
+    <strong>{{ trashed|length }} de ces bénévoles sont dans la corbeille.</strong>
+    L'import ne les y cherche pas : une <strong>nouvelle fiche</strong> sera créée, en
+    double de celle mise au rebut. Restaurez-les d'abord si c'est un doublon, ou laissez
+    faire s'il s'agit bien de nouvelles personnes.
+    <ul class="noe-detail">
+        {% for c in trashed %}<li>{{ c.prenom }} {{ c.nom }} — {{ c.email }}
+            (supprimé le {{ c.deleted_at.strftime('%d/%m/%Y') if c.deleted_at }})</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('api_integrations.noe_feed') }}" class="form-card">
+    <input type="hidden" name="ref" value="{{ ref }}">
+
+    <h2>Liste de destination</h2>
+    <div class="form-group">
+        <label class="radio-label">
+            <input type="radio" name="target_kind" value="new" {% if target_kind != 'existing' %}checked{% endif %}>
+            Créer une liste
+        </label>
+        <input type="text" name="new_list_name" value="{{ new_list_name }}" class="form-control"
+               placeholder="Nom de la liste">
+    </div>
+    <div class="form-group">
+        <label class="radio-label">
+            <input type="radio" name="target_kind" value="existing" {% if target_kind == 'existing' %}checked{% endif %}>
+            Utiliser une liste existante
+        </label>
+        <select name="liste_id" class="form-control">
+            <option value="">— choisir —</option>
+            {% for l in listes %}
+            <option value="{{ l.id }}" {% if liste_id == l.id|string %}selected{% endif %}>{{ l.nom }} ({{ l.count }})</option>
+            {% endfor %}
+        </select>
+        {# Seules les listes sans source : une liste n'a qu'un seul maître. #}
+        <p class="hint">Seules les listes libres sont proposées — une liste déjà alimentée
+            par une source ne peut pas en avoir une seconde.</p>
+    </div>
+
+    <h2>Contacts déjà connus</h2>
+    <div class="form-group">
+        <label class="radio-label"><input type="radio" name="mode" value="fill" {% if mode == 'fill' %}checked{% endif %}>
+            Compléter les champs vides <span class="hint">(recommandé)</span></label>
+        <label class="radio-label"><input type="radio" name="mode" value="skip" {% if mode == 'skip' %}checked{% endif %}>
+            Ne rien changer</label>
+        <label class="radio-label"><input type="radio" name="mode" value="overwrite" {% if mode == 'overwrite' %}checked{% endif %}>
+            Écraser avec les données de NOÉ</label>
+    </div>
+
+    {% if counts %}
+    <div class="alert alert-info">
+        <strong>Résultat de l'analyse</strong> — rien n'a été écrit.
+        <ul class="noe-detail">
+            <li><strong>{{ counts.created }}</strong> contact{{ 's' if counts.created > 1 }} à créer</li>
+            <li><strong>{{ counts.updated }}</strong> à mettre à jour</li>
+            <li><strong>{{ counts.skipped }}</strong> inchangé{{ 's' if counts.skipped > 1 }}</li>
+            {% if conflicts %}
+            <li><strong>{{ conflicts|length }}</strong> valeur(s) de NOÉ non appliquée(s) :
+                le champ était déjà rempli et différent</li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+        <button type="submit" name="action" value="preview" class="btn btn-secondary">Analyser</button>
+        <button type="submit" name="action" value="run" class="btn btn-primary">
+            {% if counts %}Alimenter la liste{% else %}Alimenter sans analyser{% endif %}
+        </button>
+    </div>
+</form>
+
+<style>
+.noe-detail { margin: 0.4rem 0 0; padding-left: 1.2rem; font-size: 0.88rem; }
+.radio-label { display: block; margin-bottom: 0.35rem; }
+</style>
+{% endblock %}
