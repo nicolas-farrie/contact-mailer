@@ -127,11 +127,16 @@
         </div>
         {% else %}
         <div class="checkbox-group">
+            {# Une liste alimentée par une source externe reste visible, avec son état
+               réel — on doit pouvoir constater qu'un contact est bénévole restauration —
+               mais elle n'est pas modifiable : son contenu suit la source. #}
             {% for liste in listes %}
-            <label class="checkbox-label">
+            <label class="checkbox-label{% if liste.source %} checkbox-fed{% endif %}"
+                   {% if liste.source %}title="Alimentée par {{ liste.source_label }} — ses membres suivent la source"{% endif %}>
                 <input type="checkbox" name="listes" value="{{ liste.id }}"
-                       {% if contact and liste in contact.listes %}checked{% endif %}>
-                {{ liste.nom }}
+                       {% if contact and liste in contact.listes %}checked{% endif %}
+                       {% if liste.source %}disabled{% endif %}>
+                {{ liste.nom }}{% if liste.source %} <span class="fed-badge">⟳ {{ liste.source_label }}</span>{% endif %}
             </label>
             {% endfor %}
         </div>
@@ -201,3 +206,8 @@
 </script>
 {% endif %}
 {% endblock %}
+
+<style>
+.checkbox-fed { opacity: 0.8; cursor: not-allowed; }
+.fed-badge { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+</style>

@@ -54,6 +54,36 @@ class Connector:
         """Ce à quoi ce connecteur est relié (URL, projet…), ou '' si non configuré."""
         return ''
 
+    # === ALIMENTATION DE LISTES ===
+    # Un connecteur peut fournir des « groupes » (pôles NOÉ, groupes Seafile, rôles
+    # BookStack…) dont chacun peut alimenter une liste. Le cœur de l'application ne
+    # connaît que cette notion : il passe par le registre, jamais par un module de
+    # service. Un connecteur qui n'alimente rien laisse can_feed_lists à False.
+
+    can_feed_lists = False
+
+    def instance_key(self):
+        """Identifie l'installation, pour ne pas mélanger deux sources du même service.
+
+        L'id du projet pour NOÉ, l'URL pour un service unique par instance.
+        """
+        return self.target()
+
+    def list_groups(self):
+        """[{'ref', 'label', 'count'}] — les groupes proposables comme source.
+
+        `ref` est la clé stable côté service ; `label` son nom affichable.
+        """
+        raise NotImplementedError
+
+    def fetch_members(self, ref):
+        """[{'email', 'prenom', 'nom', 'telephone'}] — les membres d'un groupe.
+
+        Le format est celui qu'attend l'import : c'est au connecteur de traduire le
+        vocabulaire de son service, pas à l'appelant de le connaître.
+        """
+        raise NotImplementedError
+
     def status(self):
         """État affichable — sans appel réseau : la page doit s'ouvrir même service éteint.
 
@@ -68,6 +98,7 @@ class Connector:
             'description': self.description,
             'doc_url': self.doc_url,
             'configured': self.is_configured(),
+            'can_feed_lists': self.can_feed_lists,
             'missing': self.missing_settings(),
             'target': self.target(),
         }
@@ -106,8 +137,35 @@ class NoeConnector(Connector):
     doc_url = 'https://get.noe-app.io/fr/docs/api/'
     required_settings = ('NOE_URL', 'NOE_TOKEN', 'NOE_PROJECT_ID')
 
+    can_feed_lists = True
+
     def target(self):
         return Config.NOE_URL or ''
+
+    def instance_key(self):
+        """Le projet NOÉ : deux festivals sur le même serveur ne se mélangent pas."""
+        return Config.NOE_PROJECT_ID or ''
+
+    def _client(self):
+        from noe import NoeClient
+        return NoeClient(Config.NOE_URL, Config.NOE_TOKEN, Config.NOE_PROJECT_ID)
+
+    def list_groups(self):
+        """Les pôles du festival et leurs effectifs.
+
+        Seuls ceux comptant au moins un bénévole : un festival déclare ses catégories
+        très en amont, lister les vides noierait celles où il y a quelqu'un à qui
+        écrire (cf. build_group_index).
+        """
+        from noe import build_group_index
+        index = build_group_index(self._client(), level='category')
+        return [{'ref': name, 'label': name, 'count': len(members)}
+                for name, members in index.items()]
+
+    def fetch_members(self, ref):
+        from noe import pull_contacts_from_noe
+        contacts, _stats = pull_contacts_from_noe(self._client(), ref, level='category')
+        return contacts
 
 
 #: Registre parcouru par la page Intégrations. L'ordre est celui de l'affichage.

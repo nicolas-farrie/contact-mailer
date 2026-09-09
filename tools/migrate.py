@@ -84,6 +84,7 @@ MIGRATIONS = [
     ("migrate_add_user_is_moderator", "safe"),
     ("migrate_add_audit_log", "safe"),
     ("migrate_add_external_identity", "safe"),
+    ("migrate_add_list_source", "safe"),
 ]
 
 

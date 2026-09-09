@@ -142,3 +142,33 @@ def _delete_current_login_bg():
             os.remove(path)
         except OSError:
             pass
+
+
+def list_source_label(liste):
+    """Nom affichable de la source qui alimente cette liste, ou '' si elle est libre.
+
+    Passe par le registre des connecteurs : le nom du service ne doit apparaître ni dans
+    un template, ni dans un message d'erreur écrit en dur.
+    """
+    src = getattr(liste, 'source', None)
+    if src is None:
+        return ''
+    from connectors import get_connector
+    connector = get_connector(src.provider)
+    return connector.label if connector else src.provider
+
+
+def list_edit_blocked_reason(liste):
+    """Message si l'appartenance à cette liste ne se modifie pas à la main, sinon None.
+
+    Une liste alimentée est un reflet de sa source : l'y ajouter ou en retirer quelqu'un
+    serait défait à la synchronisation suivante, sans un mot. Mieux vaut refuser en
+    expliquant que laisser faire un geste qui sera annulé.
+
+    Un seul point de vérité, appelé partout où une appartenance change (fiche contact,
+    actions en masse), pour qu'aucun chemin n'échappe à la règle.
+    """
+    if liste is None or getattr(liste, 'source', None) is None:
+        return None
+    return (f'« {liste.nom} » est alimentée par {list_source_label(liste)} : '
+            f'ses membres suivent la source et ne se modifient pas ici.')

@@ -123,6 +123,52 @@ class Liste(db.Model):
         """Contacts actifs (non supprimés) ET non désabonnés = destinataires réels."""
         return sum(1 for c in self.contacts if not c.is_deleted and not c.is_unsubscribed)
 
+    @property
+    def is_fed(self):
+        """Vrai si une source externe alimente cette liste (son contenu est un reflet)."""
+        return self.source is not None
+
+    @property
+    def source_label(self):
+        """Nom affichable de la source, demandé au registre — jamais écrit dans un template."""
+        from helpers import list_source_label
+        return list_source_label(self)
+
+
+class ListSource(db.Model):
+    """Source externe qui alimente une liste — son contenu devient un reflet.
+
+    Générique par construction : `provider` est l'identifiant d'un connecteur (cf.
+    connectors.py), jamais un nom écrit en dur ailleurs. Une liste alimentée depuis les
+    groupes de Seafile ou les rôles de BookStack s'exprimerait de la même façon ; le
+    cœur de l'application ne connaît que la notion de « liste alimentée ».
+
+    **Une liste n'a qu'une seule source, et c'est un invariant, pas une limite d'étape.**
+    Deux sources voudraient dire deux maîtres, donc plus de maître du tout : lorsqu'une
+    personne est présente dans l'une et absente de l'autre, aucune règle de retrait ne
+    peut trancher sans arbitraire. D'où UNIQUE(liste_id).
+
+    `ref` est la clé côté source (« Restauration ») et `instance` l'installation d'où
+    elle vient (l'id du projet NOÉ) : deux festivals ne se mélangent pas.
+    """
+    __tablename__ = 'list_source'
+    id = db.Column(db.Integer, primary_key=True)
+    liste_id = db.Column(db.Integer, db.ForeignKey('liste.id'), nullable=False,
+                         unique=True, index=True)
+    provider = db.Column(db.String(30), nullable=False)      # 'noe', 'seafile'…
+    instance = db.Column(db.String(200), nullable=False, default='')
+    ref = db.Column(db.String(200), nullable=False)          # clé du groupe côté source
+    label = db.Column(db.String(200), nullable=False, default='')  # son nom affichable
+    last_sync_at = db.Column(db.DateTime, nullable=True)
+    last_error = db.Column(db.String(500), nullable=True)    # dernier échec, pour le dire
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+    liste = db.relationship('Liste', backref=db.backref('source', uselist=False,
+                                                        cascade='all, delete-orphan'))
+
+    def __repr__(self):
+        return f'<ListSource {self.provider}:{self.ref} → liste {self.liste_id}>'
+
 
 class User(UserMixin, db.Model):
     """Utilisateur avec rôles (admin/user)"""

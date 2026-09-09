@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from models import db, Contact, Liste, ContactSend, ContactSegment, utcnow
 from config import Config
-from helpers import admin_required, listes_sorted, phone_digits, phone_digits_sql
+from helpers import list_edit_blocked_reason, admin_required, listes_sorted, phone_digits, phone_digits_sql
 from contact_set import ContactSet
 from contact_filters import parse_conditions, apply_conditions, filter_ui_metadata, conditions_for_ui
 import fields
@@ -49,13 +49,15 @@ def _apply_listes(contact, form, clear=False):
     if clear:
         # Ne réconcilier que les listes ACTIVES (celles proposées dans le formulaire).
         # Les adhésions à des listes archivées sont préservées (non affichées, non touchées).
+        # Les listes ALIMENTÉES le sont aussi : leur contenu vient de la source, le
+        # formulaire les affiche en lecture seule et ne peut donc pas les réconcilier.
         checked = set(form.getlist('listes'))
         for liste in list(contact.listes):
-            if not liste.is_archived and str(liste.id) not in checked:
+            if not liste.is_archived and liste.source is None and str(liste.id) not in checked:
                 contact.listes.remove(liste)
     for lid in form.getlist('listes'):
         liste = Liste.query.get(int(lid))
-        if liste and liste not in contact.listes:
+        if liste and liste.source is None and liste not in contact.listes:
             contact.listes.append(liste)
 
 
@@ -307,6 +309,13 @@ def bulk_action():
     contacts = Contact.query.filter(Contact.id.in_(contact_ids)).all()
     liste = Liste.query.get(liste_id) if liste_id else None
 
+    # Une liste alimentée par une source externe est un reflet : refuser ici plutôt que
+    # laisser faire un geste que la prochaine synchronisation défera sans un mot.
+    blocked = list_edit_blocked_reason(liste)
+    if blocked and action in ('add_to_liste', 'remove_from_liste', 'transfer'):
+        flash(blocked, 'error')
+        return redirect_back()
+
     if action == 'add_to_liste' and liste:
         for contact in contacts:
             if liste not in contact.listes:
@@ -324,6 +333,11 @@ def bulk_action():
     elif action == 'transfer':
         source_id = request.form.get('source_liste_id', type=int)
         source = Liste.query.get(source_id) if source_id else None
+        # Le transfert retire de la source : elle doit être modifiable elle aussi.
+        blocked_src = list_edit_blocked_reason(source)
+        if blocked_src:
+            flash(blocked_src, 'error')
+            return redirect_back()
         if liste and source:
             for contact in contacts:
                 if source in contact.listes:

@@ -61,6 +61,7 @@
                     {{ liste_dot(liste) }}
                     <div class="liste-ident-text">
                         <strong>{{ liste.nom }}</strong>
+                        {% if liste.source %}<span class="fed-badge" title="Contenu synchronisé, non modifiable à la main">⟳ {{ liste.source_label }}</span>{% endif %}
                         {% if liste.description %}<div class="liste-desc">{{ liste.description }}</div>{% endif %}
                     </div>
                 </div>
@@ -203,3 +204,7 @@ function openDeleteListe(id, nom){
 }
 </script>
 {% endblock %}
+
+<style>
+.fed-badge { font-size: 0.72rem; color: var(--text-muted); margin-left: 0.35rem; white-space: nowrap; }
+</style>
