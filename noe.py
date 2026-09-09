@@ -209,7 +209,12 @@ def build_group_index(client, level='category', project=None):
             session_group[s['_id']] = categories.get(
                 _ident(activity.get('category')), '(sans catégorie)')
 
+    # Seuls les groupes ayant au moins un bénévole. Un festival déclare beaucoup de
+    # catégories très en amont (16 ici, dont 12 sans personne) : les lister toutes
+    # noierait celles où il y a quelqu'un à qui écrire. Choix confirmé par l'équipe du
+    # festival — la page sert à communiquer, pas à piloter le recrutement.
     groups = {}
+
     for reg in client.list_registrations():
         user = reg.get('user')
         if not isinstance(user, dict):
@@ -236,6 +241,8 @@ def build_group_index(client, level='category', project=None):
         # GROUP_ALL rassemble tout le monde, y compris qui n'a pas encore de créneau.
         for name in list(names) + [GROUP_ALL]:
             groups.setdefault(name, []).append(contact)
+
+    groups.setdefault(GROUP_ALL, [])   # projet sans aucun inscrit : le groupe existe quand même
 
     return groups
 

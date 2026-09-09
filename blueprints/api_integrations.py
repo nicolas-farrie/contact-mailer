@@ -64,6 +64,8 @@ def noe():
             ctx['project_name'] = project.get('name', '')
             ctx['total'] = len(index.get(GROUP_ALL, []))
             # GROUP_ALL en tête (c'est l'ensemble), puis les pôles du plus fourni au moins.
+            # « Tous les inscrits » en tête, puis du plus fourni au moins — les pôles
+            # sans personne finissent en bas, visibles mais sans encombrer.
             ctx['groups'] = sorted(
                 ({'name': n, 'count': len(c)} for n, c in index.items()),
                 key=lambda g: (g['name'] != GROUP_ALL, -g['count'], g['name']))
