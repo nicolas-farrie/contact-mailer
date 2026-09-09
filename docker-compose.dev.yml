@@ -24,6 +24,8 @@ services:
       - ./models.py:/app/models.py
       - ./contact_set.py:/app/contact_set.py
       - ./contact_filters.py:/app/contact_filters.py
+      - ./connectors.py:/app/connectors.py
+      - ./noe.py:/app/noe.py
       - ./tools:/app/tools
       - ./config.py:/app/config.py
       - ./extensions.py:/app/extensions.py

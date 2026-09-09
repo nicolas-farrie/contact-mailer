@@ -1,9 +1,13 @@
-"""Blueprint api_integrations : intégrations externes BookStack et Seafile
-(synchronisation des rôles/groupes, push des contacts, mots de passe, invitations).
+"""Blueprint api_integrations : intégrations externes (NOÉ, BookStack, Seafile).
 
-Endpoints : api_integrations.bookstack / bookstack_sync_roles / bookstack_push,
-api_integrations.seafile / seafile_sync_groups / seafile_push /
-seafile_liste_contacts / seafile_reset_passwords / seafile_send_invitations.
+Page d'accueil `index` : l'état de chaque connecteur, configuré ou non. Elle existe
+parce que la sidebar affichait Seafile et BookStack sans vérifier leur configuration —
+un clic menait à une impasse sur les instances qui ne les utilisent pas.
+
+Endpoints : api_integrations.index, api_integrations.bookstack /
+bookstack_sync_roles / bookstack_push, api_integrations.seafile /
+seafile_sync_groups / seafile_push / seafile_liste_contacts /
+seafile_reset_passwords / seafile_send_invitations.
 """
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify)
@@ -11,9 +15,24 @@ from flask_login import current_user
 
 from models import db, Contact, Liste, BookstackRole, utcnow
 from config import Config
+from connectors import all_status
 from helpers import admin_required, listes_sorted
 
 bp = Blueprint('api_integrations', __name__)
+
+
+# === ACCUEIL ===
+
+@bp.route('/integrations')
+@admin_required
+def index():
+    """État de chaque connecteur : relié à quoi, ou quels réglages manquent.
+
+    Aucun appel réseau : la page doit s'ouvrir même service éteint. Vérifier qu'une
+    connexion fonctionne vraiment est le travail de chaque page de connecteur.
+    """
+    return render_template('integrations.html', connectors=all_status(),
+                           active_tab='integrations')
 
 
 # === BOOKSTACK ===

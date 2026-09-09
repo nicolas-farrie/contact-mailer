@@ -34,6 +34,7 @@ from models import db, User
 from config import Config
 from extensions import login_manager
 from helpers import get_setting
+from connectors import all_status
 
 
 class ReverseProxied:
@@ -86,10 +87,15 @@ def register_context_processors(app):
                 'login_bg_url': login_bg_url,
                 'login_overlay': overlay,
                 'selection_count': _selection_count(),
+                # Sous-nav des Intégrations : n'y lister que les connecteurs réellement
+                # configurés, sans quoi le menu propose des pages inertes (cf. l'accueil
+                # /integrations, qui montre tout le monde avec son état).
+                'integrations_nav': all_status(),
             }
         except Exception:
             return {'app_name': 'Contact Mailer', 'instance_color': Config.INSTANCE_COLOR,
-                    'login_bg_url': None, 'login_overlay': 0.35, 'selection_count': 0}
+                    'login_bg_url': None, 'login_overlay': 0.35, 'selection_count': 0,
+                    'integrations_nav': []}
 
 
 def _selection_count():

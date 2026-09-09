@@ -58,11 +58,18 @@
                         <a class="sidebar-sublink{% if request.endpoint in ['settings.trash', 'settings.trash_restore', 'settings.trash_purge'] %} active{% endif %}" href="{{ url_for('settings.trash') }}">Corbeilles</a>
                     </div>
                     {% endif %}
-                    <a class="sidebar-link{% if request.blueprint == 'api_integrations' %} active{% endif %}" href="{{ url_for('api_integrations.seafile') }}">Intégrations</a>
+                    {# Pointe sur l'accueil des intégrations, pas droit sur Seafile : la
+                       sous-nav n'affichait que des liens vers des pages inertes quand le
+                       service n'était pas configuré, sans le dire avant le clic. #}
+                    <a class="sidebar-link{% if request.blueprint == 'api_integrations' %} active{% endif %}" href="{{ url_for('api_integrations.index') }}">Intégrations</a>
                     {% if request.blueprint == 'api_integrations' %}
                     <div class="sidebar-subnav">
-                        <a class="sidebar-sublink{% if 'seafile' in (request.endpoint or '') %} active{% endif %}" href="{{ url_for('api_integrations.seafile') }}">Seafile</a>
-                        <a class="sidebar-sublink{% if 'bookstack' in (request.endpoint or '') %} active{% endif %}" href="{{ url_for('api_integrations.bookstack') }}">BookStack</a>
+                        <a class="sidebar-sublink{% if request.endpoint == 'api_integrations.index' %} active{% endif %}" href="{{ url_for('api_integrations.index') }}">Toutes</a>
+                        {% for c in integrations_nav %}
+                        {% if c.configured and c.name in ('seafile', 'bookstack') %}
+                        <a class="sidebar-sublink{% if c.name in (request.endpoint or '') %} active{% endif %}" href="{{ url_for('api_integrations.' ~ c.name) }}">{{ c.label }}</a>
+                        {% endif %}
+                        {% endfor %}
                     </div>
                     {% endif %}
                     <a class="sidebar-link{% if request.endpoint in ['users.index', 'users.new', 'users.edit'] %} active{% endif %}" href="{{ url_for('users.index') }}">Utilisateurs</a>

@@ -1,0 +1,75 @@
+{% extends "settings_layout.html" %}
+{% block title %}Intégrations - {{ app_name }}{% endblock %}
+
+{% block settings_content %}
+<div class="page-header">
+    <h1>Intégrations</h1>
+</div>
+
+<div class="info-box">
+    <p>Les intégrations relient Contact&nbsp;Mailer à vos autres outils. Chacune se
+        configure dans le fichier <code>.env</code> de l'instance, puis redémarrage.</p>
+</div>
+
+{# Les connecteurs non configurés restent affichés : c'est par là qu'on entre pour les
+   mettre en service. Ce qui manquait avant, c'est de le dire AVANT le clic. #}
+<div class="cards-grid">
+    {% for c in connectors %}
+    <div class="card integration-card{% if not c.configured %} integration-off{% endif %}">
+        <div class="card-header">
+            <h2 class="card-title">{{ c.label }}</h2>
+            {% if c.configured %}
+            <span class="badge badge-green">Configuré</span>
+            {% else %}
+            <span class="badge badge-gray">Non configuré</span>
+            {% endif %}
+        </div>
+
+        <p class="integration-direction">
+            {# Une flèche vaut mieux qu'une phrase : on voit d'un coup qui alimente qui. #}
+            {% if c.direction == 'pull' %}↓{% else %}↑{% endif %}
+            {{ c.direction_label }} {{ c.label }}
+        </p>
+
+        <p class="card-description">{{ c.description }}</p>
+
+        {% if c.configured %}
+            {% if c.target %}
+            <p class="integration-target"><code>{{ c.target|replace('https://', '')|replace('http://', '') }}</code></p>
+            {% endif %}
+            <div class="card-actions">
+                {% if c.name == 'seafile' %}
+                <a href="{{ url_for('api_integrations.seafile') }}" class="btn btn-primary btn-small">Ouvrir</a>
+                {% elif c.name == 'bookstack' %}
+                <a href="{{ url_for('api_integrations.bookstack') }}" class="btn btn-primary btn-small">Ouvrir</a>
+                {% else %}
+                <span class="hint">Page à venir</span>
+                {% endif %}
+            </div>
+        {% else %}
+            <p class="integration-missing">
+                À ajouter dans <code>.env</code> :
+                {% for key in c.missing %}<code>{{ key }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+            </p>
+            {% if c.doc_url %}
+            <div class="card-actions">
+                <a href="{{ c.doc_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-small">Documentation ↗</a>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+/* Une carte non configurée reste lisible : estompée, jamais masquée — c'est le chemin
+   pour la mettre en service. */
+.integration-off { opacity: 0.75; }
+.integration-direction { margin: 0.35rem 0 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
+.integration-target { margin: 0.5rem 0 0; font-size: 0.85rem; }
+.integration-missing { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--text-muted); }
+.integration-missing code { font-size: 0.8rem; }
+.integration-card .card-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.integration-card .card-title { margin: 0; }
+</style>
+{% endblock %}
