@@ -55,6 +55,23 @@ def nom_sort_key(nom):
     return ' '.join(''.join(c for c in s if not unicodedata.combining(c)).split())
 
 
+def dedup_key(s):
+    """Clé de rapprochement d'un nom : casse, accents ET séparateurs ignorés.
+
+    « Marie-Noëlle », « Marie Noelle » et « marienoelle » donnent la même clé. Les gens
+    saisissent un tiret ici, un espace là, une apostrophe ailleurs — l'écart n'a aucune
+    valeur informative, et le laisser passer crée des doublons sur des personnes
+    manifestement identiques.
+
+    Distincte de nom_sort_key (qui, elle, sert au TRI et à la comparaison de valeurs) :
+    supprimer les espaces y placerait « Le Roux » à la lettre « leroux » et ferait passer
+    pour identiques des adresses comme « 12 rue X » et « 12rue X ».
+    """
+    s = unicodedata.normalize('NFKD', (s or '').strip().lower())
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    return ''.join(c for c in s if c.isalnum())
+
+
 # --- Téléphone : comparaison insensible aux séparateurs ---------------------------
 # On stocke le numéro tel que saisi (« 06 22 36 39 40 ») ; pour la recherche, on
 # compare les CHIFFRES seuls de part et d'autre → « 0622363940 » retrouve le contact.

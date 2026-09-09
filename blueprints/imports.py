@@ -18,7 +18,7 @@ from flask_login import login_required, current_user
 
 from models import db, Contact, Liste, CustomFieldDefinition, ImportMapping
 from vcard_converter import extract_vcard_data, get_vcards, MULTI_VALUE_SEP
-from helpers import admin_required, slugify_key, listes_sorted, nom_sort_key
+from helpers import admin_required, slugify_key, listes_sorted, nom_sort_key, dedup_key
 import fields as fields_registry
 
 bp = Blueprint('imports', __name__)
@@ -462,7 +462,7 @@ def _build_dedup_index():
     en O(n) global (au lieu d'une requête exacte par ligne, sensible casse/accents)."""
     idx = {}
     for c in Contact.query.filter_by(is_deleted=False).all():
-        idx.setdefault((nom_sort_key(c.nom), nom_sort_key(c.prenom)), []).append(c)
+        idx.setdefault((dedup_key(c.nom), dedup_key(c.prenom)), []).append(c)
     return idx
 
 
@@ -481,9 +481,12 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, source, ex
     existing = None
     if uid:
         existing = Contact.query.filter_by(uid=uid, is_deleted=False).first()
-    key = (nom_sort_key(nom), nom_sort_key(prenom)) if (nom and prenom) else None
+    # dedup_key et non nom_sort_key : « Marie-Noëlle » et « Marie Noelle » désignent la
+    # même personne, l'écart de séparateur n'a pas à créer un doublon. nom_sort_key reste
+    # employée plus bas pour les CONFLITS, où l'écart de graphie doit rester visible.
+    key = (dedup_key(nom), dedup_key(prenom)) if (nom and prenom) else None
     if not existing and key is not None:
-        # Dédoublonnage nom+prénom INSENSIBLE casse/accents (via index normalisé).
+        # Dédoublonnage nom+prénom insensible à la casse, aux accents ET aux séparateurs.
         # L'email affine quand présent (familles au même email distinguées par le
         # prénom). Sans email — cas fréquent (fichier « maires » = 0 email) — le
         # nom+prénom normalisé suffit à retrouver.

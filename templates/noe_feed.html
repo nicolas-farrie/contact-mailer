@@ -37,6 +37,22 @@
 </div>
 {% endif %}
 
+{% if near_matches %}
+<div class="alert alert-warning">
+    <strong>{{ near_matches|length }} adresse{{ 's' if near_matches|length > 1 }} déjà connue{{ 's' if near_matches|length > 1 }} sous un autre nom.</strong>
+    Le rapprochement se fait sur le nom : ces bénévoles seront donc <strong>créés en
+    double</strong>. S'il s'agit bien de la même personne, corrigez le nom dans la fiche
+    avant d'alimenter ; sinon (adresse partagée, adresse de fonction), laissez faire.
+    <ul class="noe-detail">
+        {% for m in near_matches %}
+        <li><strong>{{ m.member.prenom }} {{ m.member.nom }}</strong> (NOÉ)
+            ≟ <a href="{{ url_for('contacts.edit', id=m.contact.id) }}">{{ m.contact.prenom }} {{ m.contact.nom }}</a>
+            — {{ m.contact.email }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 <form method="post" action="{{ url_for('api_integrations.noe_feed') }}" class="form-card">
     <input type="hidden" name="ref" value="{{ ref }}">
 

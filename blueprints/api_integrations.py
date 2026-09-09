@@ -16,7 +16,7 @@ from flask_login import current_user, login_required
 from models import db, Contact, Liste, BookstackRole, ListSource, ExternalIdentity, utcnow
 from config import Config
 from connectors import all_status, get_connector
-from helpers import admin_required, listes_sorted
+from helpers import admin_required, listes_sorted, dedup_key
 
 bp = Blueprint('api_integrations', __name__)
 
@@ -118,6 +118,7 @@ def noe_feed():
 
     ctx = {'ref': ref, 'members': members, 'listes': libres, 'mode': mode,
            'counts': None, 'conflicts': None, 'unsubscribed': [], 'trashed': [],
+           'near_matches': [],
            'target_kind': request.values.get('target_kind', 'new'),
            'new_list_name': request.values.get('new_list_name', ref),
            'liste_id': request.values.get('liste_id', ''),
@@ -131,6 +132,21 @@ def noe_feed():
         rows = Contact.query.filter(db.func.lower(Contact.email).in_(emails)).all()
         ctx['unsubscribed'] = [c for c in rows if not c.is_deleted and c.is_unsubscribed]
         ctx['trashed'] = [c for c in rows if c.is_deleted]
+
+        # Rapprochements que la déduplication ne fera pas : elle apparie sur le nom
+        # (dedup_key) et ne consulte l'email que pour départager des candidats déjà
+        # trouvés. Une même adresse sous un nom vraiment différent produit donc deux
+        # fiches — le signaler avant, puisque l'utilisateur est seul à savoir s'il
+        # s'agit de la même personne. Pas de fusion automatique : une adresse partagée
+        # (couple, adresse de fonction) est un cas légitime.
+        par_email = {}
+        for c in rows:
+            if not c.is_deleted:
+                par_email.setdefault((c.email or '').strip().lower(), []).append(c)
+        for m in members:
+            for c in par_email.get((m.get('email') or '').strip().lower(), []):
+                if (dedup_key(c.nom), dedup_key(c.prenom)) != (dedup_key(m['nom']), dedup_key(m['prenom'])):
+                    ctx['near_matches'].append({'contact': c, 'member': m})
 
     if action in ('preview', 'run'):
         col_keys, custom_keys = _key_sets()
