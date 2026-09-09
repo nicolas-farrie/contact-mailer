@@ -427,6 +427,46 @@ class AuditLog(db.Model):
     ip = db.Column(db.String(64), nullable=True)
 
 
+class ExternalIdentity(db.Model):
+    """Lien entre un contact et son identité dans un service externe (NOÉ, Seafile…).
+
+    Sans elle, l'appariement à la resynchronisation repose sur l'email et le nom, que les
+    gens font varier : une personne inscrite sur NOÉ avec son adresse perso et connue ici
+    sous son adresse asso produit deux fiches, à chaque passage. Un identifiant stable
+    rend l'import **idempotent** et survit aux changements d'email comme de nom.
+
+    Table jointe plutôt qu'une colonne par service : ajouter un connecteur ne demande
+    aucune migration, et un contact peut porter plusieurs identités — deux projets NOÉ,
+    ou NOÉ et BookStack en même temps. D'où `instance`, qui distingue deux installations
+    du même service (l'id de projet pour NOÉ, l'URL pour Seafile/BookStack).
+    """
+    __tablename__ = 'external_identity'
+    id = db.Column(db.Integer, primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=False, index=True)
+    provider = db.Column(db.String(30), nullable=False)      # noe | seafile | bookstack
+    instance = db.Column(db.String(200), nullable=False, default='')  # projet NOÉ, URL… ('' si service unique)
+    external_id = db.Column(db.String(200), nullable=False)  # ObjectId NOÉ, id BookStack, email Seafile
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+
+    contact = db.relationship('Contact', backref=db.backref('external_identities',
+                                                            cascade='all, delete-orphan'))
+
+    __table_args__ = (
+        # Une identité externe ne désigne qu'un seul contact : garde-fou contre le
+        # double appariement, qui ferait diverger les synchronisations suivantes.
+        db.UniqueConstraint('provider', 'instance', 'external_id',
+                            name='uq_external_identity_ref'),
+        # Recherche inverse « qui est ce bénévole ? », faite pour chaque ligne à chaque
+        # synchro. Déclaré ici et pas seulement dans la migration : les bases créées par
+        # db.create_all() (cf. app.py) doivent l'avoir aussi.
+        db.Index('ix_external_identity_lookup', 'provider', 'instance', 'external_id'),
+    )
+
+    def __repr__(self):
+        return f'<ExternalIdentity {self.provider}:{self.external_id} → contact {self.contact_id}>'
+
+
 class NotifiedSubmission(db.Model):
     """Anti-doublon des notifications de demandes de diffusion : un `Message-ID` du mail
     reçu = une seule alerte aux modérateurs, même si le scan (périodique OU à l'ouverture

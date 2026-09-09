@@ -132,6 +132,13 @@ class Config:
     SEAFILE_URL = os.environ.get('SEAFILE_URL', '')
     SEAFILE_TOKEN = os.environ.get('SEAFILE_TOKEN', '')
 
+    # NOÉ API (bénévolat d'événement) — cf. noe.py. Le jeton se récupère dans NOÉ
+    # (Mon compte → Jeton d'API) et vaut plus d'un an. Tout y est cloisonné par projet,
+    # d'où NOE_PROJECT_ID : un projet = un événement.
+    NOE_URL = os.environ.get('NOE_URL', 'https://api.noe-app.io')
+    NOE_TOKEN = os.environ.get('NOE_TOKEN', '')
+    NOE_PROJECT_ID = os.environ.get('NOE_PROJECT_ID', '')
+
     # IMAP - boîte bounce (Return-Path des mailings)
     BOUNCE_IMAP_HOST = os.environ.get('BOUNCE_IMAP_HOST', '')
     BOUNCE_IMAP_PORT = int(os.environ.get('BOUNCE_IMAP_PORT', 993))
