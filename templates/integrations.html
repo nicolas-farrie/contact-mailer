@@ -42,8 +42,8 @@
                 <a href="{{ url_for('api_integrations.seafile') }}" class="btn btn-primary btn-small">Ouvrir</a>
                 {% elif c.name == 'bookstack' %}
                 <a href="{{ url_for('api_integrations.bookstack') }}" class="btn btn-primary btn-small">Ouvrir</a>
-                {% else %}
-                <span class="hint">Page à venir</span>
+                {% elif c.name == 'noe' %}
+                <a href="{{ url_for('api_integrations.noe') }}" class="btn btn-primary btn-small">Ouvrir</a>
                 {% endif %}
             </div>
         {% else %}

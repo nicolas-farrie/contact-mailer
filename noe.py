@@ -172,12 +172,14 @@ def _normalize_phone(value):
     return re.sub(r'\s+', ' ', value).strip()
 
 
-def build_group_index(client, level='category'):
+def build_group_index(client, level='category', project=None):
     """{nom du groupe: [contacts]} — les pôles, plus GROUP_ALL.
 
     Args:
         client: NoeClient configuré
         level: 'category' (les pôles, défaut) ou 'activity' (les missions, plus fin)
+        project: projet déjà chargé, pour éviter de le redemander quand l'appelant en a
+                 besoin par ailleurs (son nom, par exemple)
 
     Returns:
         dict {nom: liste de dicts {email, prenom, nom, telephone, groupes}}
@@ -188,7 +190,7 @@ def build_group_index(client, level='category'):
     if level not in ('category', 'activity'):
         raise ValueError("level doit valoir 'category' ou 'activity'")
 
-    project = client.get_project()
+    project = project or client.get_project()
     phone_key = client.phone_field_key(project)
 
     categories = {c['_id']: c.get('name', '(sans nom)') for c in client.list_categories()}

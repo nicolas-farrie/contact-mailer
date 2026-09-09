@@ -11,11 +11,11 @@ seafile_reset_passwords / seafile_send_invitations.
 """
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify)
-from flask_login import current_user
+from flask_login import current_user, login_required
 
 from models import db, Contact, Liste, BookstackRole, utcnow
 from config import Config
-from connectors import all_status
+from connectors import all_status, get_connector
 from helpers import admin_required, listes_sorted
 
 bp = Blueprint('api_integrations', __name__)
@@ -33,6 +33,46 @@ def index():
     """
     return render_template('integrations.html', connectors=all_status(),
                            active_tab='integrations')
+
+
+# === NOÉ ===
+
+@bp.route('/integrations/noe')
+@login_required
+def noe():
+    """Les groupes de bénévoles du projet NOÉ, avec leurs effectifs.
+
+    `@login_required` et non `@admin_required` : un utilisateur crée et modifie déjà des
+    contacts (cf. blueprints/contacts.py), et cette page ne fait que lire une source
+    fixe. L'import de fichiers, lui, accepte n'importe quel contenu et reste admin.
+    """
+    level = request.args.get('level', 'category')
+    if level not in ('category', 'activity'):
+        level = 'category'
+
+    cfg = get_connector('noe')
+    ctx = {'level': level, 'configured': cfg.is_configured(), 'missing': cfg.missing_settings(),
+           'project_name': '', 'groups': [], 'error': None, 'total': 0,
+           'active_tab': 'noe'}
+
+    if ctx['configured']:
+        try:
+            from noe import NoeClient, build_group_index, GROUP_ALL
+            client = NoeClient(Config.NOE_URL, Config.NOE_TOKEN, Config.NOE_PROJECT_ID)
+            project = client.get_project()
+            index = build_group_index(client, level=level, project=project)
+            ctx['project_name'] = project.get('name', '')
+            ctx['total'] = len(index.get(GROUP_ALL, []))
+            # GROUP_ALL en tête (c'est l'ensemble), puis les pôles du plus fourni au moins.
+            ctx['groups'] = sorted(
+                ({'name': n, 'count': len(c)} for n, c in index.items()),
+                key=lambda g: (g['name'] != GROUP_ALL, -g['count'], g['name']))
+        except RuntimeError as e:
+            # Service injoignable ou jeton périmé : la page s'affiche quand même, avec
+            # la raison. Elle est le point d'entrée du connecteur, pas un cul-de-sac.
+            ctx['error'] = str(e)
+
+    return render_template('noe.html', **ctx)
 
 
 # === BOOKSTACK ===

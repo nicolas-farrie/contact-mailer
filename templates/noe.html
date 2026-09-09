@@ -1,0 +1,72 @@
+{% extends "settings_layout.html" %}
+{% block title %}NOÉ - {{ app_name }}{% endblock %}
+
+{% block settings_content %}
+<div class="page-header">
+    <h1>NOÉ{% if project_name %} : {{ project_name }}{% endif %}</h1>
+</div>
+
+{% if not configured %}
+<div class="alert alert-error">
+    <strong>NOÉ non configuré.</strong> Ajoutez
+    {% for key in missing %}<code>{{ key }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+    dans votre fichier <code>.env</code>.
+</div>
+{% elif error %}
+<div class="alert alert-error">
+    <strong>NOÉ injoignable.</strong> {{ error }}
+</div>
+{% endif %}
+
+<div class="info-box">
+    <h3>Fonctionnement</h3>
+    <ul>
+        <li>Un <strong>pôle</strong> NOÉ (accueil, restauration…) alimente une <strong>liste</strong>
+            de Contact&nbsp;Mailer.</li>
+        <li>L'appartenance à un pôle vient des <strong>créneaux</strong> auxquels chaque bénévole
+            s'est inscrit dans NOÉ — c'est lui qui les choisit.</li>
+        <li>« <strong>{{ 'Tous les inscrits' }}</strong> » rassemble tout le monde, y compris
+            celles et ceux qui n'ont pas encore pris de créneau et n'apparaissent donc dans
+            aucun pôle.</li>
+        <li>La lecture est à <strong>sens unique</strong> : rien n'est jamais écrit dans NOÉ.</li>
+    </ul>
+</div>
+
+{% if configured and not error %}
+{# Deux découpages du même effectif : les pôles pour écrire à « la restauration », les
+   missions quand un pôle est trop large pour un message ciblé. #}
+<div class="noe-levels">
+    <a href="{{ url_for('api_integrations.noe', level='category') }}"
+       class="btn btn-small {% if level == 'category' %}btn-primary{% else %}btn-secondary{% endif %}">Pôles</a>
+    <a href="{{ url_for('api_integrations.noe', level='activity') }}"
+       class="btn btn-small {% if level == 'activity' %}btn-primary{% else %}btn-secondary{% endif %}">Missions</a>
+    <span class="hint">{{ total }} inscrit{{ 's' if total > 1 }} au total</span>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>{{ 'Pôle' if level == 'category' else 'Mission' }}</th>
+            <th>Bénévoles</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for g in groups %}
+        <tr>
+            <td>{{ g.name }}</td>
+            <td>{{ g.count }}</td>
+            <td class="actions-cell"><span class="hint">Import à venir</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="hint">Aucun groupe : personne n'est encore inscrit à un créneau.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<style>
+.noe-levels { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0 0.75rem; }
+.noe-levels .hint { margin-left: auto; }
+</style>
+{% endblock %}
