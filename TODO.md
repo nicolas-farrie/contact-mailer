@@ -213,6 +213,16 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [ ] **Tags transverses (n↔m) sur les objets** — *idée à réfléchir, 10/09/2026.* Une table
+      d'étiquettes partagée entre plusieurs types d'objets (listes, contacts, et pourquoi pas
+      campagnes ou formulaires) plutôt qu'un champ par entité. Saisie des tags sur la fiche
+      d'une liste et sur celle d'un contact, puis **sélection par tag** : « toutes les listes
+      du festival », « les contacts marqués bénévole ». À creuser avant de coder :
+      articulation avec l'existant — les Listes sont déjà un regroupement de contacts, et
+      `ContactSegment` (filtres nommés) couvre une partie du besoin côté contacts ; risque
+      de trois mécanismes voisins. Voir aussi si les tags doivent être libres ou choisis
+      dans un référentiel, et ce qu'ils deviennent sur une liste alimentée par une source
+      externe (donnée locale, non écrasée par la synchro — cf. `list_source`).
 - [x] Export vCard (réutiliser vcard_converter.py en sens inverse)
 - [~] Historique des campagnes envoyées (historique messages, envois // reste à faire : historique par contact)
 - [x] Spinner overlay "Envoi en cours" sur le bouton de lancement de campagne
