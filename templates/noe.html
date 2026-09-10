@@ -54,11 +54,13 @@
     <tbody>
         {% for g in groups %}
         <tr>
-            <td>{{ g.name }}</td>
+            {# Un pôle déjà rattaché mène à sa liste : c'est ce qu'on veut voir après
+               l'avoir alimenté, sans repasser par la page Listes. #}
+            <td>{% if g.name in fed_refs %}<a href="{{ url_for('contacts.index', liste=fed_ids[g.name]) }}">{{ g.name }}</a>{% else %}{{ g.name }}{% endif %}</td>
             <td>{{ g.count }}</td>
             <td class="actions-cell">
                 {% if g.name in fed_refs %}
-                <span class="hint">⟳ déjà rattaché à « {{ fed_refs[g.name] }} »</span>
+                <span class="hint">⟳ <a href="{{ url_for('contacts.index', liste=fed_ids[g.name]) }}">{{ fed_refs[g.name] }}</a></span>
                 {% else %}
                 <a href="{{ url_for('api_integrations.noe_feed', ref=g.name) }}"
                    class="btn btn-small btn-secondary">Alimenter une liste</a>

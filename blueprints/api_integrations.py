@@ -53,11 +53,12 @@ def noe():
     cfg = get_connector('noe')
     # Pôles déjà rattachés à une liste : proposer « Alimenter » pour eux induirait en
     # erreur, puisqu'une liste n'a qu'une source et qu'un pôle n'alimente qu'une liste.
-    fed_refs = {s.ref: s.liste.nom for s in ListSource.query.filter_by(
-        provider=cfg.name, instance=cfg.instance_key()).all()}
+    _sources = ListSource.query.filter_by(provider=cfg.name, instance=cfg.instance_key()).all()
+    fed_refs = {s.ref: s.liste.nom for s in _sources}
+    fed_ids = {s.ref: s.liste_id for s in _sources}
     ctx = {'level': level, 'configured': cfg.is_configured(), 'missing': cfg.missing_settings(),
            'project_name': '', 'groups': [], 'error': None, 'total': 0,
-           'fed_refs': fed_refs, 'active_tab': 'noe'}
+           'fed_refs': fed_refs, 'fed_ids': fed_ids, 'active_tab': 'noe'}
 
     if ctx['configured']:
         try:

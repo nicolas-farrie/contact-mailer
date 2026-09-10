@@ -145,6 +145,9 @@ def compose():
     # Entrée « ★ Sélection courante » pré-cochée : deep-link depuis /selection, ou
     # réutilisation d'une campagne qui ciblait la sélection.
     use_selection_checked = request.args.get('from_selection') == '1'
+    # Deep-link « écrire à cette liste » (depuis la page Listes) : pré-coche la liste
+    # visée, comme ?from_selection=1 pré-coche la sélection courante.
+    prefill['liste_ids'] = [i for i in request.args.getlist('liste', type=int)]
     from_campaign = request.args.get('from_campaign')
     if from_campaign:
         from mailer import MailQueue

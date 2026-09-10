@@ -77,6 +77,10 @@
                     <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="icon-btn" title="Voir les contacts de la liste">{{ ico.eye() }}</a>
                     <button type="button" class="icon-btn" title="Modifier la liste"
                             onclick='openEditListe({{ liste.id }}, {{ liste.nom|tojson }}, {{ (liste.description or "")|tojson }}, {{ (liste.color or "")|tojson }})'>{{ ico.edit() }}</button>
+                        {# Écrire à une liste est le geste qui suit le plus souvent sa
+                           consultation : l'atteindre sans repasser par Mailing. #}
+                        <a class="btn-icon" title="Écrire à cette liste"
+                           href="{{ url_for('mailing.compose', liste=liste.id) }}">✉</a>
                     {% if current_user.is_admin %}
                     <a href="{{ url_for('imports.export_contacts', liste=liste.id) }}" class="icon-btn" title="Exporter en CSV">{{ ico.download() }}</a>
                     {% endif %}
