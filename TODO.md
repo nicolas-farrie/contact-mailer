@@ -213,6 +213,16 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [ ] **NOÉ — avertir du risque de doublon pôle / mission** *(10/09/2026)*. Depuis que les
+      deux niveaux sont alimentables, une même personne peut se retrouver dans une liste
+      « pôle » ET dans une liste « mission » qui en dépend — chez lfll, « Accueil » (11) et
+      « Accueil Public - Entrée » (10) se recouvrent presque entièrement. Un envoi visant
+      les deux listes à la fois dédoublonne par email (personne ne reçoit deux fois le même
+      message), mais **deux envois séparés arrivent bien deux fois**. À afficher là où le
+      choix se fait : sur l'écran d'alimentation (« ce groupe recoupe une liste déjà
+      alimentée : N personnes en commun ») et/ou sur le composeur quand deux listes
+      sélectionnées se recouvrent fortement. Décision utilisateurs : on laisse les deux
+      niveaux ouverts, on documente le risque.
 - [ ] **Tags transverses (n↔m) sur les objets** — *idée à réfléchir, 10/09/2026.* Une table
       d'étiquettes partagée entre plusieurs types d'objets (listes, contacts, et pourquoi pas
       campagnes ou formulaires) plutôt qu'un champ par entité. Saisie des tags sur la fiche
