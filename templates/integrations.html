@@ -45,6 +45,11 @@
                 {% elif c.name == 'noe' %}
                 <a href="{{ url_for('api_integrations.noe') }}" class="btn btn-primary btn-small">Ouvrir</a>
                 {% endif %}
+                {# Le guide sert aussi UNE FOIS configuré : comprendre les listes
+                   alimentées, la synchronisation, ce qui ne remonte jamais. #}
+                {% if c.doc_url %}
+                <a href="{{ c.doc_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-small">Guide ↗</a>
+                {% endif %}
             </div>
         {% else %}
             <p class="integration-missing">
@@ -53,7 +58,7 @@
             </p>
             {% if c.doc_url %}
             <div class="card-actions">
-                <a href="{{ c.doc_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-small">Documentation ↗</a>
+                <a href="{{ c.doc_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-small">Guide ↗</a>
             </div>
             {% endif %}
         {% endif %}

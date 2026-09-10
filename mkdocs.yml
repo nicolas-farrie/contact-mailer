@@ -41,6 +41,7 @@ nav:
   - Démarrage en 5 mn: demarrage-5-min.md
   - Guides:
       - Segments & Sélection: guides/segments-et-selection.md
+      - Intégrations: guides/integrations.md
 
 # Docs de MAINTENEUR : gardées dans le dépôt (GitHub), PAS publiées sur le site public.
 exclude_docs: |

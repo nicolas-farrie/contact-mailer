@@ -24,6 +24,12 @@ DIRECTION_LABELS = {
     PULL: 'Récupère les contacts depuis',
 }
 
+#: Guide des intégrations sur le site de documentation. Chaque connecteur y pointe une
+#: ancre : celui qui clique cherche à configurer et comprendre CE connecteur, pas à lire
+#: la documentation d'API du service tiers — laquelle est technique, souvent en anglais,
+#: et ne dit rien de ce qu'il faut mettre dans le .env.
+DOCS_INTEGRATIONS = 'https://contact-mailer.codeberg.page/guides/integrations/'
+
 
 class Connector:
     """Base commune : un connecteur sait se nommer et dire s'il est utilisable.
@@ -121,6 +127,7 @@ class SeafileConnector(Connector):
     direction = PUSH
     description = ("Crée les comptes des contacts sur votre Seafile et les range dans "
                    "des groupes, pour partager des fichiers avec une liste.")
+    doc_url = DOCS_INTEGRATIONS + '#seafile'
     required_settings = ('SEAFILE_URL', 'SEAFILE_TOKEN')
 
     def target(self):
@@ -133,6 +140,7 @@ class BookstackConnector(Connector):
     direction = PUSH
     description = ("Crée les comptes des contacts sur votre BookStack avec un rôle "
                    "donné, pour ouvrir l'accès à une documentation.")
+    doc_url = DOCS_INTEGRATIONS + '#bookstack'
     required_settings = ('BOOKSTACK_URL', 'BOOKSTACK_TOKEN_ID', 'BOOKSTACK_TOKEN_SECRET')
 
     def target(self):
@@ -145,7 +153,7 @@ class NoeConnector(Connector):
     direction = PULL
     description = ("Alimente vos listes depuis les bénévoles d'un festival géré avec "
                    "NOÉ : un pôle (accueil, restauration…) devient une liste.")
-    doc_url = 'https://get.noe-app.io/fr/docs/api/'
+    doc_url = DOCS_INTEGRATIONS + '#noe'
     required_settings = ('NOE_URL', 'NOE_TOKEN', 'NOE_PROJECT_ID')
 
     can_feed_lists = True
