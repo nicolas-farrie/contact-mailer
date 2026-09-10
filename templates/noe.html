@@ -60,7 +60,7 @@
             <td>{{ g.count }}</td>
             <td class="actions-cell">
                 {% if g.name in fed_refs %}
-                <span class="hint">⟳ <a href="{{ url_for('contacts.index', liste=fed_ids[g.name]) }}">{{ fed_refs[g.name] }}</a></span>
+                <span class="hint">⟳ <a href="{{ url_for('contacts.index', liste=fed_ids[g.name]) }}">{{ fed_refs[g.name] }}</a>{% if fed_sync[g.name] %} · {{ fed_sync[g.name] }}{% endif %}</span>
                 {% else %}
                 <a href="{{ url_for('api_integrations.noe_feed', ref=g.name) }}"
                    class="btn btn-small btn-secondary">Alimenter une liste</a>

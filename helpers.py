@@ -12,7 +12,7 @@ from flask import current_app, url_for, flash, redirect
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
-from models import db, Setting
+from models import db, Setting, utcnow
 
 
 def slugify_key(label):
@@ -189,3 +189,23 @@ def list_edit_blocked_reason(liste):
         return None
     return (f'« {liste.nom} » est alimentée par {list_source_label(liste)} : '
             f'ses membres suivent la source et ne se modifient pas ici.')
+
+
+def since_label(dt):
+    """« il y a 12 min », « il y a 3 h », « il y a 2 j » — ou '' si jamais.
+
+    Une date brute (« 2026-09-10 08:12 ») oblige à calculer de tête pour savoir si une
+    donnée est fraîche. Devant un envoi de mails, c'est cette fraîcheur qui compte, pas
+    l'horodatage.
+    """
+    if not dt:
+        return ''
+    delta = utcnow() - dt
+    minutes = int(delta.total_seconds() // 60)
+    if minutes < 1:
+        return "à l'instant"
+    if minutes < 60:
+        return f'il y a {minutes} min'
+    if minutes < 60 * 24:
+        return f'il y a {minutes // 60} h'
+    return f'il y a {minutes // (60 * 24)} j'

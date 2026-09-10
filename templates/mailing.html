@@ -117,11 +117,16 @@
                         <span class="rail-list-count">{{ selection_count }}</span>
                     </label>
                     {% endif %}
+                    {# Une liste alimentée par une source externe reflète un état daté :
+                       avant un envoi, savoir de quand il date vaut mieux que de le
+                       découvrir après coup. #}
                     {% for liste in listes %}
-                    <label class="rail-list-item" data-nom="{{ liste.nom|lower }}">
+                    <label class="rail-list-item" data-nom="{{ liste.nom|lower }}"
+                           {% if liste.source %}title="Synchronisée depuis {{ liste.source_label }} — {{ liste.sync_label }}"{% endif %}>
                         <input type="checkbox" name="liste_ids" value="{{ liste.id }}"
                                {% if liste.id in prefill.liste_ids %}checked{% endif %} onchange="updateRecipients()">
-                        <span class="rail-list-nom">{{ liste.nom }}</span>
+                        <span class="rail-list-nom">{{ liste.nom }}{% if liste.source %}
+                            <span class="rail-list-sync{% if liste.source.is_stale %} is-stale{% endif %}">⟳ {{ liste.sync_label }}</span>{% endif %}</span>
                         <span class="rail-list-count">{{ liste.count }}</span>
                     </label>
                     {% endfor %}
@@ -513,3 +518,10 @@ updateRecipients();
 // (L'aperçu est désormais l'étape 2 du parcours : écran /mailing/apercu.)
 </script>
 {% endblock %}
+
+<style>
+/* Fraîcheur d'une liste synchronisée, discrète tant qu'elle est récente — visible
+   quand elle ne l'est plus, puisque c'est là qu'elle change une décision d'envoi. */
+.rail-list-sync { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+.rail-list-sync.is-stale { color: var(--warning, #b45309); font-weight: 600; }
+</style>

@@ -16,7 +16,7 @@ from flask_login import current_user, login_required
 from models import db, Contact, Liste, BookstackRole, ListSource, ExternalIdentity, utcnow
 from config import Config
 from connectors import all_status, get_connector
-from helpers import admin_required, listes_sorted, dedup_key
+from helpers import admin_required, listes_sorted, dedup_key, since_label
 
 bp = Blueprint('api_integrations', __name__)
 
@@ -56,9 +56,10 @@ def noe():
     _sources = ListSource.query.filter_by(provider=cfg.name, instance=cfg.instance_key()).all()
     fed_refs = {s.ref: s.liste.nom for s in _sources}
     fed_ids = {s.ref: s.liste_id for s in _sources}
+    fed_sync = {s.ref: since_label(s.last_sync_at) for s in _sources}
     ctx = {'level': level, 'configured': cfg.is_configured(), 'missing': cfg.missing_settings(),
            'project_name': '', 'groups': [], 'error': None, 'total': 0,
-           'fed_refs': fed_refs, 'fed_ids': fed_ids, 'active_tab': 'noe'}
+           'fed_refs': fed_refs, 'fed_ids': fed_ids, 'fed_sync': fed_sync, 'active_tab': 'noe'}
 
     if ctx['configured']:
         try:

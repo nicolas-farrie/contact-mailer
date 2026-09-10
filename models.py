@@ -129,6 +129,14 @@ class Liste(db.Model):
         return self.source is not None
 
     @property
+    def sync_label(self):
+        """« il y a 12 min » depuis la dernière synchronisation, ou '' si liste libre."""
+        if self.source is None:
+            return ''
+        from helpers import since_label
+        return since_label(self.source.last_sync_at) or 'jamais'
+
+    @property
     def source_label(self):
         """Nom affichable de la source, demandé au registre — jamais écrit dans un template."""
         from helpers import list_source_label
@@ -165,6 +173,19 @@ class ListSource(db.Model):
 
     liste = db.relationship('Liste', backref=db.backref('source', uselist=False,
                                                         cascade='all, delete-orphan'))
+
+    #: Au-delà, le reflet est jugé trop ancien pour partir en mailing sans y regarder.
+    #: Six heures : plus large qu'un cycle de synchro (15 min), assez court pour qu'une
+    #: journée de festival ne passe pas inaperçue.
+    STALE_AFTER_HOURS = 6
+
+    @property
+    def is_stale(self):
+        """Vrai si la dernière synchronisation est trop ancienne — ou n'a jamais eu lieu."""
+        if self.last_sync_at is None:
+            return True
+        from datetime import timedelta
+        return (utcnow() - self.last_sync_at) > timedelta(hours=self.STALE_AFTER_HOURS)
 
     def __repr__(self):
         return f'<ListSource {self.provider}:{self.ref} → liste {self.liste_id}>'
