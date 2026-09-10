@@ -73,10 +73,16 @@ class Connector:
         """
         return self.target()
 
-    def list_groups(self):
+    #: Niveaux de regroupement proposés, s'il y en a plusieurs : [(clé, libellé)…].
+    #: Le premier est celui présenté par défaut. Vide = un seul niveau, pas de bascule.
+    LEVELS = ()
+
+    def list_groups(self, level=None):
         """[{'ref', 'label', 'count'}] — les groupes proposables comme source.
 
-        `ref` est la clé stable côté service ; `label` son nom affichable.
+        `ref` est la clé stable côté service, opaque pour l'appelant : le connecteur y
+        met ce dont il a besoin pour retrouver le groupe plus tard (un niveau, un
+        identifiant…). `label` est son nom affichable.
         """
         raise NotImplementedError
 
@@ -156,21 +162,57 @@ class NoeConnector(Connector):
         from noe import NoeClient
         return NoeClient(Config.NOE_URL, Config.NOE_TOKEN, Config.NOE_PROJECT_ID)
 
-    def list_groups(self):
-        """Les pôles du festival et leurs effectifs.
+    #: Niveaux de regroupement proposés. Les pôles d'abord : c'est la maille à laquelle
+    #: on s'adresse aux bénévoles (« la restauration »), les missions servant quand un
+    #: pôle est trop large pour un message ciblé.
+    LEVELS = (('category', 'Pôles'), ('activity', 'Missions'))
+    DEFAULT_LEVEL = 'category'
 
-        Seuls ceux comptant au moins un bénévole : un festival déclare ses catégories
-        très en amont, lister les vides noierait celles où il y a quelqu'un à qui
-        écrire (cf. build_group_index).
+    @classmethod
+    def parse_ref(cls, ref):
+        """« activity:Chapeaux » → ('activity', 'Chapeaux').
+
+        Le niveau voyage DANS la référence plutôt que dans une colonne dédiée : le cœur
+        de l'application n'a pas à connaître une notion propre à NOÉ, et c'est au
+        connecteur d'interpréter sa propre clé. Une référence sans préfixe vaut
+        `category` — les listes rattachées avant l'introduction des missions continuent
+        donc de fonctionner sans migration.
+        """
+        level, sep, name = (ref or '').partition(':')
+        if sep and level in dict(cls.LEVELS):
+            return level, name
+        return cls.DEFAULT_LEVEL, ref or ''
+
+    @classmethod
+    def canonical_ref(cls, ref):
+        """Ramène une référence à sa forme préfixée, même si elle a été stockée sans.
+
+        Les listes rattachées avant l'introduction des missions portent « Restauration »
+        et non « category:Restauration » : sans cette normalisation, elles cesseraient
+        d'être reconnues comme déjà rattachées.
+        """
+        level, name = cls.parse_ref(ref)
+        return f'{level}:{name}'
+
+    def list_groups(self, level=None):
+        """Les groupes du festival et leurs effectifs, au niveau demandé.
+
+        Seuls ceux comptant au moins un bénévole, quel que soit le niveau : un festival
+        déclare ses catégories et ses missions très en amont, lister les vides noierait
+        celles où il y a quelqu'un à qui écrire (cf. build_group_index).
         """
         from noe import build_group_index
-        index = build_group_index(self._client(), level='category')
-        return [{'ref': name, 'label': name, 'count': len(members)}
+        level = level if level in dict(self.LEVELS) else self.DEFAULT_LEVEL
+        index = build_group_index(self._client(), level=level)
+        return [{'ref': f'{level}:{name}', 'label': name, 'count': len(members),
+                 'level': level}
                 for name, members in index.items()]
 
     def fetch_members(self, ref):
+        """Les membres d'un groupe, le niveau étant lu dans la référence elle-même."""
         from noe import pull_contacts_from_noe
-        contacts, _stats = pull_contacts_from_noe(self._client(), ref, level='category')
+        level, name = self.parse_ref(ref)
+        contacts, _stats = pull_contacts_from_noe(self._client(), name, level=level)
         return contacts
 
 

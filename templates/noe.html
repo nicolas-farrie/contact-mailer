@@ -36,33 +36,34 @@
 {# Deux découpages du même effectif : les pôles pour écrire à « la restauration », les
    missions quand un pôle est trop large pour un message ciblé. #}
 <div class="noe-levels">
-    <a href="{{ url_for('api_integrations.noe', level='category') }}"
-       class="btn btn-small {% if level == 'category' %}btn-primary{% else %}btn-secondary{% endif %}">Pôles</a>
-    <a href="{{ url_for('api_integrations.noe', level='activity') }}"
-       class="btn btn-small {% if level == 'activity' %}btn-primary{% else %}btn-secondary{% endif %}">Missions</a>
+    {# Les niveaux viennent du connecteur : aucun nom n'est écrit ici. #}
+    {% for key, libelle in levels %}
+    <a href="{{ url_for('api_integrations.noe', level=key) }}"
+       class="btn btn-small {% if level == key %}btn-primary{% else %}btn-secondary{% endif %}">{{ libelle }}</a>
+    {% endfor %}
     <span class="hint">{{ total }} inscrit{{ 's' if total > 1 }} au total</span>
 </div>
 
 <table class="data-table">
     <thead>
         <tr>
-            <th>{{ 'Pôle' if level == 'category' else 'Mission' }}</th>
+            <th>{% for key, libelle in levels %}{% if key == level %}{{ libelle }}{% endif %}{% endfor %}</th>
             <th>Bénévoles</th>
             <th></th>
         </tr>
     </thead>
     <tbody>
+        {# `g.ref` est la clé complète (« category:Restauration ») : un pôle et une
+           mission de même nom ne se confondent pas. `g.label` est le nom affiché. #}
         {% for g in groups %}
         <tr>
-            {# Un pôle déjà rattaché mène à sa liste : c'est ce qu'on veut voir après
-               l'avoir alimenté, sans repasser par la page Listes. #}
-            <td>{% if g.name in fed_refs %}<a href="{{ url_for('contacts.index', liste=fed_ids[g.name]) }}">{{ g.name }}</a>{% else %}{{ g.name }}{% endif %}</td>
+            <td>{% if g.ref in fed_refs %}<a href="{{ url_for('contacts.index', liste=fed_ids[g.ref]) }}">{{ g.label }}</a>{% else %}{{ g.label }}{% endif %}</td>
             <td>{{ g.count }}</td>
             <td class="actions-cell">
-                {% if g.name in fed_refs %}
-                <span class="hint">⟳ <a href="{{ url_for('contacts.index', liste=fed_ids[g.name]) }}">{{ fed_refs[g.name] }}</a>{% if fed_sync[g.name] %} · {{ fed_sync[g.name] }}{% endif %}</span>
+                {% if g.ref in fed_refs %}
+                <span class="hint">⟳ <a href="{{ url_for('contacts.index', liste=fed_ids[g.ref]) }}">{{ fed_refs[g.ref] }}</a>{% if fed_sync[g.ref] %} · {{ fed_sync[g.ref] }}{% endif %}</span>
                 {% else %}
-                <a href="{{ url_for('api_integrations.noe_feed', ref=g.name) }}"
+                <a href="{{ url_for('api_integrations.noe_feed', ref=g.ref) }}"
                    class="btn btn-small btn-secondary">Alimenter une liste</a>
                 {% endif %}
             </td>

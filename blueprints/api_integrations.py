@@ -46,35 +46,37 @@ def noe():
     contacts (cf. blueprints/contacts.py), et cette page ne fait que lire une source
     fixe. L'import de fichiers, lui, accepte n'importe quel contenu et reste admin.
     """
-    level = request.args.get('level', 'category')
-    if level not in ('category', 'activity'):
-        level = 'category'
-
     cfg = get_connector('noe')
-    # Pôles déjà rattachés à une liste : proposer « Alimenter » pour eux induirait en
-    # erreur, puisqu'une liste n'a qu'une source et qu'un pôle n'alimente qu'une liste.
+    level = request.args.get('level', cfg.DEFAULT_LEVEL)
+    if level not in dict(cfg.LEVELS):
+        level = cfg.DEFAULT_LEVEL
+
+    # Groupes déjà rattachés à une liste : proposer « Alimenter » pour eux induirait en
+    # erreur, puisqu'une liste n'a qu'une source et qu'un groupe n'alimente qu'une liste.
+    # Les clés sont les refs COMPLÈTES (« category:Restauration ») : un pôle et une
+    # mission de même nom restent ainsi distincts.
     _sources = ListSource.query.filter_by(provider=cfg.name, instance=cfg.instance_key()).all()
-    fed_refs = {s.ref: s.liste.nom for s in _sources}
-    fed_ids = {s.ref: s.liste_id for s in _sources}
-    fed_sync = {s.ref: since_label(s.last_sync_at) for s in _sources}
-    ctx = {'level': level, 'configured': cfg.is_configured(), 'missing': cfg.missing_settings(),
+    # Clés canoniques des deux côtés : les sources créées avant les missions ont une ref
+    # sans préfixe, elles doivent rester reconnues comme déjà rattachées.
+    fed_refs = {cfg.canonical_ref(s.ref): s.liste.nom for s in _sources}
+    fed_ids = {cfg.canonical_ref(s.ref): s.liste_id for s in _sources}
+    fed_sync = {cfg.canonical_ref(s.ref): since_label(s.last_sync_at) for s in _sources}
+    ctx = {'level': level, 'levels': cfg.LEVELS,
+           'configured': cfg.is_configured(), 'missing': cfg.missing_settings(),
            'project_name': '', 'groups': [], 'error': None, 'total': 0,
            'fed_refs': fed_refs, 'fed_ids': fed_ids, 'fed_sync': fed_sync, 'active_tab': 'noe'}
 
     if ctx['configured']:
         try:
-            from noe import NoeClient, build_group_index, GROUP_ALL
+            from noe import NoeClient, GROUP_ALL
             client = NoeClient(Config.NOE_URL, Config.NOE_TOKEN, Config.NOE_PROJECT_ID)
-            project = client.get_project()
-            index = build_group_index(client, level=level, project=project)
-            ctx['project_name'] = project.get('name', '')
-            ctx['total'] = len(index.get(GROUP_ALL, []))
-            # GROUP_ALL en tête (c'est l'ensemble), puis les pôles du plus fourni au moins.
-            # « Tous les inscrits » en tête, puis du plus fourni au moins — les pôles
-            # sans personne finissent en bas, visibles mais sans encombrer.
+            ctx['project_name'] = client.get_project().get('name', '')
+            groups = cfg.list_groups(level=level)
+            ctx['total'] = next((g['count'] for g in groups if g['label'] == GROUP_ALL), 0)
+            # « Tous les inscrits » en tête (c'est l'ensemble), puis du plus fourni au
+            # moins. Seuls les groupes peuplés remontent (cf. build_group_index).
             ctx['groups'] = sorted(
-                ({'name': n, 'count': len(c)} for n, c in index.items()),
-                key=lambda g: (g['name'] != GROUP_ALL, -g['count'], g['name']))
+                groups, key=lambda g: (g['label'] != GROUP_ALL, -g['count'], g['label']))
         except RuntimeError as e:
             # Service injoignable ou jeton périmé : la page s'affiche quand même, avec
             # la raison. Elle est le point d'entrée du connecteur, pas un cul-de-sac.
@@ -100,9 +102,12 @@ def noe_feed():
         flash('NOÉ non configuré.', 'error')
         return redirect(url_for('api_integrations.noe'))
 
+    # `ref` est la clé opaque du connecteur (« category:Restauration ») ; `label` en est
+    # le nom lisible, seul montré à l'écran et stocké comme nom de la source.
     ref = (request.values.get('ref') or '').strip()
     if not ref:
         return redirect(url_for('api_integrations.noe'))
+    _level, label = cfg.parse_ref(ref)
 
     mode = request.values.get('mode', 'fill')
     if mode not in ('skip', 'fill', 'overwrite'):
@@ -118,11 +123,11 @@ def noe_feed():
         flash(f'NOÉ injoignable : {e}', 'error')
         return redirect(url_for('api_integrations.noe'))
 
-    ctx = {'ref': ref, 'members': members, 'listes': libres, 'mode': mode,
+    ctx = {'ref': ref, 'label': label, 'members': members, 'listes': libres, 'mode': mode,
            'counts': None, 'conflicts': None, 'unsubscribed': [], 'trashed': [],
            'near_matches': [],
            'target_kind': request.values.get('target_kind', 'new'),
-           'new_list_name': request.values.get('new_list_name', ref),
+           'new_list_name': request.values.get('new_list_name', label),
            'liste_id': request.values.get('liste_id', ''),
            'active_tab': 'noe'}
 
@@ -175,7 +180,7 @@ def noe_feed():
                 flash('Choisissez une liste sans source.', 'error')
                 return render_template('noe_feed.html', **ctx)
         else:
-            nom = (ctx['new_list_name'] or ref).strip()
+            nom = (ctx['new_list_name'] or label).strip()
             if Liste.query.filter_by(nom=nom).first():
                 flash(f'Une liste « {nom} » existe déjà — choisissez-la ou changez de nom.', 'error')
                 return render_template('noe_feed.html', **ctx)
@@ -190,7 +195,7 @@ def noe_feed():
 
         # La source : à partir d'ici la liste est un reflet, non modifiable à la main.
         liste.source = ListSource(provider=cfg.name, instance=cfg.instance_key(),
-                                  ref=ref, label=ref, last_sync_at=utcnow())
+                                  ref=ref, label=label, last_sync_at=utcnow())
         _link_identities(cfg, members)
         db.session.commit()
 

@@ -31,7 +31,9 @@ def sync_source(source, connector=None):
     n'a pas demandée. Sortir du groupe NOÉ fait sortir de la liste ; être arrivé
     autrement ne regarde pas la source.
     """
-    result = {'liste': source.liste.nom, 'ref': source.ref,
+    # `label` et non `ref` : la référence peut porter des détails internes au connecteur
+    # (un niveau, un identifiant) qui n'ont rien à faire dans un journal lu par un humain.
+    result = {'liste': source.liste.nom, 'ref': source.label or source.ref,
               'added': 0, 'removed': 0, 'pending': 0, 'error': None}
 
     connector = connector or get_connector(source.provider)

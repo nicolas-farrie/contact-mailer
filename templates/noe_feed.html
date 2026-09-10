@@ -1,9 +1,9 @@
 {% extends "settings_layout.html" %}
-{% block title %}Alimenter une liste depuis {{ ref }} - {{ app_name }}{% endblock %}
+{% block title %}Alimenter une liste depuis {{ label }} - {{ app_name }}{% endblock %}
 
 {% block settings_content %}
 <div class="page-header">
-    <h1>Alimenter une liste depuis « {{ ref }} »</h1>
+    <h1>Alimenter une liste depuis « {{ label }} »</h1>
     <a href="{{ url_for('api_integrations.noe') }}" class="back-link">← Retour aux pôles</a>
 </div>
 
