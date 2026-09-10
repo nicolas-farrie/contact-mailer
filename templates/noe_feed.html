@@ -98,12 +98,40 @@
             <li><strong>{{ counts.created }}</strong> contact{{ 's' if counts.created > 1 }} à créer</li>
             <li><strong>{{ counts.updated }}</strong> à mettre à jour</li>
             <li><strong>{{ counts.skipped }}</strong> inchangé{{ 's' if counts.skipped > 1 }}</li>
-            {% if conflicts %}
-            <li><strong>{{ conflicts|length }}</strong> valeur(s) de NOÉ non appliquée(s) :
-                le champ était déjà rempli et différent</li>
-            {% endif %}
         </ul>
     </div>
+
+    {# Un compteur seul n'apprend rien : ni quel champ, ni quelle différence, ni quoi
+       faire. Les volumes d'un pôle tiennent à l'écran (quelques dizaines de personnes),
+       contrairement à l'import de fichiers qui renvoie vers un CSV. #}
+    {% if conflicts %}
+    <div class="alert alert-warning">
+        <strong>{{ conflicts|length }} valeur{{ 's' if conflicts|length > 1 }} de NOÉ
+            {{ 'ne seront pas appliquées' if conflicts|length > 1 else 'ne sera pas appliquée' }}</strong>
+        — vos données sont conservées.
+        <table class="data-table noe-conflicts">
+            <thead>
+                <tr><th>Contact</th><th>Champ</th><th>Conservé ici</th><th>Proposé par NOÉ</th></tr>
+            </thead>
+            <tbody>
+                {% for c in conflicts[:20] %}
+                <tr>
+                    <td>{{ c.prenom }} {{ c.nom }}</td>
+                    <td>{{ c.champ }}</td>
+                    <td>{{ c.existant }}</td>
+                    <td class="noe-proposed">{{ c.fichier }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if conflicts|length > 20 %}
+        <p class="hint">… et {{ conflicts|length - 20 }} autre{{ 's' if conflicts|length - 20 > 1 }} non affiché{{ 's' if conflicts|length - 20 > 1 }}.</p>
+        {% endif %}
+        <p class="hint">En mode « Compléter les champs vides », un champ déjà rempli n'est
+            jamais écrasé. Pour adopter les valeurs de NOÉ, choisissez « Écraser » ci-dessus,
+            puis relancez l'analyse.</p>
+    </div>
+    {% endif %}
     {% endif %}
 
     <div class="form-actions">
@@ -117,5 +145,7 @@
 <style>
 .noe-detail { margin: 0.4rem 0 0; padding-left: 1.2rem; font-size: 0.88rem; }
 .radio-label { display: block; margin-bottom: 0.35rem; }
+.noe-conflicts { margin: 0.6rem 0; font-size: 0.88rem; }
+.noe-proposed { color: var(--text-muted); }
 </style>
 {% endblock %}
