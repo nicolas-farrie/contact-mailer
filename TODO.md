@@ -86,6 +86,10 @@
 - [x] Mailing : liens désactivés dans l'aperçu (évite qu'en prévisualisant on modifie de vraies données via un formulaire live)
 
 ## Correction Bug ou pb interface - Prioritaire
+- [ ] **Landing page : après connexion, on arrive sur Contacts au lieu de Listes** *(10/09/2026)*.
+      Les listes sont le point d'entrée naturel du travail (on part d'une liste pour écrire, pour
+      importer, pour filtrer) ; ouvrir sur la totalité des contacts oblige à un détour à chaque
+      session. À vérifier : la route `/` redirige aujourd'hui vers `contacts.index`.
 
 - [x] **🔴 Mailing : séquence d'envoi phase 3 → phase 4 — CORRIGÉ (08-04, Tier 0)**. La confirmation de l'étape Destinataires **déclenche réellement l'envoi** : `add_to_queue` met en file **puis** `_run_send()` (envoi immédiat) → on arrive en phase Envoi sur un **état résultat**. `process()` devient « Reprendre l'envoi » (file d'attente, cas interrompu/erreurs). Modale unique « Envoyer maintenant » + overlay. Prépare l'asynchrone (confirmer = file + armer le déclencheur). *(Fini le « resté en file, jamais parti ».)*
 
