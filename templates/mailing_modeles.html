@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Modèles de mailing - Contact Mailer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Modèles de mailing</h1>
+    <div>
+        <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
+    </div>
+</div>
+
+<p class="hint">Contenus réutilisables, partagés entre tous les utilisateurs : objet, message, adresse de réponse et signature.
+    Les destinataires et les pièces jointes se choisissent à chaque envoi.
+    Pour créer un modèle, utilisez « Enregistrer comme modèle » sur l'aperçu d'un mailing.</p>
+
+{% if templates %}
+<div class="table-responsive">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Modèle</th>
+            <th>Auteur</th>
+            <th>Modifié le</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for t in templates %}
+    <tr>
+        <td>
+            <strong id="tpl-name-{{ t.id }}">{{ t.name }}</strong>
+            {% if t.subject %}<div class="liste-desc">Objet : {{ t.subject }}</div>{% endif %}
+            {% if t.can_edit(current_user) %}
+            <form method="POST" action="{{ url_for('mailing.template_rename', template_id=t.id) }}"
+                  id="tpl-rename-{{ t.id }}" style="display:none; gap:0.4rem; margin-top:0.3rem;">
+                <input type="text" name="name" value="{{ t.name }}" maxlength="200" required autocomplete="off">
+                <button type="submit" class="btn btn-small btn-primary">OK</button>
+                <button type="button" class="btn btn-small btn-secondary" onclick="toggleRename({{ t.id }}, false)">Annuler</button>
+            </form>
+            {% endif %}
+        </td>
+        <td class="text-muted">{{ t.created_by.display_name if t.created_by else '—' }}</td>
+        <td style="white-space:nowrap" class="text-muted">{{ (t.updated_at or t.created_at).strftime('%d/%m/%Y') if (t.updated_at or t.created_at) else '' }}</td>
+        <td class="actions-cell">
+            <a href="{{ url_for('mailing.compose', modele=t.id) }}" class="btn btn-small btn-primary">Utiliser</a>
+            {% if t.can_edit(current_user) %}
+            <button type="button" class="btn btn-small btn-secondary" onclick="toggleRename({{ t.id }}, true)">Renommer</button>
+            <form method="POST" action="{{ url_for('mailing.template_delete', template_id=t.id) }}" style="display:inline"
+                  onsubmit="return confirm({{ ('Supprimer le modèle « ' ~ t.name ~ ' » ? Il disparaîtra pour tous les utilisateurs.')|tojson }});">
+                <button type="submit" class="btn btn-small btn-danger">Supprimer</button>
+            </form>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="card">
+    <p class="text-muted">Aucun modèle pour l'instant.</p>
+</div>
+{% endif %}
+
+<script>
+function toggleRename(id, show) {
+    document.getElementById('tpl-rename-' + id).style.display = show ? 'flex' : 'none';
+    document.getElementById('tpl-name-' + id).style.display = show ? 'none' : '';
+    if (show) { document.querySelector('#tpl-rename-' + id + ' input').select(); }
+}
+</script>
+{% endblock %}

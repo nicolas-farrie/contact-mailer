@@ -417,6 +417,34 @@ class MailCampaign(db.Model):
         return data
 
 
+class MailTemplate(db.Model):
+    """Modèle de mailing réutilisable, partagé entre tous les utilisateurs.
+
+    Distinct de `MailCampaign` : une campagne (même brouillon) est consommée par un
+    envoi, un modèle ne l'est jamais — et n'apparaît ni dans l'historique ni dans les
+    brouillons. Il ne porte que du contenu : ni listes (les destinataires changent à
+    chaque envoi), ni pièces jointes.
+
+    Le corps est stocké SANS signature, `signed` en garde l'intention : la signature
+    appliquée est toujours celle de la personne qui envoie."""
+    __tablename__ = 'mail_template'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), unique=True, nullable=False)
+    subject = db.Column(db.Text, default='')
+    body = db.Column(db.Text, default='')
+    format = db.Column(db.String(10), default='html')
+    reply_to = db.Column(db.String(200), nullable=True)
+    signed = db.Column(db.Boolean, default=False, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+
+    def can_edit(self, user):
+        """Renommer / supprimer : l'auteur et les administrateurs."""
+        return bool(user.is_admin or (self.created_by_id and self.created_by_id == user.id))
+
+
 class MailQueueItem(db.Model):
     """Un destinataire dans la file d'envoi (ex-`queue` du mail_queue.json).
 

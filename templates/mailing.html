@@ -61,6 +61,18 @@
     <div class="composer-grid">
             <!-- Carte éditeur -->
             <div class="card composer-editor">
+                {% if mail_templates %}
+                <div class="form-group">
+                    <label for="template-picker">Partir d'un modèle</label>
+                    <select id="template-picker" onchange="applyTemplate(this)">
+                        <option value="">— Choisir un modèle —</option>
+                        {% for t in mail_templates %}
+                        <option value="{{ t.id }}" {% if t.id == template_id %}selected{% endif %}>{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="hint">Remplace l'objet, le message, l'adresse de réponse et la signature. Les listes et pièces jointes déjà choisies sont conservées. <a href="{{ url_for('mailing.templates_list') }}">Gérer les modèles</a></p>
+                </div>
+                {% endif %}
                 <div class="form-group">
                     <label for="name">Nom du mailing <span class="hint" style="font-weight:normal;">(interne — sert à le retrouver ; par défaut l'objet)</span></label>
                     <input type="text" id="name" name="name" value="{{ prefill.name }}" maxlength="200"
@@ -373,6 +385,23 @@ function clearDraft() {
     // Repartir sur un compositeur VIERGE : un simple reload ré-appliquerait le
     // préremplissage serveur (?from_submission / ?from_campaign) → form re-rempli.
     window.location.href = "{{ url_for('mailing.compose') }}";
+}
+
+// === Modèles ===
+function applyTemplate(sel) {
+    if (!sel.value) return;
+    syncBody();
+    const hasContent = document.getElementById('subject').value.trim() || bodyTextarea.value.trim();
+    if (hasContent && !confirm('Remplacer l\'objet et le message en cours par ceux du modèle ?')) {
+        sel.value = '';
+        return;
+    }
+    const url = new URL("{{ url_for('mailing.compose') }}", window.location.href);
+    url.searchParams.set('modele', sel.value);
+    {% if from_campaign_id %}url.searchParams.set('from_campaign', {{ from_campaign_id|tojson }});{% endif %}
+    _draftCleared = true;   // le brouillon local ne doit pas écraser le modèle
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    window.location.href = url.toString();
 }
 
 // === Signer : aperçu ===

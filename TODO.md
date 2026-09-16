@@ -217,6 +217,12 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [x] **Modèles de mailing** *(17/09/2026, branche `feature/modeles-mailing`)*. Table
+      `mail_template`, distincte des campagnes : « Enregistrer comme modèle » sur l'aperçu,
+      « Partir d'un modèle » dans la rédaction, page Mailing → Modèles (utiliser, renommer,
+      supprimer). Partagés entre utilisateurs ; renommer/supprimer : auteur et admins.
+      Contenu seul — ni listes ni pièces jointes. _Suites possibles : « Enregistrer comme
+      modèle » depuis l'historique ; pièces jointes si le besoin se confirme._
 - [ ] **NOÉ — avertir du risque de doublon pôle / mission** *(10/09/2026)*. Depuis que les
       deux niveaux sont alimentables, une même personne peut se retrouver dans une liste
       « pôle » ET dans une liste « mission » qui en dépend — chez lfll, « Accueil » (11) et

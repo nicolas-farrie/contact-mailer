@@ -84,6 +84,18 @@
             </form>
         </div>
 
+        <div class="card">
+            <div class="card-title">Enregistrer comme modèle</div>
+            <p class="hint">Réutilisez ce contenu (objet, message, réponse, signature) pour un prochain mailing. Ni les listes ni les pièces jointes ne sont conservées.</p>
+            <form method="POST" action="{{ url_for('mailing.template_save') }}">
+                <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
+                <div class="form-group">
+                    <input type="text" name="name" value="{{ template.name or template.subject }}" required maxlength="200" placeholder="Nom du modèle">
+                </div>
+                <button type="submit" class="btn btn-secondary" style="width:100%;">Enregistrer comme modèle</button>
+            </form>
+        </div>
+
         <a href="{{ url_for('mailing.confirm', campaign=campaign_id) }}" class="btn btn-primary btn-cta apercu-cta">Préparer l'envoi →</a>
         <p class="hint" style="text-align:center;">Vous choisirez précisément les destinataires à l'étape suivante, avant l'envoi définitif.</p>
     </aside>

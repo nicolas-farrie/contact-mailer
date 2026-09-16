@@ -5,7 +5,8 @@ Endpoints : mailing.compose, mailing.history, mailing.queue_retry,
 mailing.history_archive/unarchive/delete, mailing.submissions,
 mailing.submission_use/archive/attachment, mailing.preview, mailing.send,
 mailing.confirm, mailing.add_to_queue, mailing.queue, mailing.process,
-mailing.submission_preview, mailing.test_connection.
+mailing.submission_preview, mailing.test_connection,
+mailing.templates_list, mailing.template_save/rename/delete (modèles).
 """
 import re
 import unicodedata
@@ -14,7 +15,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, jsonify, send_from_directory)
 from flask_login import login_required, current_user
 
-from models import Contact, Liste, PreferenceForm, MailCampaign, MailQueueItem, ContactSend, db, utcnow
+from models import Contact, Liste, PreferenceForm, MailCampaign, MailTemplate, MailQueueItem, ContactSend, db, utcnow
 from config import Config
 from helpers import admin_required, listes_sorted
 
@@ -170,6 +171,21 @@ def compose():
             sign_checked = bool(_SIG_RE.search(prefill['body']))
             prefill['body'] = _strip_signature(prefill['body'])
 
+    # Pré-remplissage depuis un modèle : seulement le CONTENU. Appliqué après
+    # from_campaign pour qu'un modèle choisi en cours d'édition garde la campagne,
+    # ses listes et ses pièces jointes.
+    template_id = request.args.get('modele', type=int)
+    if template_id:
+        mt = db.session.get(MailTemplate, template_id)
+        if mt:
+            prefill.update({'subject': mt.subject or '', 'body': mt.body or '',
+                            'format': mt.format or 'html', 'reply_to': mt.reply_to or ''})
+            if not prefill.get('name'):
+                prefill['name'] = mt.name
+            sign_checked = mt.signed
+        else:
+            flash('Modèle introuvable.', 'error')
+
     # Pré-remplissage depuis une demande de diffusion (boîte IMAP)
     # Stocké sur disque (et non en session) car le corps peut contenir des
     # images encodées en base64, trop volumineuses pour un cookie de session.
@@ -197,7 +213,9 @@ def compose():
     forms = (PreferenceForm.query
              .filter_by(is_active=True, is_archived=False)
              .order_by(PreferenceForm.nom).all())
+    templates = MailTemplate.query.order_by(MailTemplate.name).all()
     return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill,
+                           mail_templates=templates, template_id=template_id,
                            submission_attachments=submission_attachments, submission_id=submission_id,
                            submission_unknown_lists=submission_unknown_lists,
                            campaign_attachments=campaign_attachments, from_campaign_id=from_campaign_id,
@@ -752,6 +770,99 @@ def rename():
         db.session.commit()
         flash('Mailing renommé.' if new_name else 'Nom du mailing effacé.', 'success')
     return redirect(request.form.get('back') or url_for('mailing.apercu', campaign=campaign_id))
+
+
+# === Modèles de mailing ===
+
+@bp.route('/mailing/modeles')
+@login_required
+def templates_list():
+    """Modèles partagés : tous les voient et les utilisent ; auteur et admins les gèrent."""
+    templates = MailTemplate.query.order_by(MailTemplate.name).all()
+    return render_template('mailing_modeles.html', templates=templates)
+
+
+def _template_name_taken(name, exclude_id=None):
+    q = MailTemplate.query.filter(db.func.lower(MailTemplate.name) == name.lower())
+    if exclude_id:
+        q = q.filter(MailTemplate.id != exclude_id)
+    return db.session.query(q.exists()).scalar()
+
+
+@bp.route('/mailing/modeles/save', methods=['POST'])
+@login_required
+def template_save():
+    """Enregistre le contenu d'une campagne comme modèle (depuis l'aperçu)."""
+    campaign_id = request.form.get('campaign_id')
+    back = url_for('mailing.apercu', campaign=campaign_id)
+    camp = db.session.get(MailCampaign, campaign_id) if campaign_id else None
+    if not camp:
+        flash('Campagne introuvable.', 'error')
+        return redirect(url_for('mailing.compose'))
+    name = (request.form.get('name') or '').strip()
+    if not name:
+        flash('Donnez un nom au modèle.', 'error')
+        return redirect(back)
+    if _template_name_taken(name):
+        flash(f'Un modèle « {name} » existe déjà : choisissez un autre nom.', 'error')
+        return redirect(back)
+
+    body = camp.body or ''
+    fmt = camp.format or 'text'
+    if fmt == 'html':
+        signed = bool(_SIG_RE.search(body))
+        body = _strip_signature(body)
+    else:
+        sig = current_user.moderation_signature
+        signed = bool(sig and body.endswith(f'\n\n— {sig}'))
+        if signed:
+            body = body[:-len(f'\n\n— {sig}')]
+    db.session.add(MailTemplate(name=name, subject=camp.subject or '', body=body,
+                                format=fmt, reply_to=camp.reply_to, signed=signed,
+                                created_by_id=current_user.id))
+    db.session.commit()
+    flash(f'Modèle « {name} » enregistré.', 'success')
+    return redirect(back)
+
+
+def _editable_template_or_none(template_id):
+    mt = db.session.get(MailTemplate, template_id)
+    if not mt:
+        flash('Modèle introuvable.', 'error')
+        return None
+    if not mt.can_edit(current_user):
+        flash("Seuls l'auteur du modèle et les administrateurs peuvent le modifier.", 'error')
+        return None
+    return mt
+
+
+@bp.route('/mailing/modeles/<int:template_id>/rename', methods=['POST'])
+@login_required
+def template_rename(template_id):
+    mt = _editable_template_or_none(template_id)
+    if mt:
+        name = (request.form.get('name') or '').strip()
+        if not name:
+            flash('Le nom ne peut pas être vide.', 'error')
+        elif _template_name_taken(name, exclude_id=mt.id):
+            flash(f'Un modèle « {name} » existe déjà.', 'error')
+        else:
+            mt.name = name
+            db.session.commit()
+            flash('Modèle renommé.', 'success')
+    return redirect(url_for('mailing.templates_list'))
+
+
+@bp.route('/mailing/modeles/<int:template_id>/delete', methods=['POST'])
+@login_required
+def template_delete(template_id):
+    mt = _editable_template_or_none(template_id)
+    if mt:
+        name = mt.name
+        db.session.delete(mt)
+        db.session.commit()
+        flash(f'Modèle « {name} » supprimé.', 'success')
+    return redirect(url_for('mailing.templates_list'))
 
 
 @bp.route('/mailing/confirm')
