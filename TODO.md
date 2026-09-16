@@ -239,6 +239,16 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       alimentée : N personnes en commun ») et/ou sur le composeur quand deux listes
       sélectionnées se recouvrent fortement. Décision utilisateurs : on laisse les deux
       niveaux ouverts, on documente le risque.
+- [ ] **NOÉ — reprendre exactement les intitulés de NOÉ dans l'interface** *(15/09/2026)*.
+      L'intégration dit « pôle » et « mission », mots qui n'existent pas dans NOÉ : les
+      utilisateurs ne retrouvent pas ce qu'ils voient dans NOÉ. Intitulés vérifiés dans le
+      code source de NOÉ (via noe-outils) : **Catégorie** (`categories`), **Activité**
+      (`activities`), **Session** (`sessions`), **Espace** (`places`), **Encadrant·e**
+      (`stewards`). Les références internes `category:` / `activity:` sont déjà les bons
+      mots, seuls les libellés affichés changent (pages `/integrations/noe`, choix du
+      niveau, messages, point « doublon pôle / mission » ci-dessus). Attention à la nuance
+      NOÉ : sur une activité, « Encadrant⋅es **éligibles** » et « Espaces **éligibles** »
+      sont des viviers ; l'affectation réelle est sur la session.
 - [ ] **Tags transverses (n↔m) sur les objets** — *idée à réfléchir, 10/09/2026.* Une table
       d'étiquettes partagée entre plusieurs types d'objets (listes, contacts, et pourquoi pas
       campagnes ou formulaires) plutôt qu'un champ par entité. Saisie des tags sur la fiche
