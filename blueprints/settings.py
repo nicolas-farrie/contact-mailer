@@ -45,6 +45,13 @@ def index():
                             '1' if request.form.get('audit_ip') == 'on' else '0')
                 flash('Paramètres généraux enregistrés.', 'success')
 
+        elif section == 'org_contact':
+            # Coordonnées de l'association, proposées en pied de mail (Mailing).
+            raw = (request.form.get('org_contact') or '').replace('\r\n', '\n')
+            lines = [l.strip() for l in raw.split('\n') if l.strip()]
+            set_setting('org_contact', '\n'.join(lines)[:1000])
+            flash("Coordonnées de l'association enregistrées.", 'success')
+
         elif section == 'bounce':
             # Toggle « Gestion du Bounce ». OFF → pas de Return-Path bounce forcé en
             # enveloppe (évite le rejet SMTP 553 sur les serveurs stricts).
@@ -112,7 +119,8 @@ def index():
                            submission_notify_enabled=(get_setting('submission_notify_enabled', '1') != '0'),
                            audit_ip_enabled=(get_setting('audit_log_ip_enabled', '1') != '0'),
                            imap_configured=bool(Config.IMAP_HOST),
-                           civilite_text='\n'.join(civilite_values))
+                           civilite_text='\n'.join(civilite_values),
+                           org_contact=get_setting('org_contact', '') or '')
 
 
 @bp.route('/settings/backup', methods=['POST'])

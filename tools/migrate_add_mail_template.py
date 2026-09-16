@@ -3,7 +3,7 @@
 Migration — modèles de mailing (`mail_template`).
 
 Crée la table `mail_template(name, subject, body, format, reply_to, signed,
-created_by_id, created_at, updated_at)` : des contenus de mailing réutilisables et
+org_footer, attachments, created_by_id, created_at, updated_at)` : des contenus de mailing réutilisables et
 partagés, distincts des campagnes (qu'un envoi consomme). Aucune donnée à backfiller.
 
 Non destructif. Idempotent, backup, dry-run.
@@ -34,12 +34,26 @@ CREATE TABLE IF NOT EXISTS mail_template (
     format VARCHAR(10) DEFAULT 'html',
     reply_to VARCHAR(200),
     signed BOOLEAN NOT NULL DEFAULT 0,
+    org_footer BOOLEAN NOT NULL DEFAULT 0,
+    attachments JSON,
     created_by_id INTEGER,
     created_at DATETIME,
     updated_at DATETIME,
     FOREIGN KEY(created_by_id) REFERENCES user(id)
 )
 """
+
+# Colonnes ajoutées après la première écriture de cette migration (jamais déployée,
+# mais déjà appliquée sur des bases de dev) : complétées si la table existe.
+LATE_COLUMNS = [
+    ("org_footer", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("attachments", "JSON"),
+]
+
+
+def _missing_columns(conn):
+    have = {r[1] for r in conn.execute("PRAGMA table_info(mail_template)")}
+    return [(n, t) for n, t in LATE_COLUMNS if n not in have]
 
 
 def main():
@@ -52,13 +66,16 @@ def main():
     conn = sqlite3.connect(path)
     try:
         need = not _has_table(conn, 'mail_template')
+        missing = [] if need else _missing_columns(conn)
         print(f"Base : {path}")
         print(f"  table mail_template : {'à créer' if need else 'présente'}")
+        if missing:
+            print(f"  colonnes à ajouter : {', '.join(n for n, _ in missing)}")
 
         if dry_run:
             print("(--dry-run : aucune écriture)")
             return
-        if not need:
+        if not need and not missing:
             print("Rien à faire (table déjà présente).")
             return
 
@@ -66,9 +83,12 @@ def main():
         shutil.copy(path, backup)
         print(f"→ Sauvegarde : {backup}")
 
-        conn.execute(CREATE)
+        if need:
+            conn.execute(CREATE)
+        for name, decl in missing:
+            conn.execute(f"ALTER TABLE mail_template ADD COLUMN {name} {decl}")
         conn.commit()
-        print("✓ Migration appliquée. Table mail_template créée.")
+        print("✓ Migration appliquée. Table mail_template à jour.")
     finally:
         conn.close()
 

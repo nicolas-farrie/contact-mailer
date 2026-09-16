@@ -29,6 +29,7 @@
     {# Campagne en cours d'édition : on la MET À JOUR au lieu d'en créer une nouvelle
        à chaque aller-retour (sinon, campagnes orphelines). #}
     {% if from_campaign_id %}<input type="hidden" name="from_campaign_id" value="{{ from_campaign_id }}">{% endif %}
+    {% if template_id %}<input type="hidden" name="template_id" value="{{ template_id }}">{% endif %}
     {% if submission_id %}
     <input type="hidden" name="submission_id" value="{{ submission_id }}">
     <div class="alert alert-info">
@@ -70,7 +71,7 @@
                         <option value="{{ t.id }}" {% if t.id == template_id %}selected{% endif %}>{{ t.name }}</option>
                         {% endfor %}
                     </select>
-                    <p class="hint">Remplace l'objet, le message, l'adresse de réponse et la signature. Les listes et pièces jointes déjà choisies sont conservées. <a href="{{ url_for('mailing.templates_list') }}">Gérer les modèles</a></p>
+                    <p class="hint">Remplace l'objet, le message, l'adresse de réponse et les options de pied de mail, et ajoute les pièces jointes du modèle. Les listes et pièces jointes déjà choisies sont conservées. <a href="{{ url_for('mailing.templates_list') }}">Gérer les modèles</a></p>
                 </div>
                 {% endif %}
                 <div class="form-group">
@@ -152,7 +153,8 @@
 
             {# Actions SOUS la carte Destinataires (et non dedans), comme le mockup CLD #}
             <div class="rail-actions-outer">
-                <button type="submit" class="btn btn-primary btn-cta" {% if not smtp_configured %}disabled{% endif %}>Continuer vers l'aperçu →</button>
+                <button type="submit" id="btn-continue" class="btn btn-primary btn-cta" {% if not smtp_configured %}disabled{% endif %}>Continuer vers l'aperçu →</button>
+                <p class="hint no-recipient-msg" id="no-recipient-msg" hidden>Cochez au moins une liste (ou la sélection courante) contenant des contacts joignables.</p>
                 <button type="submit" class="btn btn-secondary" formaction="{{ url_for('mailing.save_draft') }}" formnovalidate>Enregistrer le brouillon</button>
             </div>
             <p class="hint" style="text-align:center;">Vous verrez le mail tel qu'il sera reçu, puis vous choisirez les destinataires.<br>
@@ -176,6 +178,19 @@
                     {% endfor %}
                 </ul>
                 {% endif %}
+                {% if template_attachments %}
+                <p class="hint" style="margin:0 0 0.3rem;">Pièces jointes du modèle (décochez pour retirer) :</p>
+                <ul class="attach-list">
+                    {% for fn in template_attachments %}
+                    <li class="attach-chip">
+                        <label class="checkbox-inline" style="gap:0.4rem;">
+                            <input type="checkbox" name="template_attachments" value="{{ fn }}" checked>
+                            <span>{{ fn }}</span>
+                        </label>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
                 <input type="file" id="attachments" name="attachments" multiple onchange="renderAttachments()">
                 <ul id="attach-list" class="attach-list"></ul>
                 <p class="hint" id="attach-total"></p>
@@ -188,19 +203,18 @@
                     <input type="checkbox" name="include_unsubscribe" checked>
                     <span>Désabonnement</span>
                 </label>
-                <label class="pill-toggle is-disabled" title="Bientôt — nécessite le rendu serveur (prochaine tranche)">
-                    <input type="checkbox" disabled>
-                    <span>Nom de liste + inscrits</span>
-                </label>
-                <label class="pill-toggle is-disabled" title="Bientôt — nécessite une version web du mail (prochaine tranche)">
-                    <input type="checkbox" disabled>
-                    <span>Voir dans le navigateur</span>
-                </label>
-                <label class="pill-toggle is-disabled" title="Bientôt — nécessite les coordonnées de l'association (prochaine tranche)">
-                    <input type="checkbox" disabled>
+                {% if org_contact %}
+                <label class="pill-toggle" title="{{ org_contact }}">
+                    <input type="checkbox" name="org_footer" {{ 'checked' if org_checked }}>
                     <span>Coordonnées asso</span>
                 </label>
+                {% endif %}
             </div>
+            {% if not org_contact %}
+            <p class="hint">Coordonnées de l'association : à renseigner dans
+                {% if current_user.is_admin %}<a href="{{ url_for('settings.index') }}#org-contact">Paramètres</a>{% else %}Paramètres (administrateur){% endif %}
+                pour pouvoir les ajouter en pied de mail.</p>
+            {% endif %}
 
             <div class="opt-section signer-card">
                 <div class="signer-row">
@@ -365,6 +379,12 @@ function syncBody() {
 }
 
 document.getElementById('mailing-form').addEventListener('submit', function(e) {
+    // Sans destinataire, le serveur refuserait : on bloque ici, message à l'appui.
+    if (recipientCount === 0) {
+        e.preventDefault();
+        showNoRecipient(true);
+        return;
+    }
     const total = attachTotalBytes() + embeddedImageBytes();
     if (total > MAX_ATTACH_MB * 1024 * 1024) {
         e.preventDefault();
@@ -373,7 +393,9 @@ document.getElementById('mailing-form').addEventListener('submit', function(e) {
         return;
     }
     syncBody();
-    try { localStorage.removeItem(DRAFT_KEY); } catch (e2) {}
+    // La copie locale n'est PAS effacée ici : si le serveur refuse, la saisie doit
+    // pouvoir revenir. Elle l'est une fois l'aperçu atteint ou le brouillon enregistré.
+    saveDraft();
 });
 
 // Vider le brouillon local (abandon réel — utile sur poste partagé)
@@ -508,6 +530,24 @@ function restoreDraft() {
     } catch(e) { return false; }
 }
 
+// === Garde du bouton « Continuer » ===
+// Pas un vrai `disabled` : un bouton désactivé ne reçoit ni survol ni clic, et le
+// message expliquant pourquoi ne pourrait jamais s'afficher.
+let recipientCount = null;   // null = pas encore compté
+function setRecipientCount(n) {
+    recipientCount = n;
+    const btn = document.getElementById('btn-continue');
+    btn.classList.toggle('is-blocked', n === 0);
+    btn.setAttribute('aria-disabled', n === 0 ? 'true' : 'false');
+    if (n !== 0) showNoRecipient(false);
+}
+function showNoRecipient(show) {
+    document.getElementById('no-recipient-msg').hidden = !show;
+}
+document.getElementById('btn-continue').addEventListener('mouseenter', function() {
+    if (recipientCount === 0) showNoRecipient(true);
+});
+
 // === Rail Destinataires : compteur dédoublonné (live) + recherche ===
 function updateRecipients() {
     const ids = checkedListIds();
@@ -516,13 +556,16 @@ function updateRecipients() {
     const lc = document.getElementById('rail-listcount');
     lc.textContent = nSources ? nSources + (nSources > 1 ? ' sources' : ' source') : '';
     const totalEl = document.getElementById('rail-total-count');
-    if (!nSources) { totalEl.textContent = '0 contact'; saveDraft(); return; }
+    if (!nSources) { totalEl.textContent = '0 contact'; setRecipientCount(0); saveDraft(); return; }
     const fd = new FormData();
     ids.forEach(function(id) { fd.append('liste_ids', id); });
     if (sel) fd.append('use_selection', '1');
     fetch('{{ url_for("mailing.recipients_count") }}', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
-        .then(function(d) { totalEl.textContent = d.count + (d.count > 1 ? ' contacts' : ' contact'); })
+        .then(function(d) {
+            totalEl.textContent = d.count + (d.count > 1 ? ' contacts' : ' contact');
+            setRecipientCount(d.count);
+        })
         .catch(function() {});
     saveDraft();
 }
@@ -538,6 +581,7 @@ bodyTextarea.addEventListener('input', saveDraft);
 document.querySelector('input[name="include_unsubscribe"]').addEventListener('change', saveDraft);
 
 // === Init ===
+{% if clear_local_draft %}try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}{% endif %}
 const hasPrefill = {{ 'true' if prefill.subject else 'false' }};
 if (!hasPrefill) { restoreDraft(); }
 initTinyMCE(bodyTextarea.value);
@@ -553,4 +597,6 @@ updateRecipients();
    quand elle ne l'est plus, puisque c'est là qu'elle change une décision d'envoi. */
 .rail-list-sync { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
 .rail-list-sync.is-stale { color: var(--warning, #b45309); font-weight: 600; }
+#btn-continue.is-blocked { opacity: 0.5; cursor: not-allowed; }
+.no-recipient-msg { color: var(--danger); text-align: center; margin: 0.3rem 0 0; }
 </style>

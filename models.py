@@ -422,8 +422,8 @@ class MailTemplate(db.Model):
 
     Distinct de `MailCampaign` : une campagne (même brouillon) est consommée par un
     envoi, un modèle ne l'est jamais — et n'apparaît ni dans l'historique ni dans les
-    brouillons. Il ne porte que du contenu : ni listes (les destinataires changent à
-    chaque envoi), ni pièces jointes.
+    brouillons. Il porte le contenu et ses pièces jointes, jamais les listes : les
+    destinataires changent à chaque envoi.
 
     Le corps est stocké SANS signature, `signed` en garde l'intention : la signature
     appliquée est toujours celle de la personne qui envoie."""
@@ -435,6 +435,8 @@ class MailTemplate(db.Model):
     format = db.Column(db.String(10), default='html')
     reply_to = db.Column(db.String(200), nullable=True)
     signed = db.Column(db.Boolean, default=False, nullable=False)
+    org_footer = db.Column(db.Boolean, default=False, nullable=False)  # coordonnées de l'association en pied
+    attachments = db.Column(db.JSON, nullable=True)   # noms de fichiers, dans data/attachments/modeles/<id>/
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_by = db.relationship('User', foreign_keys=[created_by_id])
     created_at = db.Column(db.DateTime, default=utcnow)
@@ -443,6 +445,10 @@ class MailTemplate(db.Model):
     def can_edit(self, user):
         """Renommer / supprimer : l'auteur et les administrateurs."""
         return bool(user.is_admin or (self.created_by_id and self.created_by_id == user.id))
+
+    @property
+    def attachments_dir(self):
+        return f'data/attachments/modeles/{self.id}'
 
 
 class MailQueueItem(db.Model):

@@ -17,7 +17,7 @@ from flask_login import login_required, current_user
 
 from models import Contact, Liste, PreferenceForm, MailCampaign, MailTemplate, MailQueueItem, ContactSend, db, utcnow
 from config import Config
-from helpers import admin_required, listes_sorted
+from helpers import admin_required, listes_sorted, get_setting
 
 bp = Blueprint('mailing', __name__)
 
@@ -35,6 +35,37 @@ def _strip_signature(body):
     if not body:
         return body
     return _SIG_RE.sub('', body).rstrip()
+
+
+# Coordonnées de l'association en pied de mail, marquées comme la signature pour être
+# retirées puis ré-appliquées sans accumulation. Figées dans le corps à l'enregistrement
+# de la campagne : l'aperçu montre exactement ce qui partira.
+_ORG_RE = re.compile(r'\s*<div[^>]*data-mail-org="1"[^>]*>.*?</div>', re.DOTALL)
+
+
+def _strip_org_footer(body):
+    if not body:
+        return body
+    return _ORG_RE.sub('', body).rstrip()
+
+
+def org_contact():
+    """Coordonnées de l'association (Paramètres), '' si non renseignées."""
+    return (get_setting('org_contact', '') or '').strip()
+
+
+def _org_footer_body(body, mail_format, include):
+    """Retire les coordonnées déjà présentes puis, si demandé et renseigné, les ajoute."""
+    from markupsafe import escape
+    body = _strip_org_footer(body) if mail_format == 'html' else body
+    contact = org_contact()
+    if not (include and contact):
+        return body
+    if mail_format == 'html':
+        lines = '<br>'.join(str(escape(l)) for l in contact.splitlines() if l.strip())
+        return (body + '<div data-mail-org="1" style="margin-top:16px;color:#8a8a8a;'
+                f'font-size:12px;">{lines}</div>')
+    return body + '\n\n' + contact
 
 
 def _norm_name(s):
@@ -143,6 +174,7 @@ def compose():
     campaign_attachments = []   # PJ déjà enregistrées (réutilisation / retour édition)
     from_campaign_id = None
     sign_checked = bool(current_user.moderation_signature)
+    org_checked = bool(org_contact())   # coché par défaut dès que les coordonnées existent
     # Entrée « ★ Sélection courante » pré-cochée : deep-link depuis /selection, ou
     # réutilisation d'une campagne qui ciblait la sélection.
     use_selection_checked = request.args.get('from_selection') == '1'
@@ -169,12 +201,14 @@ def compose():
             # La signature est un pied de mail, pas du contenu éditable : on la
             # retire du corps affiché (et on reflète l'état « signé »).
             sign_checked = bool(_SIG_RE.search(prefill['body']))
-            prefill['body'] = _strip_signature(prefill['body'])
+            org_checked = bool(_ORG_RE.search(prefill['body']))
+            prefill['body'] = _strip_signature(_strip_org_footer(prefill['body']))
 
     # Pré-remplissage depuis un modèle : seulement le CONTENU. Appliqué après
     # from_campaign pour qu'un modèle choisi en cours d'édition garde la campagne,
     # ses listes et ses pièces jointes.
     template_id = request.args.get('modele', type=int)
+    template_attachments = []
     if template_id:
         mt = db.session.get(MailTemplate, template_id)
         if mt:
@@ -183,7 +217,10 @@ def compose():
             if not prefill.get('name'):
                 prefill['name'] = mt.name
             sign_checked = mt.signed
+            org_checked = mt.org_footer and bool(org_contact())
+            template_attachments = list(mt.attachments or [])
         else:
+            template_id = None
             flash('Modèle introuvable.', 'error')
 
     # Pré-remplissage depuis une demande de diffusion (boîte IMAP)
@@ -216,6 +253,9 @@ def compose():
     templates = MailTemplate.query.order_by(MailTemplate.name).all()
     return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill,
                            mail_templates=templates, template_id=template_id,
+                           template_attachments=template_attachments,
+                           org_contact=org_contact(), org_checked=org_checked,
+                           clear_local_draft=request.args.get('saved') == '1',
                            submission_attachments=submission_attachments, submission_id=submission_id,
                            submission_unknown_lists=submission_unknown_lists,
                            campaign_attachments=campaign_attachments, from_campaign_id=from_campaign_id,
@@ -618,8 +658,11 @@ def _persist_campaign_from_form(reuse_id=None):
     if not ((liste_ids or use_selection) and subject and body):
         return None, 'Sélectionnez au moins une liste (ou la sélection courante), un sujet et un message.'
 
+    if mail_format == 'html':
+        body = _strip_org_footer(body)
     body = _sign_body(body, mail_format, request.form.get('sign') == 'on',
                       current_user.moderation_signature)
+    body = _org_footer_body(body, mail_format, request.form.get('org_footer') == 'on')
 
     if not Config.SMTP_HOST:
         return None, 'SMTP non configuré'
@@ -690,7 +733,11 @@ def _persist_campaign_from_form(reuse_id=None):
     # Pièces jointes déjà enregistrées d'une campagne (retour édition / réutilisation)
     kept_attachments = set(request.form.getlist('kept_attachments'))
     from_campaign_id = request.form.get('from_campaign_id') or None
-    if (uploaded_files and uploaded_files[0].filename) or included_submission_attachments or kept_attachments:
+    # PJ d'un modèle, gardées cochées par l'utilisateur
+    template_attachments = set(request.form.getlist('template_attachments'))
+    template = db.session.get(MailTemplate, request.form.get('template_id', type=int) or 0)
+    if (uploaded_files and uploaded_files[0].filename) or included_submission_attachments \
+            or kept_attachments or (template and template_attachments):
         attach_dir = Path(f'data/attachments/{campaign_id}')
         attach_dir.mkdir(parents=True, exist_ok=True)
         for f in uploaded_files:
@@ -721,6 +768,19 @@ def _persist_campaign_from_form(reuse_id=None):
                         if str(dest) != str(f):
                             shutil.copy(str(f), str(dest))
                         attachment_paths.append(str(dest))
+
+        # Reprendre les PJ du modèle
+        if template and template_attachments:
+            src_dir = Path(template.attachments_dir)
+            for fn in template.attachments or []:
+                src = src_dir / fn
+                if fn in template_attachments and src.is_file():
+                    dest = attach_dir / fn
+                    shutil.copy(str(src), str(dest))
+                    attachment_paths.append(str(dest))
+
+    # Un même nom venu de deux sources (modèle + campagne reprise) n'est joint qu'une fois
+    attachment_paths = list(dict.fromkeys(attachment_paths))
 
     # Sauvegarder le template (sans encore peupler la queue)
     MailQueue().set_campaign_template(campaign_id, subject, body, mail_format,
@@ -754,7 +814,7 @@ def save_draft():
         flash(err, 'error')
         return redirect(url_for('mailing.compose'))
     flash('Brouillon enregistré.', 'success')
-    return redirect(url_for('mailing.compose', from_campaign=campaign_id))
+    return redirect(url_for('mailing.compose', from_campaign=campaign_id, saved=1))
 
 
 @bp.route('/mailing/rename', methods=['POST'])
@@ -811,15 +871,30 @@ def template_save():
     fmt = camp.format or 'text'
     if fmt == 'html':
         signed = bool(_SIG_RE.search(body))
-        body = _strip_signature(body)
+        body = _strip_signature(body)   # la regex s'arrête au </p> : le bloc coordonnées reste
     else:
         sig = current_user.moderation_signature
         signed = bool(sig and body.endswith(f'\n\n— {sig}'))
         if signed:
             body = body[:-len(f'\n\n— {sig}')]
-    db.session.add(MailTemplate(name=name, subject=camp.subject or '', body=body,
-                                format=fmt, reply_to=camp.reply_to, signed=signed,
-                                created_by_id=current_user.id))
+    org = bool(_ORG_RE.search(body)) if fmt == 'html' else False
+    if org:
+        body = _strip_org_footer(body)
+    mt = MailTemplate(name=name, subject=camp.subject or '', body=body,
+                      format=fmt, reply_to=camp.reply_to, signed=signed, org_footer=org,
+                      created_by_id=current_user.id)
+    db.session.add(mt)
+    db.session.flush()   # id nécessaire au dossier des PJ
+
+    import os, shutil
+    names = []
+    for src in camp.attachments or []:
+        if os.path.isfile(src):
+            os.makedirs(mt.attachments_dir, exist_ok=True)
+            fn = os.path.basename(src)
+            shutil.copy(src, os.path.join(mt.attachments_dir, fn))
+            names.append(fn)
+    mt.attachments = names or None
     db.session.commit()
     flash(f'Modèle « {name} » enregistré.', 'success')
     return redirect(back)
@@ -858,9 +933,11 @@ def template_rename(template_id):
 def template_delete(template_id):
     mt = _editable_template_or_none(template_id)
     if mt:
-        name = mt.name
+        import shutil
+        name, folder = mt.name, mt.attachments_dir
         db.session.delete(mt)
         db.session.commit()
+        shutil.rmtree(folder, ignore_errors=True)
         flash(f'Modèle « {name} » supprimé.', 'success')
     return redirect(url_for('mailing.templates_list'))
 

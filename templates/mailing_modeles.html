@@ -9,8 +9,8 @@
     </div>
 </div>
 
-<p class="hint">Contenus réutilisables, partagés entre tous les utilisateurs : objet, message, adresse de réponse et signature.
-    Les destinataires et les pièces jointes se choisissent à chaque envoi.
+<p class="hint">Contenus réutilisables, partagés entre tous les utilisateurs : objet, message, adresse de réponse, pied de mail et pièces jointes.
+    Les destinataires se choisissent à chaque envoi.
     Pour créer un modèle, utilisez « Enregistrer comme modèle » sur l'aperçu d'un mailing.</p>
 
 {% if templates %}
@@ -30,6 +30,7 @@
         <td>
             <strong id="tpl-name-{{ t.id }}">{{ t.name }}</strong>
             {% if t.subject %}<div class="liste-desc">Objet : {{ t.subject }}</div>{% endif %}
+            {% if t.attachments %}<div class="liste-desc" title="{{ t.attachments|join(', ') }}">📎 {{ t.attachments|length }} pièce{{ 's' if t.attachments|length > 1 }} jointe{{ 's' if t.attachments|length > 1 }}</div>{% endif %}
             {% if t.can_edit(current_user) %}
             <form method="POST" action="{{ url_for('mailing.template_rename', template_id=t.id) }}"
                   id="tpl-rename-{{ t.id }}" style="display:none; gap:0.4rem; margin-top:0.3rem;">

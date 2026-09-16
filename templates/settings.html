@@ -47,6 +47,22 @@
         </form>
     </section>
 
+    <!-- Coordonnées de l'association (pied de mail) -->
+    <section class="card settings-section" id="org-contact">
+        <h2>Coordonnées de l'association</h2>
+        <p class="settings-hint">Ajoutées en pied des mailings quand l'option « Coordonnées asso » est cochée. Une adresse postale de l'expéditeur est attendue dans un envoi groupé, et les filtres anti-spam en tiennent compte.</p>
+        <form method="POST" action="{{ url_for('settings.index') }}">
+            <input type="hidden" name="section" value="org_contact">
+            <div class="form-group">
+                <label for="org_contact">Coordonnées <span class="field-help" style="font-weight:normal;">(une information par ligne)</span></label>
+                <textarea id="org_contact" name="org_contact" rows="4" maxlength="1000" style="max-width: 480px;"
+                          placeholder="Association Les Amis du Village&#10;12 place de la Mairie, 34000 Montpellier&#10;contact@exemple.fr">{{ org_contact }}</textarea>
+                <p class="field-help">Laisser vide pour ne pas proposer l'option.</p>
+            </div>
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </form>
+    </section>
+
     <!-- Sauvegarde de la base -->
     <section class="card settings-section">
         <h2>Sauvegarde de la base</h2>

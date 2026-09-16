@@ -221,8 +221,14 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       `mail_template`, distincte des campagnes : « Enregistrer comme modèle » sur l'aperçu,
       « Partir d'un modèle » dans la rédaction, page Mailing → Modèles (utiliser, renommer,
       supprimer). Partagés entre utilisateurs ; renommer/supprimer : auteur et admins.
-      Contenu seul — ni listes ni pièces jointes. _Suites possibles : « Enregistrer comme
-      modèle » depuis l'historique ; pièces jointes si le besoin se confirme._
+      Contenu, pied de mail et pièces jointes (copiées dans `data/attachments/modeles/<id>/`),
+      jamais les listes. _Suite possible : « Enregistrer comme modèle » depuis l'historique._
+- [x] **Pied de mail — coordonnées de l'association** *(17/09/2026)*. Réglage dans Paramètres,
+      option « Coordonnées asso » dans la rédaction (cochée par défaut si renseigné). Les
+      options factices de la maquette sont retirées ; « Voir dans le navigateur » abandonnée.
+- [ ] **Pied de mail — nom de la liste et nombre d'inscrits** *(17/09/2026)*. « Vous recevez ce
+      mail en tant que membre de la liste X ». À retrouver par destinataire : les listes par
+      lesquelles il est visé (un envoi multi-listes en a plusieurs).
 - [ ] **NOÉ — avertir du risque de doublon pôle / mission** *(10/09/2026)*. Depuis que les
       deux niveaux sont alimentables, une même personne peut se retrouver dans une liste
       « pôle » ET dans une liste « mission » qui en dépend — chez lfll, « Accueil » (11) et
