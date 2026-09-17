@@ -149,11 +149,6 @@ def _recipients(liste_ids, use_selection=False):
     return list(seen.values())
 
 
-def _recipients_for_lists(liste_ids):
-    """Compat : destinataires des seules listes (sans la sélection courante)."""
-    return _recipients(liste_ids, use_selection=False)
-
-
 @bp.route('/mailing/recipients-count', methods=['POST'])
 @login_required
 def recipients_count():
@@ -554,6 +549,16 @@ def _campaign_liste_ids(tpl):
     return tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else [])
 
 
+def _campaign_recipients(tpl):
+    """Destinataires d'une campagne enregistrée : ses listes ET sa sélection courante.
+
+    Point de passage UNIQUE : l'aperçu et l'envoi de test calculaient les destinataires
+    à partir des seules listes, et une campagne ne visant que la sélection paraissait
+    donc vide (aperçu renvoyé à l'éditeur).
+    """
+    return _recipients(_campaign_liste_ids(tpl), tpl.get('use_selection'))
+
+
 @bp.route('/mailing/apercu')
 @login_required
 def apercu():
@@ -569,7 +574,7 @@ def apercu():
 
     liste_ids = _campaign_liste_ids(tpl)
     listes = Liste.query.filter(Liste.id.in_(liste_ids)).all()
-    recipients = _recipients_for_lists(liste_ids)
+    recipients = _campaign_recipients(tpl)
     if not recipients:
         flash('Aucun destinataire actif dans la sélection.', 'error')
         return redirect(url_for('mailing.compose', from_campaign=campaign_id))
@@ -613,7 +618,7 @@ def send_test():
         return redirect(back)
 
     tpl = MailQueue().get_campaign_template(campaign_id)
-    recipients = _recipients_for_lists(_campaign_liste_ids(tpl)) if tpl else []
+    recipients = _campaign_recipients(tpl) if tpl else []
     if not tpl or not recipients:
         flash('Campagne ou destinataires introuvables.', 'error')
         return redirect(back)
@@ -968,9 +973,8 @@ def confirm():
         flash('Campagne introuvable', 'error')
         return redirect(url_for('mailing.compose'))
 
-    liste_ids = tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else [])
-    listes = Liste.query.filter(Liste.id.in_(liste_ids)).all()
-    recipients = _recipients(liste_ids, tpl.get('use_selection'))
+    listes = Liste.query.filter(Liste.id.in_(_campaign_liste_ids(tpl))).all()
+    recipients = _campaign_recipients(tpl)
 
     return render_template('mailing_confirm.html',
                            campaign_id=campaign_id,
@@ -995,8 +999,7 @@ def add_to_queue():
 
     queue = MailQueue()
     tpl = queue.get_campaign_template(campaign_id)
-    liste_ids = tpl.get('liste_ids') or ([tpl['liste_id']] if tpl.get('liste_id') else [])
-    recipients = _recipients(liste_ids, tpl.get('use_selection'))
+    recipients = _campaign_recipients(tpl)
 
     selected = [c for c in recipients if c.id in contact_ids]
     for contact in selected:
