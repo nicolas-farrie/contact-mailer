@@ -226,6 +226,12 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - [x] **Pied de mail — coordonnées de l'association** *(17/09/2026)*. Réglage dans Paramètres,
       option « Coordonnées asso » dans la rédaction (cochée par défaut si renseigné). Les
       options factices de la maquette sont retirées ; « Voir dans le navigateur » abandonnée.
+- [ ] **Brouillon et modèle sans liste cochée** *(17/09/2026)*. « Enregistrer le brouillon »
+      réutilise la validation de l'envoi (`_persist_campaign_from_form`) : il exige une liste,
+      des contacts joignables et SMTP configuré, sans nécessité technique. Proposé : brouillon
+      = objet ou corps non vide seulement, identifiant de repli `Brouillon_<date>` ; bouton
+      « Enregistrer comme modèle » aussi dans la rédaction, sans condition de liste. L'aperçu
+      et l'envoi gardent l'exigence de destinataires.
 - [ ] **Pied de mail — nom de la liste et nombre d'inscrits** *(17/09/2026)*. « Vous recevez ce
       mail en tant que membre de la liste X ». À retrouver par destinataire : les listes par
       lesquelles il est visé (un envoi multi-listes en a plusieurs).

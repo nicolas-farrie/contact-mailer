@@ -251,8 +251,14 @@ def compose():
              .filter_by(is_active=True, is_archived=False)
              .order_by(PreferenceForm.nom).all())
     templates = MailTemplate.query.order_by(MailTemplate.name).all()
+    from models import CustomFieldDefinition, CORE_MAIL_VARS
+    custom_vars = [{'label': d.display_name, 'token': '{' + d.key + '}'}
+                   for d in (CustomFieldDefinition.query.filter_by(is_active=True)
+                             .order_by(CustomFieldDefinition.ordre).all())
+                   if d.key not in CORE_MAIL_VARS]
     return render_template('mailing.html', listes=listes, smtp_configured=smtp_configured, prefill=prefill,
                            mail_templates=templates, template_id=template_id,
+                           custom_vars=custom_vars,
                            template_attachments=template_attachments,
                            org_contact=org_contact(), org_checked=org_checked,
                            clear_local_draft=request.args.get('saved') == '1',

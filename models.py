@@ -12,12 +12,34 @@ def utcnow():
     projet (colonnes `DateTime` sans timezone, comparaisons avec des datetimes naïfs)."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
+# Variables de fusion fournies par la fiche elle-même : un champ perso de même clé ne
+# les remplace pas (cf. Contact.to_dict).
+CORE_MAIL_VARS = ('id', 'uid', 'nom', 'prenom', 'civilite', 'genre', 'titre', 'email',
+                  'telephone', 'organisation', 'adresse_rue', 'adresse_complement',
+                  'adresse_ville', 'adresse_cp', 'adresse_region', 'adresse_pays', 'source',
+                  'notes', 'seafile_temp_pwd', 'seafile_password', 'listes')
+
 # Table d'association contacts <-> listes (many-to-many)
 contact_liste = db.Table(
     'contact_liste',
     db.Column('contact_id', db.Integer, db.ForeignKey('contact.id'), primary_key=True),
     db.Column('liste_id', db.Integer, db.ForeignKey('liste.id'), primary_key=True)
 )
+
+
+def _checkbox_field_keys():
+    """Clés des champs perso actifs de type case à cocher, mises en cache par contexte
+    d'application : `to_dict()` est appelé pour chaque contact d'un envoi."""
+    try:
+        from flask import g, has_app_context
+        if not has_app_context():
+            return set()
+        if '_checkbox_field_keys' not in g:
+            g._checkbox_field_keys = {
+                d.key for d in CustomFieldDefinition.query.filter_by(type='checkbox', is_active=True)}
+        return g._checkbox_field_keys
+    except Exception:
+        return set()
 
 
 class Contact(db.Model):
@@ -91,6 +113,11 @@ class Contact(db.Model):
         # Champs personnalisés aplatis → variables de fusion {key} (sans écraser une clé cœur)
         for key, value in (self.custom_fields or {}).items():
             data.setdefault(key, value)
+        # Cases à cocher : « Vrai » / « Faux » plutôt que '1' / absent, pour pouvoir
+        # écrire {case==Vrai:Oui:Non} (le test simple {case:…} traite « Faux » comme vide).
+        for key in _checkbox_field_keys():
+            if key not in CORE_MAIL_VARS:
+                data[key] = 'Vrai' if (self.custom_fields or {}).get(key) else 'Faux'
         return data
 
 

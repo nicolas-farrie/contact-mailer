@@ -177,7 +177,9 @@ class EmailTemplate:
                     field, val = condition.split('!=', 1)
                     test = str(data.get(field.strip()) or '').lower() != val.strip().lower()
                 else:
-                    test = bool(data.get(condition))
+                    value = data.get(condition)
+                    # « Faux » (case à cocher non cochée) compte comme vide
+                    test = bool(value) and str(value) != 'Faux'
 
                 return if_true if test else if_false
 

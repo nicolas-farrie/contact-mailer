@@ -101,6 +101,11 @@
                     <p><strong>Variables</strong> (remplacées pour chaque contact) :
                         <code>{prenom}</code> <code>{nom}</code> <code>{email}</code> <code>{organisation}</code>
                         <code>{telephone}</code> <code>{civilite}</code> <code>{genre}</code> <code>{titre}</code></p>
+                    {% if custom_vars %}
+                    <p><strong>Champs personnalisés</strong> :
+                        {% for v in custom_vars %}<code title="{{ v.label }}">{{ v.token }}</code> {% endfor %}<br>
+                        Une case à cocher vaut <code>Vrai</code> ou <code>Faux</code> : ex. <code>{case==Vrai:Oui:Non}</code></p>
+                    {% endif %}
                     <p><strong>Condition</strong> — <code>{champ:texte si rempli:texte si vide}</code><br>
                         ex. <code>{prenom:Bonjour {prenom},:Bonjour,}</code></p>
                     <p><strong>Comparaison</strong> — <code>{civilite==Madame:chère:cher}</code>
@@ -246,6 +251,8 @@ const MAIL_VARS = [
     {label: 'Accord de genre', token: '{genre}'},
     {label: 'Titre', token: '{titre}'}
 ];
+// Champs personnalisés actifs, séparés des champs standard dans le menu
+const MAIL_CUSTOM_VARS = {{ custom_vars|tojson }};
 const MAIL_FORMS = [
     {% for f in forms %}{name: {{ f.nom|tojson }}, url: {{ (base_url ~ '/p/' ~ f.token ~ '/{uid}')|tojson }}}{% if not loop.last %},{% endif %}
     {% endfor %}
@@ -338,10 +345,15 @@ function initTinyMCE(initialContent) {
             editor.ui.registry.addMenuButton('insertvar', {
                 icon: 'varbraces', tooltip: 'Insérer une variable de personnalisation',
                 fetch: function(cb) {
-                    const items = MAIL_VARS.map(function(v) {
+                    const toItem = function(v) {
                         return {type: 'menuitem', text: v.label,
                                 onAction: function() { editor.insertContent(v.token); }};
-                    });
+                    };
+                    const items = MAIL_VARS.map(toItem);
+                    if (MAIL_CUSTOM_VARS.length) {
+                        items.push({type: 'separator'});
+                        MAIL_CUSTOM_VARS.forEach(function(v) { items.push(toItem(v)); });
+                    }
                     items.push({type: 'menuitem', text: 'Condition (si rempli)…',
                         onAction: function() { editor.insertContent('{prenom:Bonjour {prenom},:Bonjour,}'); }});
                     cb(items);
