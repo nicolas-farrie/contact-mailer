@@ -1135,9 +1135,6 @@ def _run_send(campaign):
     bounce_on = get_setting('bounce_enabled', '1') != '0'
     bounce_return_path = (Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER or None) if bounce_on else None
 
-    from datetime import datetime as _dt
-    sent_log = []   # (contact_id, sent_at) des envois réussis → journal ContactSend
-
     # Plafonds glissants (1h / 24h) tous envois confondus, via le journal ContactSend
     # (déjà envoyés lors des campagnes PRÉCÉDENTES) + le compteur `sent` de ce run.
     from datetime import timedelta
@@ -1151,6 +1148,7 @@ def _run_send(campaign):
     prior_day = _sent_since(timedelta(days=1))
     max_hour, max_day = Config.MAIL_MAX_PER_HOUR, Config.MAIL_MAX_PER_DAY
     capped = None
+    deadline = time.monotonic() + Config.MAIL_MAX_RUN_SECONDS if Config.MAIL_MAX_RUN_SECONDS else None
 
     # UNE seule connexion SMTP pour toute la campagne (au lieu d'une par email).
     try:
@@ -1167,6 +1165,11 @@ def _run_send(campaign):
         if max_day and (prior_day + sent) >= max_day:
             capped = f'plafond journalier atteint ({max_day}/j)'
             break
+        # Durée bornée : mieux vaut s'arrêter nous-mêmes que d'être coupés par gunicorn
+        # en pleine boucle (la suite reste en file, « Reprendre l'envoi » la traite).
+        if deadline and time.monotonic() >= deadline:
+            capped = 'durée maximale de la tranche atteinte'
+            break
         contact = item['contact']
 
         # Construire l'URL de désabonnement par contact
@@ -1181,21 +1184,21 @@ def _run_send(campaign):
                                return_path=bounce_return_path, reply_to=reply_to)
             queue.mark_sent(item['id'])
             sent += 1
+            # Journal écrit AU FIL DES ENVOIS : il sert au calcul des plafonds, et une
+            # écriture groupée en fin de boucle disparaissait si l'envoi était
+            # interrompu — la reprise sous-comptait alors les mails déjà partis et
+            # pouvait dépasser la limite de l'hébergeur (incident L-SPAM00 du 13/08).
             if contact.get('id'):
-                sent_log.append((contact['id'], utcnow()))
+                try:
+                    db.session.add(ContactSend(contact_id=contact['id'],
+                                               campaign_id=campaign, sent_at=utcnow()))
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
         except Exception as e:
             queue.mark_error(item['id'], str(e))
             errors += 1
         time.sleep(delay)
-
-    # Journal d'envoi par contact (best-effort : ne doit jamais casser l'envoi)
-    if sent_log:
-        try:
-            for cid, ts in sent_log:
-                db.session.add(ContactSend(contact_id=cid, campaign_id=campaign, sent_at=ts))
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
 
     # Copie récapitulative à l'expéditeur (best-effort)
     try:

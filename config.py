@@ -99,9 +99,15 @@ class Config:
     MAIL_RATE_PER_MINUTE = int(os.environ.get('MAIL_RATE_PER_MINUTE', 10))
     # Plafonds glissants (fenêtres 1h / 24h) tous envois confondus. 0 = illimité.
     # Au-delà, l'envoi en cours S'ARRÊTE proprement (le reste reste en file, à
-    # reprendre plus tard). À CALIBRER sur la limite réelle de l'offre d'hébergement.
-    MAIL_MAX_PER_HOUR = int(os.environ.get('MAIL_MAX_PER_HOUR', 100))
-    MAIL_MAX_PER_DAY = int(os.environ.get('MAIL_MAX_PER_DAY', 300))
+    # reprendre plus tard). Défauts = limites données par LWS le 15/08/2026 pour son
+    # offre mutualisée : 240 mails/heure (compteur horaire) et 2500/jour. Une instance
+    # hébergée ailleurs recale ces valeurs dans son .env.
+    MAIL_MAX_PER_HOUR = int(os.environ.get('MAIL_MAX_PER_HOUR', 240))
+    MAIL_MAX_PER_DAY = int(os.environ.get('MAIL_MAX_PER_DAY', 2500))
+    # Durée maximale d'un envoi lancé depuis l'interface : gunicorn coupe la requête à
+    # 300 s (--timeout), ce qui tuerait la boucle en plein vol. On s'arrête avant, le
+    # reste attend en file. La commande hors-web (à venir) n'a pas cette contrainte.
+    MAIL_MAX_RUN_SECONDS = int(os.environ.get('MAIL_MAX_RUN_SECONDS', 240))
 
     # URL publique (pour les liens de désabonnement)
     BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
