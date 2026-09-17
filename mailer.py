@@ -72,6 +72,40 @@ def _autolink_html(html):
     return _BARE_URL_RE.sub(_link, html)
 
 
+_TEXT_DROP_RE = re.compile(r'<(head|style|script)\b.*?</\1\s*>', re.IGNORECASE | re.DOTALL)
+_TEXT_LINK_RE = re.compile(r'<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a\s*>', re.IGNORECASE | re.DOTALL)
+
+
+def html_to_text(html):
+    """Version texte brut d'un corps HTML, pour la partie text/plain du mail.
+
+    Une partie texte vide à côté du HTML est un signal d'envoi de masse bâclé : les
+    filtres le relèvent (R_PARTS_DIFFER, MIME_BASE64_TEXT_BOGUS chez LWS) et Gmail en
+    tient compte. Conversion simple : paragraphes et sauts de ligne conservés, liens
+    rendus « texte (adresse) », images ignorées.
+    """
+    import html as _html
+    if not html:
+        return ''
+    text = _TEXT_DROP_RE.sub('', html)
+
+    def _link(m):
+        url, label = m.group(1), re.sub(r'<[^>]+>', '', m.group(2)).strip()
+        if url.startswith(('mailto:', 'cid:')) or not label:
+            return label or url.removeprefix('mailto:')
+        return label if _html.unescape(label) == _html.unescape(url) else f'{label} ({url})'
+
+    text = _TEXT_LINK_RE.sub(_link, text)
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<hr\b[^>]*>', '\n---\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<li\b[^>]*>', '\n- ', text, flags=re.IGNORECASE)
+    text = re.sub(r'</(p|div|h[1-6]|ul|ol|blockquote|tr|table)\s*>', '\n\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = _html.unescape(text).replace('\xa0', ' ')
+    lines = [re.sub(r'[ \t]+', ' ', l).strip() for l in text.splitlines()]
+    return re.sub(r'\n{3,}', '\n\n', '\n'.join(lines)).strip()
+
+
 class EmailTemplate:
     """Gère les templates d'email (texte, HTML ou .eml)"""
 
@@ -508,6 +542,8 @@ class Mailer:
         from email import encoders as email_encoders
 
         has_attachments = bool(attachments)
+        if body_html and not (body_text or '').strip():
+            body_text = html_to_text(body_html)
         body_html, inline_images = _extract_inline_images(body_html)
         has_inline_images = bool(inline_images)
 

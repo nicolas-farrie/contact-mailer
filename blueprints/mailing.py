@@ -30,6 +30,10 @@ _SIG_RE = re.compile(
     re.DOTALL)
 
 
+# Lien de formulaire dans un href, sans paramètre déjà présent (cf. send_test).
+_TEST_FORM_LINK_RE = re.compile(r'(href=["\'][^"\']*/p/[^"\'?#\s]+)(?=["\'])', re.IGNORECASE)
+
+
 def _strip_signature(body):
     """Retire tout bloc de signature déjà présent dans le corps (HTML)."""
     if not body:
@@ -619,8 +623,9 @@ def send_test():
     # Marqueur de TEST : on ajoute ?test=1 aux liens de formulaire (/p/<token>/<uid>)
     # UNIQUEMENT dans l'exemplaire de test → la soumission sera taguée is_test et
     # exclue partout (verrou, compteurs, export). Les campagnes réelles ne sont pas touchées.
-    import re as _re
-    body = _re.sub(r"(/p/[^\"'\s?<>]+)(?!\?)", r"\1?test=1", body or '')
+    # Seulement dans les href : une image collée (data URI base64) peut contenir « /p/ »,
+    # et le marqueur ajouté à sa suite cassait le lien entre l'image et sa pièce inline.
+    body = _TEST_FORM_LINK_RE.sub(r'\1?test=1', body or '')
     mailer = Mailer(Config.SMTP_HOST, Config.SMTP_PORT, Config.SMTP_USER,
                     Config.SMTP_PASSWORD, Config.SMTP_SENDER_EMAIL,
                     Config.SMTP_SENDER_NAME, Config.SMTP_USE_TLS)
