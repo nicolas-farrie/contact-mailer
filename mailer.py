@@ -106,6 +106,25 @@ def html_to_text(html):
     return re.sub(r'\n{3,}', '\n\n', '\n'.join(lines)).strip()
 
 
+# Condition {champ[op valeur]:si vrai[:si faux]}. Opérateurs longs avant les courts
+# (>= avant >), et formes HTML (&gt;) acceptées : c'est ainsi que l'éditeur les stocke.
+_COND_RE = re.compile(
+    r'\{([a-zA-Z_][a-zA-Z0-9_]*)'
+    r'(?:(==|!=|>=|<=|&gt;=|&lt;=|>|<|&gt;|&lt;)([^:}]*))?'
+    r':([^:}]*)(?::([^}]*))?\}')
+
+
+def _as_number(value):
+    """Nombre d'une valeur saisie (« 12,5 », « 1 200 »), ou None si ce n'en est pas un."""
+    if value is None or isinstance(value, bool):
+        return None
+    s = str(value).replace('\xa0', '').replace('\u202f', '').replace(' ', '').replace(',', '.')
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
 class EmailTemplate:
     """Gère les templates d'email (texte, HTML ou .eml)"""
 
@@ -199,29 +218,32 @@ class EmailTemplate:
 
             # Pass 2 : conditionnels {condition:if_true[:if_false]}
             # condition : field (truthy) | field==val | field!=val
+            #           | field>val | field<val | field>=val | field<=val (numériques)
             def replace_cond(m):
-                condition = m.group(1).strip()
-                if_true  = m.group(2) or ''
-                if_false = m.group(3) or ''
+                field, op, val = m.group(1), m.group(2), (m.group(3) or '').strip()
+                if_true  = m.group(4) or ''
+                if_false = m.group(5) or ''
+                value = data.get(field)
+                # L'éditeur enregistre « > » et « < » sous forme d'entités dans le HTML
+                op = (op or '').replace('&gt;', '>').replace('&lt;', '<')
 
-                if '==' in condition:
-                    field, val = condition.split('==', 1)
-                    test = str(data.get(field.strip()) or '').lower() == val.strip().lower()
-                elif '!=' in condition:
-                    field, val = condition.split('!=', 1)
-                    test = str(data.get(field.strip()) or '').lower() != val.strip().lower()
+                if op == '==':
+                    test = str(value or '').lower() == val.lower()
+                elif op == '!=':
+                    test = str(value or '').lower() != val.lower()
+                elif op:
+                    left, right = _as_number(value), _as_number(val)
+                    # Champ vide ou non numérique : la comparaison est fausse
+                    test = left is not None and right is not None and {
+                        '>': left > right, '<': left < right,
+                        '>=': left >= right, '<=': left <= right}[op]
                 else:
-                    value = data.get(condition)
                     # « Faux » (case à cocher non cochée) compte comme vide
                     test = bool(value) and str(value) != 'Faux'
 
                 return if_true if test else if_false
 
-            result = re.sub(
-                r'\{([a-zA-Z_][a-zA-Z0-9_]*(?:[!=]=[^:}]*)?):([^:}]*)(?::([^}]*))?\}',
-                replace_cond,
-                result
-            )
+            result = _COND_RE.sub(replace_cond, result)
 
             return result
 
