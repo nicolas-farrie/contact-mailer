@@ -1066,39 +1066,59 @@ def queue():
     # qui s'arrête tout seul, et quand le reste repartira.
     quota = sending.quota_state()
     paused = {c.id for c in MailCampaign.query.filter_by(paused=True).all()}
+    # Qui envoie VRAIMENT en ce moment (verrou), plutôt qu'une déduction depuis les
+    # compteurs : une campagne entamée puis arrêtée s'annonçait « en cours » sans fin.
+    holder = sending.current_send()
 
     if campaign:
         template = queue.get_campaign_template(campaign) or {}
         items = [i for i in queue.queue if i['campaign_id'] == campaign]
         last_sent = (db.session.query(db.func.max(ContactSend.sent_at))
                      .filter(ContactSend.campaign_id == campaign).scalar())
+        state, state_label, resume_at = sending.campaign_state(
+            campaign, stats, paused=campaign in paused, holder=holder)
         return render_template('mailing_queue.html', items=items, stats=stats,
                                campaign=campaign, template=template, queue_campaigns=None,
                                quota=quota, is_paused=campaign in paused,
-                               last_sent=last_sent)
+                               last_sent=last_sent, state=state, state_label=state_label,
+                               resume_at=resume_at, now=sending.utcnow())
 
     # Vue globale : regrouper le non-expédié par campagne
-    groups = defaultdict(lambda: {'pending': 0, 'error': 0})
+    from datetime import datetime
+
+    now = sending.utcnow()
+    groups = defaultdict(lambda: {'pending': 0, 'error': 0, 'sent': 0,
+                                  'deferred': 0, 'deferred_until': None})
     for it in queue.queue:
-        if it['status'] in ('pending', 'error'):
-            groups[it['campaign_id']][it['status']] += 1
+        g = groups[it['campaign_id']]
+        if it['status'] in ('pending', 'error', 'sent'):
+            g[it['status']] += 1
+        if it['status'] == 'pending' and it.get('deferred_until'):
+            until = datetime.fromisoformat(it['deferred_until'])
+            if until > now:
+                g['deferred'] += 1
+                if g['deferred_until'] is None or until < g['deferred_until']:
+                    g['deferred_until'] = until
     queue_campaigns = []
     for cid, g in groups.items():
+        if not (g['pending'] or g['error']):
+            continue          # campagne entièrement envoyée : elle appartient à l'historique
         tpl = queue.get_campaign_template(cid) or {}
-        sent_done = sum(1 for it in queue.queue
-                        if it['campaign_id'] == cid and it['status'] == 'sent')
+        state, state_label, resume_at = sending.campaign_state(
+            cid, g, paused=cid in paused, holder=holder)
         queue_campaigns.append({
             'campaign_id': cid,
             'name': tpl.get('name') or tpl.get('subject') or cid,
             'pending': g['pending'], 'error': g['error'],
-            'sent': sent_done,
+            'sent': g['sent'],
             'paused': cid in paused,
+            'state': state, 'state_label': state_label, 'resume_at': resume_at,
             'remaining': g['pending'] + g['error']})
     queue_campaigns.sort(key=lambda c: (-c['remaining'], c['name'].lower()))
 
     return render_template('mailing_queue.html', items=None, stats=stats,
                            campaign=None, template={}, queue_campaigns=queue_campaigns,
-                           quota=quota, is_paused=False, last_sent=None)
+                           quota=quota, is_paused=False, last_sent=None, now=now)
 
 
 def _run_send(campaign):
@@ -1111,7 +1131,7 @@ def _run_send(campaign):
     import sending
 
     try:
-        with sending.send_lock():
+        with sending.send_lock(campaign=campaign):
             sent, errors, stopped, warnings = sending.run_campaign(campaign)
     except sending.SendBusy:
         return (None, 'Un envoi est déjà en cours (envoi automatique ou autre '
@@ -1124,6 +1144,8 @@ def _run_send(campaign):
 
 def _flash_send_result(res):
     """Flash standard du résultat de _run_send (partagé par les 2 déclencheurs)."""
+    import sending
+
     sent, errors, capped = res
     if sent is None:
         flash(errors, 'error')   # `errors` porte le message dans le cas d'échec
@@ -1132,8 +1154,13 @@ def _flash_send_result(res):
         flash('Aucun email en attente.', 'info')
         return
     if capped:
-        flash(f'Envoi interrompu ({capped}) : {sent} envoyés, {errors} erreurs. '
-              f'Le reste est EN FILE et repartira automatiquement.', 'warning')
+        # « Reprenez plus tard » sans dire quand laissait le choix entre revenir
+        # toutes les dix minutes et ne plus y penser du tout.
+        when = sending.humanize_delay(capped.resume_at)
+        suite = (f'Le reste part automatiquement {when}.' if when
+                 else 'Le reste est EN FILE et repartira automatiquement.')
+        flash(f'Tranche terminée ({capped}) : {sent} envoyés, {errors} erreurs. {suite}',
+              'warning')
     else:
         flash(f'Envoi terminé : {sent} envoyés, {errors} erreurs.',
               'success' if errors == 0 else 'warning')

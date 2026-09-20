@@ -151,6 +151,11 @@ def create_app(config_object=Config):
             return 0
     app.jinja_env.globals['asset_version'] = _asset_version
 
+    # « dans 12 minutes » plutôt qu'une heure UTC : un envoi reporté doit dire QUAND il
+    # repart, dans les termes de celui qui lit.
+    import sending
+    app.jinja_env.filters['delay'] = sending.humanize_delay
+
     return app
 
 

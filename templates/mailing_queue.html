@@ -16,21 +16,39 @@
 {% set percent = (processed * 100 // stats.total) if stats.total else 0 %}
 {% set done = stats.pending == 0 %}
 
-<!-- Bandeau d'état de la campagne -->
-{% if done and stats.error == 0 and stats.sent > 0 %}
-<div class="send-banner is-ok">
-    <span class="send-banner-ico">✓</span>
-    <div><strong>Campagne envoyée</strong><div class="send-banner-sub">{{ stats.sent }} email{{ 's' if stats.sent > 1 }} remis à la file d'envoi</div></div>
-</div>
-{% elif done and stats.error > 0 %}
-<div class="send-banner is-warn">
-    <span class="send-banner-ico">!</span>
-    <div><strong>Envoi terminé avec des erreurs</strong><div class="send-banner-sub">{{ stats.sent }} envoyé{{ 's' if stats.sent > 1 }}, {{ stats.error }} en erreur</div></div>
-</div>
-{% elif processed > 0 %}
+<!-- Bandeau d'état : ce que fait la campagne MAINTENANT (verrou d'envoi, pause, quota),
+     jamais déduit du nombre de mails déjà traités. -->
+{% if state == 'sending' %}
 <div class="send-banner is-info">
     <span class="send-banner-ico">⟳</span>
     <div><strong>Envoi en cours</strong><div class="send-banner-sub">{{ processed }} sur {{ stats.total }} traité{{ 's' if processed > 1 }}</div></div>
+</div>
+{% elif state == 'paused' %}
+<div class="send-banner is-warn">
+    <span class="send-banner-ico">⏸</span>
+    <div><strong>Envoi en pause</strong><div class="send-banner-sub">{{ stats.pending }} email{{ 's' if stats.pending > 1 }} en file, rien ne part tant que l'envoi n'est pas repris</div></div>
+</div>
+{% elif state == 'waiting_quota' %}
+<div class="send-banner is-warn">
+    <span class="send-banner-ico">⏳</span>
+    <div><strong>En attente de quota</strong><div class="send-banner-sub">
+        {{ stats.pending }} email{{ 's' if stats.pending > 1 }} en file — reprise automatique {{ resume_at | delay or 'dès que la marge est reconstituée' }}</div></div>
+</div>
+{% elif state == 'queued' %}
+<div class="send-banner is-info">
+    <span class="send-banner-ico">⏱</span>
+    <div><strong>En file</strong><div class="send-banner-sub">
+        {{ stats.pending }} email{{ 's' if stats.pending > 1 }} à envoyer — prochain passage automatique {{ resume_at | delay or 'au prochain démarrage' }}</div></div>
+</div>
+{% elif state == 'done_errors' %}
+<div class="send-banner is-warn">
+    <span class="send-banner-ico">!</span>
+    <div><strong>Envoi terminé avec des erreurs</strong><div class="send-banner-sub">{{ stats.sent }} envoyé{{ 's' if stats.sent > 1 }}, {{ stats.error }} en erreur — ces envois ne repartiront pas seuls</div></div>
+</div>
+{% elif state == 'done' %}
+<div class="send-banner is-ok">
+    <span class="send-banner-ico">✓</span>
+    <div><strong>Campagne envoyée</strong><div class="send-banner-sub">{{ stats.sent }} email{{ 's' if stats.sent > 1 }} remis à la file d'envoi</div></div>
 </div>
 {% endif %}
 
@@ -57,6 +75,10 @@
     {% else %}
     <strong>⟳ Envoi automatique.</strong> Les {{ stats.pending }} email{{ 's' if stats.pending > 1 }} en attente
     partent par tranches, sans action de votre part.
+    {% if stats.deferred %}<br>
+    <span class="text-muted">{{ stats.deferred }} d'entre eux attendent que la marge se reconstitue
+        (reprise {{ stats.deferred_until | delay or 'à la prochaine fenêtre' }}).</span>
+    {% endif %}
     {% endif %}
     <div class="hint">
         Débit : {{ config.MAIL_RATE_PER_MINUTE }} emails/minute.
@@ -64,21 +86,30 @@
         (plafond {{ quota.max_hour or '∞' }}/h),
         <strong>{{ quota.left_day if quota.left_day is not none else '∞' }}</strong> aujourd'hui
         (plafond {{ quota.max_day or '∞' }}/j).
-        {% if last_sent %}Dernier envoi : {{ last_sent.strftime('%d/%m/%Y %H:%M') }} (UTC).{% endif %}
+        {# Le volume est l'autre plafond de l'hébergeur : avec des pièces jointes, c'est lui
+           qui tombe en premier — et lui seul explique alors l'arrêt. #}
+        {% if quota.max_mb_hour %}<br>Volume : <strong>{{ quota.left_mb_hour }} Mo</strong> restants
+        cette heure-ci (plafond {{ quota.max_mb_hour }} Mo/h ; {{ quota.used_mb_hour }} Mo consommés).{% endif %}
+        {% if last_sent %}<br>Dernier envoi : {{ last_sent.strftime('%d/%m/%Y %H:%M') }} (UTC).{% endif %}
     </div>
 </div>
 {% endif %}
 
 <!-- Actions -->
 <div class="send-actions">
-    {% if stats.pending > 0 and not is_paused %}
+    {# Envoyables MAINTENANT : les différés ne partiraient pas, les annoncer serait mentir. #}
+    {% set sendable = stats.pending - stats.deferred %}
+    {% if sendable > 0 and not is_paused %}
     <form method="POST" action="{{ url_for('mailing.process') }}" id="process-form" style="display:inline">
         <input type="hidden" name="campaign" value="{{ campaign }}">
         <button type="button" class="btn btn-primary btn-cta" id="send-btn" onclick="confirmAndSend()">
-            Envoyer {{ stats.pending }} email{{ 's' if stats.pending > 1 }} maintenant
+            Envoyer {{ sendable }} email{{ 's' if sendable > 1 }} maintenant
         </button>
     </form>
     <span class="hint">Sans attendre la prochaine tranche automatique.</span>
+    {% elif stats.deferred and not is_paused %}
+    <span class="hint">Rien à envoyer dans l'immédiat : les {{ stats.deferred }} email{{ 's' if stats.deferred > 1 }} restants
+        repartent {{ stats.deferred_until | delay or 'dès que la marge est reconstituée' }}, sans action de votre part.</span>
     {% endif %}
 
     {% if stats.pending > 0 %}
@@ -129,13 +160,17 @@
                 <td>{{ item.contact.prenom }} {{ item.contact.nom }}</td>
                 <td>{{ item.contact.email }}</td>
                 <td>
-                    {% if item.status == 'pending' %}<span class="badge badge-pending">En attente</span>
+                    {% set defer = item.deferred_until and item.deferred_until > now.isoformat() %}
+                    {% if item.status == 'pending' and defer %}
+                    {# Refus temporaire : en file, pas en échec — et on dit quand ça repart. #}
+                    <span class="badge badge-pending" title="{{ item.last_error }}">⏳ Quota — reprise {{ item.deferred_until | delay }}</span>
+                    {% elif item.status == 'pending' %}<span class="badge badge-pending">En attente</span>
                     {% elif item.status == 'sent' %}<span class="badge badge-green">Envoyé</span>
                     {% elif item.status == 'cancelled' %}<span class="badge badge-gray">Annulé</span>
                     {% else %}<span class="badge badge-danger">Erreur</span>{% endif %}
                 </td>
                 <td class="text-muted">{{ item.sent_at or '—' }}</td>
-                <td class="text-muted">{{ item.error or '—' }}</td>
+                <td class="text-muted">{{ item.error or item.last_error or '—' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="5" class="text-muted">File d'attente vide</td></tr>
@@ -164,7 +199,13 @@
             <td class="text-muted">{{ c.sent or '—' }}</td>
             <td>{% if c.pending %}<span class="badge badge-pending">{{ c.pending }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
             <td>{% if c.error %}<span class="badge badge-danger">{{ c.error }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-            <td>{% if c.paused %}<span class="badge badge-gray">⏸ En pause</span>{% else %}<span class="badge badge-green">⟳ En cours</span>{% endif %}</td>
+            <td>
+                {% if c.state == 'sending' %}<span class="badge badge-green">⟳ Envoi en cours</span>
+                {% elif c.state == 'paused' %}<span class="badge badge-gray">⏸ En pause</span>
+                {% elif c.state == 'waiting_quota' %}<span class="badge badge-pending">⏳ Quota — {{ c.resume_at | delay or 'reprise à la prochaine fenêtre' }}</span>
+                {% elif c.state == 'queued' %}<span class="badge badge-pending">⏱ En file{% if c.resume_at %} — {{ c.resume_at | delay }}{% endif %}</span>
+                {% else %}<span class="badge badge-danger">! {{ c.state_label }}</span>{% endif %}
+            </td>
             <td class="actions-cell">
                 <a href="{{ url_for('mailing.queue', campaign=c.campaign_id) }}" class="btn btn-small btn-primary">Détail</a>
                 <form method="POST" action="{{ url_for('mailing.queue_pause', campaign_id=c.campaign_id) }}" style="display:inline">

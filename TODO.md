@@ -226,13 +226,25 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       300 s) plutôt qu'un timer sur l'hôte : le verrou règle le problème des 2 workers
       gunicorn qui motivait le timer, et rien n'est à poser sur les serveurs.
       _Mettre `MAIL_AUTOSEND_INTERVAL=0` sur un poste de dev branché sur une messagerie réelle._
-- [ ] **Quotas mutualisés entre instances** *(20/09/2026, à traiter)*. adreic34, lfll et gall
-      envoient depuis le même domaine `asso34.fr` chez LWS, mais chacune compte ses envois
-      dans SA base : trois fois 240/h possibles. **Question préalable à poser à LWS** : la
-      limite est-elle par boîte d'envoi ou par compte d'hébergement ? Si par compte, il faut
-      un comptage commun (Nicolas écarte un simple fichier dans le dossier docker ; pistes à
-      étudier : emplacement système dédié, ou petit service partagé sur un réseau interne).
-      En attendant, répartir les plafonds dans les `.env`.
+- [x] **Reprise automatique et plafond de volume** *(20/09/2026, v2.5.0)*. Un refus TEMPORAIRE
+      du serveur (4xx) laisse l'email en file avec une date de reprise (`deferred_until`) au lieu
+      de le figer en erreur ; seuls les 5xx restent des échecs. Compteur de VOLUME glissant
+      (`MAIL_MAX_MB_PER_HOUR`, défaut 300) sur la taille réelle du message transmis, pièces
+      jointes encodées comprises : la tranche s'arrête AVANT le refus de l'hébergeur, au lieu de
+      le découvrir en pleine campagne (incident du 18/09, 74 refus `LPR-SIZE01`). Tous les états
+      disent quand ça repart (« dans 47 minutes »), et une alerte email part si une campagne se
+      termine avec des erreurs définitives (réglage Paramètres, actif par défaut).
+- [~] **Quotas mutualisés entre instances** *(20/09/2026 — mesure d'attente prise)*. adreic34, lfll
+      et gall envoient depuis le même domaine `asso34.fr` chez LWS, mais chacune compte ses envois
+      dans SA base : trois fois le plafond possible. LWS documente DEUX limites indépendantes, par
+      boîte ET par domaine (buffer #41) ; **question à poser à LWS** : les 240/h et 2500/j obtenus
+      le 15/08 valaient-ils pour la boîte adreic34 ou pour le domaine entier ?
+      **En attendant, on applique le plus restrictif** : défauts ramenés à 110/h, 800/j et
+      300 Mo/h par instance, soit un tiers des limites connues — les trois instances cumulées
+      restent sous les plafonds de domaine génériques (480/h). À remonter dès que LWS répond.
+      Reste à faire si le plafond domaine est confirmé serré : un comptage COMMUN aux instances
+      (Nicolas écarte un simple fichier dans le dossier docker ; pistes : emplacement système
+      dédié, ou petit service partagé sur un réseau interne).
 - [x] **Modèles de mailing** *(17/09/2026, branche `feature/modeles-mailing`)*. Table
       `mail_template`, distincte des campagnes : « Enregistrer comme modèle » sur l'aperçu,
       « Partir d'un modèle » dans la rédaction, page Mailing → Modèles (utiliser, renommer,

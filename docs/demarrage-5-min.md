@@ -49,8 +49,11 @@ depuis le menu latéral **Mailing → Nouveau**.
    propre adresse avant l'envoi réel.
 3. **Destinataires.** Vous validez précisément qui recevra l'envoi : tout est sélectionné par défaut,
    vous pouvez décocher des contacts au cas par cas.
-4. **Envoi.** L'envoi part dans une **file d'attente** avec un suivi (envoyé / en attente / erreur),
-   dont vous pouvez suivre la progression.
+4. **Envoi.** Les emails partent dans une **file d'attente** et s'envoient tout seuls, par tranches,
+   dans la limite de ce que votre hébergeur autorise : vous pouvez fermer la page. La file indique à
+   tout moment où en est la campagne — en cours d'envoi, en attente de quota (avec le délai avant
+   reprise), en pause, terminée — et, si des envois ont définitivement échoué, vous recevez un email
+   d'alerte qui liste les destinataires concernés et la cause.
 
 *(Un guide Mailing détaillé viendra approfondir chacune de ces étapes — 🚧 à venir.)*
 

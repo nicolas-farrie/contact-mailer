@@ -49,7 +49,7 @@ def main():
 
     with app.app_context():
         try:
-            with sending.send_lock():
+            with sending.send_lock() as lock_fd:
                 campaigns = [only] if only else sending.pending_campaigns()
                 if not campaigns:
                     say('Rien en attente.')
@@ -57,7 +57,7 @@ def main():
 
                 quota = sending.quota_state()
                 say(f"File : {len(campaigns)} campagne(s) ; marge {quota['left_hour']}/h, "
-                    f"{quota['left_day']}/j")
+                    f"{quota['left_day']}/j, {quota['left_mb_hour']} Mo/h")
 
                 import time
                 deadline = time.monotonic() + max_seconds
@@ -67,6 +67,7 @@ def main():
                     if left <= 1:
                         say('Durée de la tranche atteinte : la suite au prochain passage.')
                         break
+                    sending._write_holder(lock_fd, campaign)   # « qui envoie » pour l'interface
                     sent, errors, stopped, warnings = sending.run_campaign(campaign, max_seconds=left)
                     if sent is None:
                         # `errors` porte le message d'échec (SMTP absent, campagne sans
@@ -80,8 +81,10 @@ def main():
                     if sent or errors:
                         say(f'  {campaign} : {sent} envoyés, {errors} erreurs'
                             + (f' — arrêt : {stopped}' if stopped else ''))
-                    if stopped and 'plafond' in stopped:
-                        say(f'Arrêt de la tranche ({stopped}).')
+                    if stopped is not None and stopped.halt:
+                        when = sending.humanize_delay(stopped.resume_at)
+                        say(f'Arrêt de la tranche ({stopped})'
+                            + (f' — reprise {when}.' if when else '.'))
                         break
 
                 say(f'Tranche terminée : {total_sent} envoyés, {total_errors} erreurs.')

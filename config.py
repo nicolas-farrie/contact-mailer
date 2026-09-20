@@ -98,12 +98,25 @@ class Config:
     # les anti-spam des SMTP mutualisés (LWS…). Défaut prudent ; ajustable en .env.
     MAIL_RATE_PER_MINUTE = int(os.environ.get('MAIL_RATE_PER_MINUTE', 10))
     # Plafonds glissants (fenêtres 1h / 24h) tous envois confondus. 0 = illimité.
-    # Au-delà, l'envoi en cours S'ARRÊTE proprement (le reste reste en file, à
-    # reprendre plus tard). Défauts = limites données par LWS le 15/08/2026 pour son
-    # offre mutualisée : 240 mails/heure (compteur horaire) et 2500/jour. Une instance
-    # hébergée ailleurs recale ces valeurs dans son .env.
-    MAIL_MAX_PER_HOUR = int(os.environ.get('MAIL_MAX_PER_HOUR', 240))
-    MAIL_MAX_PER_DAY = int(os.environ.get('MAIL_MAX_PER_DAY', 2500))
+    # Au-delà, l'envoi en cours S'ARRÊTE proprement (le reste reste en file et repart
+    # tout seul une fois la fenêtre reconstituée).
+    #
+    # Défauts PRUDENTS (20/09/2026) : LWS applique DEUX plafonds indépendants, un par
+    # boîte et un par domaine, toutes boîtes confondues. Nos trois instances (adreic34,
+    # lfll, gall) sont trois boîtes d'un SEUL domaine `asso34.fr` : tant que LWS n'a pas
+    # dit si les 240/h et 2500/j du 15/08 valaient pour la boîte ou pour le domaine, on
+    # calibre pour que les trois instances CUMULÉES restent sous les plafonds de domaine
+    # génériques (480/h). Une instance hébergée ailleurs recale ces valeurs dans son .env.
+    MAIL_MAX_PER_HOUR = int(os.environ.get('MAIL_MAX_PER_HOUR', 110))
+    MAIL_MAX_PER_DAY = int(os.environ.get('MAIL_MAX_PER_DAY', 800))
+    # Plafonds de VOLUME (mêmes fenêtres glissantes), en mégaoctets. 0 = illimité.
+    # LWS limite aussi le volume cumulé par heure et par expéditeur (1000 Mo, code
+    # `LPR-SIZE01`) : avec des pièces jointes, cette limite-là tombe AVANT celle du
+    # nombre de mails — c'est elle qui a fait échouer 74 envois le 18/09/2026 (2 PDF,
+    # 3,2 Mo par mail). Le volume compté est celui du message RÉELLEMENT transmis,
+    # corps + pièces jointes après encodage base64 (~ +33 %).
+    MAIL_MAX_MB_PER_HOUR = int(os.environ.get('MAIL_MAX_MB_PER_HOUR', 300))
+    MAIL_MAX_MB_PER_DAY = int(os.environ.get('MAIL_MAX_MB_PER_DAY', 0))
     # Durée maximale d'un envoi lancé depuis l'interface : gunicorn coupe la requête à
     # 300 s (--timeout), ce qui tuerait la boucle en plein vol. On s'arrête avant, le
     # reste attend en file. La commande hors-web n'a pas cette contrainte.

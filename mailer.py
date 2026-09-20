@@ -16,7 +16,7 @@ from datetime import datetime
 import re
 import json
 
-from models import db, MailCampaign, MailQueueItem
+from models import db, MailCampaign, MailQueueItem, utcnow
 
 
 _DATA_URI_RE = re.compile(r'data:(image/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)')
@@ -355,10 +355,17 @@ class MailQueue:
         items = MailQueueItem.query.order_by(MailQueueItem.id).all()
         return [i.to_dict() for i in items]
 
-    def get_pending(self, campaign_id: str = None):
+    def get_pending(self, campaign_id: str = None, include_deferred: bool = False):
+        """Items en attente. Par défaut, ceux DIFFÉRÉS (refus temporaire, reprise datée)
+        sont exclus : ils ne sont pas envoyables maintenant. `include_deferred=True`
+        répond à une autre question — « reste-t-il quelque chose à envoyer ? » — dont
+        dépend l'envoi de la copie récapitulative de fin de campagne."""
         q = MailQueueItem.query.filter_by(status='pending')
         if campaign_id is not None:
             q = q.filter_by(campaign_id=campaign_id)
+        if not include_deferred:
+            q = q.filter(db.or_(MailQueueItem.deferred_until.is_(None),
+                                MailQueueItem.deferred_until <= utcnow()))
         return [i.to_dict() for i in q.order_by(MailQueueItem.id).all()]
 
     def mark_sent(self, item_id: int):
@@ -381,6 +388,43 @@ class MailQueue:
             logging.error("Échec envoi — item %s (campagne %s, essai %s) : %s",
                           item_id, item.campaign_id, item.attempts, error)
 
+    def mark_deferred(self, item_id: int, until, error: str):
+        """Refus TEMPORAIRE : l'item reste EN ATTENTE, mais pas avant `until`.
+
+        C'est la différence avec `mark_error` : un « réessayez plus tard » de
+        l'hébergeur (plafond horaire, volume cumulé) n'est pas un échec de l'envoi, il
+        n'appelle aucune intervention — juste de la patience. La cause est conservée
+        pour l'affichage, et le compteur d'essais avance pour que le renoncement finisse
+        par arriver si le serveur ne cède jamais."""
+        item = db.session.get(MailQueueItem, item_id)
+        if item:
+            item.status = 'pending'
+            item.attempts = (item.attempts or 0) + 1
+            item.deferred_until = until
+            item.error = error
+            item.last_error = error
+            db.session.commit()
+            logging.info("Envoi différé — item %s (campagne %s, essai %s) jusqu'à %s : %s",
+                         item_id, item.campaign_id, item.attempts, until, error)
+
+    def defer_campaign(self, campaign_id: str, until, error: str):
+        """Diffère TOUS les mails en attente d'une campagne (refus global du serveur).
+
+        Quand l'hébergeur refuse sur la base de l'expéditeur — plafond de volume, débit
+        —, le mail suivant sera refusé pour la même raison : continuer reviendrait à
+        mitrailler un serveur qui vient de dire non, ce qui est exactement le
+        comportement que les anti-spam de mutualisé sanctionnent.
+        """
+        q = (MailQueueItem.query.filter_by(campaign_id=campaign_id, status='pending')
+             .filter(db.or_(MailQueueItem.deferred_until.is_(None),
+                            MailQueueItem.deferred_until < until)))
+        n = q.update({'deferred_until': until, 'last_error': error},
+                     synchronize_session=False)
+        db.session.commit()
+        logging.warning("Campagne %s différée jusqu'à %s (%s mails) : %s",
+                        campaign_id, until, n, error)
+        return n
+
     def reset_errors(self, campaign_id: str = None):
         """Remet les items en erreur en `pending` pour un nouvel essai.
         On NE perd PAS la cause : `last_error` est conservé et chaque erreur est
@@ -396,6 +440,7 @@ class MailQueue:
                 it.last_error = it.error   # préserve la dernière cause avant de vider `error`
             it.status = 'pending'
             it.error = None
+            it.deferred_until = None   # un retry demandé à la main repart tout de suite
         db.session.commit()
         return len(items)
 
@@ -404,12 +449,24 @@ class MailQueue:
         if campaign_id is not None:
             q = q.filter(MailQueueItem.campaign_id == campaign_id)
         by = dict(q.all())
+        # `deferred` est un sous-ensemble de `pending` : des mails bien en file, mais
+        # qu'un refus temporaire de l'hébergeur empêche d'envoyer avant une certaine
+        # heure. Les compter à part, c'est pouvoir dire « en attente de quota jusqu'à
+        # 09 h 12 » au lieu d'un « en attente » qui n'explique rien.
+        d = (MailQueueItem.query.filter_by(status='pending')
+             .filter(MailQueueItem.deferred_until.isnot(None),
+                     MailQueueItem.deferred_until > utcnow()))
+        if campaign_id is not None:
+            d = d.filter(MailQueueItem.campaign_id == campaign_id)
+        deferred = [i.deferred_until for i in d.all()]
         return {
             'total': sum(by.values()),
             'pending': by.get('pending', 0),
             'sent': by.get('sent', 0),
             'error': by.get('error', 0),
             'cancelled': by.get('cancelled', 0),
+            'deferred': len(deferred),
+            'deferred_until': min(deferred) if deferred else None,
         }
 
     # --- Vues « campagnes » (dérivées des items, comme avant) ---
@@ -542,23 +599,39 @@ class Mailer:
                 pass
             self._server = None
 
-    def _deliver(self, envelope_from, to_email, msg):
-        """Envoie le message : via la connexion persistante si ouverte (avec une
-        reconnexion en cas de coupure en cours de campagne), sinon en one-shot."""
+    def deliver_raw(self, envelope_from, to_email, raw):
+        """Envoie un message DÉJÀ sérialisé : via la connexion persistante si ouverte
+        (avec une reconnexion en cas de coupure en cours de campagne), sinon en one-shot.
+        Retourne le nombre d'octets transmis — c'est ce que compte l'hébergeur."""
         if self._server is not None:
             try:
-                self._server.sendmail(envelope_from, to_email, msg.as_string())
+                self._server.sendmail(envelope_from, to_email, raw)
             except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError):
                 self._server = self._open_server()   # la connexion est tombée → une reprise
-                self._server.sendmail(envelope_from, to_email, msg.as_string())
+                self._server.sendmail(envelope_from, to_email, raw)
         else:
             with self._open_server() as server:
-                server.sendmail(envelope_from, to_email, msg.as_string())
+                server.sendmail(envelope_from, to_email, raw)
+        return len(raw.encode('utf-8', 'replace'))
 
     def send_single(self, to_email: str, subject: str, body_text: str, body_html: str = None,
-                     unsubscribe_url: str = None, attachments: list = None,
-                     return_path: str = None, reply_to: str = None) -> bool:
-        """Envoie un email unique. Retourne True si succès."""
+                    unsubscribe_url: str = None, attachments: list = None,
+                    return_path: str = None, reply_to: str = None) -> int:
+        """Envoie un email unique. Retourne le nombre d'octets transmis (donc truthy)."""
+        envelope_from, raw = self.build_message(
+            to_email, subject, body_text, body_html, unsubscribe_url=unsubscribe_url,
+            attachments=attachments, return_path=return_path, reply_to=reply_to)
+        return self.deliver_raw(envelope_from, to_email, raw)
+
+    def build_message(self, to_email: str, subject: str, body_text: str, body_html: str = None,
+                      unsubscribe_url: str = None, attachments: list = None,
+                      return_path: str = None, reply_to: str = None):
+        """Assemble le message SANS l'envoyer. Retourne (envelope_from, message sérialisé).
+
+        Séparé de l'envoi pour que l'appelant puisse mesurer la taille RÉELLE du message
+        — pièces jointes encodées comprises — et décider de ne pas l'envoyer tout de
+        suite s'il ne tient pas dans la marge de volume autorisée par l'hébergeur.
+        """
         from email.utils import formatdate
         from email.mime.base import MIMEBase
         from email import encoders as email_encoders
@@ -640,9 +713,9 @@ class Mailer:
             # L'expéditeur d'ENVELOPPE (MAIL FROM) détermine où reviennent les bounces.
             # Le header Return-Path seul ne suffit PAS — il faut le passer ici.
             envelope_from = return_path or self.sender_email
-            self._deliver(envelope_from, to_email, msg)
-
-            return True
+            # Sérialisé UNE fois : au-delà de quelques Mo de pièces jointes, refaire
+            # `as_string()` à chaque tentative coûte cher pour rien.
+            return envelope_from, msg.as_string()
 
         except Exception as e:
             raise e

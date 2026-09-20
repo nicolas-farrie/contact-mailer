@@ -497,6 +497,11 @@ class MailQueueItem(db.Model):
     last_error = db.Column(db.Text, nullable=True)     # dernière erreur connue, CONSERVÉE au retry (forensique)
     sent_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
+    # Refus TEMPORAIRE du serveur (4xx : plafond horaire, volume, indisponibilité) :
+    # l'item RESTE `pending` et n'est repris qu'à partir de cette date. Sans cela un
+    # « réessayez plus tard » devenait une erreur définitive, que seul un clic humain
+    # pouvait relancer — invisible pour un envoi qui tourne tout seul.
+    deferred_until = db.Column(db.DateTime, nullable=True, index=True)
 
     def to_dict(self) -> dict:
         """Même forme que les items de l'ancien mail_queue.json (dates en ISO)."""
@@ -510,6 +515,7 @@ class MailQueueItem(db.Model):
             'last_error': self.last_error,
             'sent_at': self.sent_at.isoformat() if self.sent_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'deferred_until': self.deferred_until.isoformat() if self.deferred_until else None,
         }
 
 
@@ -524,6 +530,10 @@ class ContactSend(db.Model):
     contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=False, index=True)
     campaign_id = db.Column(db.String(255), nullable=False, index=True)
     sent_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+    # Taille du message tel qu'il est parti sur le fil (corps + pièces jointes encodées).
+    # Sert au plafond de VOLUME glissant : c'est le seul chiffre qui compte pour LWS.
+    # NULL = envoi antérieur à la v2.5.0, non mesuré.
+    size_bytes = db.Column(db.Integer, nullable=True)
     contact = db.relationship('Contact')
 
 

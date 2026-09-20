@@ -58,6 +58,12 @@ def index():
             set_setting('bounce_enabled', '1' if request.form.get('bounce_enabled') == 'on' else '0')
             flash('Gestion du bounce mise à jour.', 'success')
 
+        elif section == 'sending':
+            # Alerte de fin de campagne : un envoi asynchrone se termine sans témoin,
+            # les erreurs définitives doivent venir à l'expéditeur plutôt que l'attendre.
+            set_setting('alert_on_errors', '1' if request.form.get('alert_on_errors') == 'on' else '0')
+            flash("Alerte d'envoi mise à jour.", 'success')
+
         elif section == 'defaults':
             # « Valeurs par défaut » : liste éditable des civilités (choices.civilite).
             import json
@@ -116,6 +122,10 @@ def index():
                            bounce_host=Config.BOUNCE_IMAP_HOST, bounce_user=Config.BOUNCE_IMAP_USER,
                            bounce_configured=bool(Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER),
                            bounce_enabled=(get_setting('bounce_enabled', '1') != '0'),
+                           alert_on_errors=(get_setting('alert_on_errors', '1') != '0'),
+                           max_per_hour=Config.MAIL_MAX_PER_HOUR, max_per_day=Config.MAIL_MAX_PER_DAY,
+                           max_mb_per_hour=Config.MAIL_MAX_MB_PER_HOUR,
+                           autosend_interval=Config.MAIL_AUTOSEND_INTERVAL,
                            submission_notify_enabled=(get_setting('submission_notify_enabled', '1') != '0'),
                            audit_ip_enabled=(get_setting('audit_log_ip_enabled', '1') != '0'),
                            imap_configured=bool(Config.IMAP_HOST),

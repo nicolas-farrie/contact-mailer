@@ -115,6 +115,25 @@
         </form>
     </section>
 
+    <!-- Envoi des campagnes -->
+    <section class="card settings-section">
+        <h2>Envoi des campagnes</h2>
+        <p class="settings-hint">Les campagnes partent toutes seules, par tranches, dans la limite de ce que l'hébergeur autorise.
+            {% if autosend_interval %}Passage automatique toutes les {{ (autosend_interval // 60) or 1 }} minute{{ 's' if autosend_interval >= 120 }}.{% else %}<strong>Envoi automatique désactivé</strong> sur cette instance : les campagnes attendent un envoi manuel.{% endif %}</p>
+        <p class="field-help">Plafonds en vigueur : <strong>{{ max_per_hour or '∞' }}</strong> emails par heure,
+            <strong>{{ max_per_day or '∞' }}</strong> par jour, <strong>{{ max_mb_per_hour or '∞' }} Mo</strong> par heure
+            (pièces jointes comprises). Ces valeurs sont réglées côté serveur, dans la configuration de l'instance.</p>
+        <form method="POST" action="{{ url_for('settings.index') }}">
+            <input type="hidden" name="section" value="sending">
+            <label class="checkbox-inline">
+                <input type="checkbox" name="alert_on_errors" value="on"{% if alert_on_errors %} checked{% endif %}>
+                <span>M'alerter par email si une campagne se termine avec des erreurs</span>
+            </label>
+            <p class="field-help">Un envoi étalé sur plusieurs heures se termine sans personne devant l'écran : l'alerte liste les destinataires non servis et leur cause. Les reports dus aux plafonds ne déclenchent aucune alerte — ils repartent seuls.</p>
+            <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">Enregistrer</button>
+        </form>
+    </section>
+
     <!-- Gestion du bounce -->
     <section class="card settings-section">
         <h2>Gestion du bounce</h2>

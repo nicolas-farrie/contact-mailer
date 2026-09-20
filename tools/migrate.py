@@ -87,6 +87,7 @@ MIGRATIONS = [
     ("migrate_add_list_source", "safe"),
     ("migrate_add_mail_template", "safe"),
     ("migrate_add_campaign_paused", "safe"),
+    ("migrate_add_send_backoff", "safe"),
 ]
 
 
