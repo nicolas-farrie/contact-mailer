@@ -217,6 +217,26 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [ ] **Filtres avancés : plages alphabétiques** *(analysé le 20/09/2026, à coder — ~1/2 journée)*.
+      Trois opérateurs sur les champs texte : « commence avant » (`< 'b'`), « commence après »
+      (`> 'azz'`), « de … à … » (`>= 'g'` et `< 'q'`). Le moteur est prêt : `OPERATORS_BY_TYPE`
+      et `OP_LABELS` alimentent l'UI toute seule (`ADV_META`, contacts.html).
+      **Le coût n'est pas le SQL, c'est l'ordre alphabétique** : SQLite compare en binaire,
+      donc `'a' > 'Z'` et `'Étienne' > 'Zola'` ; `lower()` n'y change rien (ASCII seul).
+      → `alpha_sort_sql(col)` dans `helpers.py` sur le modèle de `phone_digits_sql` (cascade de
+      `replace()` + minuscules), marquée `# [PG-PORT]` (Postgres : `unaccent(lower(col))`), et
+      **la même normalisation appliquée à la valeur saisie côté Python**.
+      **Décision prise** : bornes traitées comme des PRÉFIXES inclusifs — « de G à P » prend
+      tout le P (borne haute au caractère suivant, exclusive). Pris au pied de la lettre,
+      `<= 'p'` exclurait « Pierre », ce que personne n'attend. Libellés dans ce sens
+      (« commence avant », « de … à … »), pas « entre ».
+      Détail : ~10 lignes dans `build_predicate`, ~8 dans `custom_field_predicate` (champs
+      perso JSON), ~4 lignes de JS (la saisie à deux champs est réservée aux types date/nombre,
+      la déclencher sur l'OPÉRATEUR), plus les tests (accents, casse, borne haute, champ vide).
+      Réserves : comparaison sur expression → **aucun index utilisable**, balayage de table —
+      imperceptible à 3 500 contacts, à revoir au-delà de quelques dizaines de milliers (colonne
+      `nom_norm` persistée + index = migration). Le tri des contacts (`order_by(Contact.nom)`)
+      souffre du même défaut d'accents : même remède possible, mais **autre chantier**.
 - [x] **Envoi asynchrone** *(17-20/09/2026)*. Livraison 1 (v2.4.5) : plafonds aux limites LWS
       (240/h, 2500/j), journal `contact_send` écrit au fil des envois, tranche bornée.
       Livraison 2 (v2.5.0) : confirmer ne fait que mettre en file ; `sending.py` porte la
