@@ -48,16 +48,45 @@
     </div>
 </div>
 
+<!-- Envoi automatique : ce qui part tout seul, et ce qui reste autorisé -->
+{% if stats.pending > 0 %}
+<div class="card queue-auto {{ 'is-paused' if is_paused }}">
+    {% if is_paused %}
+    <strong>⏸ Envoi en pause.</strong> Les {{ stats.pending }} email{{ 's' if stats.pending > 1 }} restent en file
+    et ne partiront pas tant que vous n'aurez pas repris l'envoi.
+    {% else %}
+    <strong>⟳ Envoi automatique.</strong> Les {{ stats.pending }} email{{ 's' if stats.pending > 1 }} en attente
+    partent par tranches, sans action de votre part.
+    {% endif %}
+    <div class="hint">
+        Débit : {{ config.MAIL_RATE_PER_MINUTE }} emails/minute.
+        Marge restante : <strong>{{ quota.left_hour if quota.left_hour is not none else '∞' }}</strong> cette heure-ci
+        (plafond {{ quota.max_hour or '∞' }}/h),
+        <strong>{{ quota.left_day if quota.left_day is not none else '∞' }}</strong> aujourd'hui
+        (plafond {{ quota.max_day or '∞' }}/j).
+        {% if last_sent %}Dernier envoi : {{ last_sent.strftime('%d/%m/%Y %H:%M') }} (UTC).{% endif %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Actions -->
 <div class="send-actions">
-    {% if stats.pending > 0 %}
+    {% if stats.pending > 0 and not is_paused %}
     <form method="POST" action="{{ url_for('mailing.process') }}" id="process-form" style="display:inline">
         <input type="hidden" name="campaign" value="{{ campaign }}">
         <button type="button" class="btn btn-primary btn-cta" id="send-btn" onclick="confirmAndSend()">
             Envoyer {{ stats.pending }} email{{ 's' if stats.pending > 1 }} maintenant
         </button>
     </form>
-    <span class="hint">Débit limité à {{ config.MAIL_RATE_PER_MINUTE if config else 20 }} emails/minute.</span>
+    <span class="hint">Sans attendre la prochaine tranche automatique.</span>
+    {% endif %}
+
+    {% if stats.pending > 0 %}
+    <form method="POST" action="{{ url_for('mailing.queue_pause', campaign_id=campaign) }}" style="display:inline">
+        <input type="hidden" name="back" value="{{ request.full_path }}">
+        {% if is_paused %}<input type="hidden" name="resume" value="1">{% endif %}
+        <button type="submit" class="btn btn-secondary">{{ '▶ Reprendre l\'envoi' if is_paused else '⏸ Mettre en pause' }}</button>
+    </form>
     {% endif %}
 
     {% if stats.error > 0 %}
@@ -122,17 +151,28 @@
     <a href="{{ url_for('mailing.compose') }}" class="btn btn-primary">+ Nouveau mailing</a>
 </div>
 {% if queue_campaigns %}
-<p class="settings-hint" style="margin-top:-0.5rem;">Campagnes qui ont encore des emails <strong>à envoyer</strong> ou <strong>en erreur</strong>. Une campagne entièrement envoyée n'apparaît plus ici — retrouvez-la dans l'<a href="{{ url_for('mailing.history') }}">historique</a>.</p>
+<p class="settings-hint" style="margin-top:-0.5rem;">Campagnes qui ont encore des emails <strong>à envoyer</strong> ou <strong>en erreur</strong>. L'envoi se poursuit tout seul, par tranches ; une campagne entièrement envoyée n'apparaît plus ici — retrouvez-la dans l'<a href="{{ url_for('mailing.history') }}">historique</a>.</p>
+<p class="hint" style="margin-top:-0.4rem;">Marge restante : <strong>{{ quota.left_hour if quota.left_hour is not none else '∞' }}</strong> cette heure-ci,
+    <strong>{{ quota.left_day if quota.left_day is not none else '∞' }}</strong> aujourd'hui.</p>
 <div class="table-responsive">
 <table class="data-table">
-    <thead><tr><th>Campagne</th><th>En attente</th><th>Erreurs</th><th>Action</th></tr></thead>
+    <thead><tr><th>Campagne</th><th>Envoyés</th><th>En attente</th><th>Erreurs</th><th>État</th><th>Action</th></tr></thead>
     <tbody>
         {% for c in queue_campaigns %}
         <tr>
             <td><a href="{{ url_for('mailing.queue', campaign=c.campaign_id) }}"><strong>{{ c.name }}</strong></a></td>
+            <td class="text-muted">{{ c.sent or '—' }}</td>
             <td>{% if c.pending %}<span class="badge badge-pending">{{ c.pending }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
             <td>{% if c.error %}<span class="badge badge-danger">{{ c.error }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-            <td><a href="{{ url_for('mailing.queue', campaign=c.campaign_id) }}" class="btn btn-small btn-primary">Reprendre l'envoi</a></td>
+            <td>{% if c.paused %}<span class="badge badge-gray">⏸ En pause</span>{% else %}<span class="badge badge-green">⟳ En cours</span>{% endif %}</td>
+            <td class="actions-cell">
+                <a href="{{ url_for('mailing.queue', campaign=c.campaign_id) }}" class="btn btn-small btn-primary">Détail</a>
+                <form method="POST" action="{{ url_for('mailing.queue_pause', campaign_id=c.campaign_id) }}" style="display:inline">
+                    <input type="hidden" name="back" value="{{ request.full_path }}">
+                    {% if c.paused %}<input type="hidden" name="resume" value="1">{% endif %}
+                    <button type="submit" class="btn btn-small btn-secondary">{{ '▶ Reprendre' if c.paused else '⏸ Pause' }}</button>
+                </form>
+            </td>
         </tr>
         {% endfor %}
     </tbody>
@@ -177,4 +217,11 @@ function confirmAndSend() {
     {% endif %}
 }
 </script>
+
+<style>
+/* Encart « envoi automatique » : discret quand tout roule, gris quand c'est en pause. */
+.queue-auto { border-left: 3px solid var(--success, #16a34a); }
+.queue-auto.is-paused { border-left-color: var(--text-muted, #888); }
+.queue-auto .hint { margin: 0.35rem 0 0; }
+</style>
 {% endblock %}

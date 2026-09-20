@@ -106,8 +106,14 @@ class Config:
     MAIL_MAX_PER_DAY = int(os.environ.get('MAIL_MAX_PER_DAY', 2500))
     # Durée maximale d'un envoi lancé depuis l'interface : gunicorn coupe la requête à
     # 300 s (--timeout), ce qui tuerait la boucle en plein vol. On s'arrête avant, le
-    # reste attend en file. La commande hors-web (à venir) n'a pas cette contrainte.
+    # reste attend en file. La commande hors-web n'a pas cette contrainte.
     MAIL_MAX_RUN_SECONDS = int(os.environ.get('MAIL_MAX_RUN_SECONDS', 240))
+    # Envoi automatique : intervalle en secondes entre deux tranches, 0 = désactivé.
+    # Un fil d'exécution interne réveille la file tout seul — une campagne de plusieurs
+    # centaines de mails part ainsi sans intervention, au rythme autorisé. Le verrou de
+    # `sending.py` garantit qu'un seul envoi tourne à la fois, quel que soit le nombre
+    # de workers gunicorn.
+    MAIL_AUTOSEND_INTERVAL = int(os.environ.get('MAIL_AUTOSEND_INTERVAL', 300))
 
     # URL publique (pour les liens de désabonnement)
     BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')

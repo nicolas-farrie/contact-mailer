@@ -415,6 +415,9 @@ class MailCampaign(db.Model):
     reply_to = db.Column(db.String(200), nullable=True)      # adresse de réponse (Reply-To) ≠ boîte d'envoi
     submission_id = db.Column(db.String(255), nullable=True)
     archived = db.Column(db.Boolean, default=False)
+    # En pause : la campagne garde ses mails en file, mais aucun envoi ne les traite
+    # (ni le timer, ni « Envoyer maintenant »). Reprendre les remet dans le cycle.
+    paused = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     def to_template(self) -> dict:

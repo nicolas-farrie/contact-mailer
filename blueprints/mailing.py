@@ -986,9 +986,12 @@ def confirm():
 @bp.route('/mailing/add-to-queue', methods=['POST'])
 @login_required
 def add_to_queue():
-    """Parcours d'envoi (étape Destinataires) : met les contacts sélectionnés en file
-    PUIS lance l'envoi IMMÉDIATEMENT. La confirmation DÉCLENCHE l'envoi — fini le piège
-    « resté en file, jamais parti ». On arrive en phase Envoi sur un état résultat."""
+    """Parcours d'envoi (étape Destinataires) : met les contacts sélectionnés EN FILE.
+
+    L'envoi lui-même est confié à `tools/process_queue.py`, lancé par un timer : une
+    campagne de plusieurs centaines de mails s'étale toute seule au rythme autorisé,
+    sans requête web qui attendrait des heures. « Envoyer maintenant » (send_now) reste
+    disponible pour les petites listes, avec la même boucle et le même verrou."""
     from mailer import MailQueue
     campaign_id = request.form.get('campaign_id')
     contact_ids = set(request.form.getlist('contact_ids', type=int))
@@ -1017,10 +1020,11 @@ def add_to_queue():
             flash(f'Campagne créée, mais erreur lors du classement de la demande : {e}', 'error')
         shutil.rmtree(f'data/attachments/submission_{submission_id}', ignore_errors=True)
 
-    # Confirmation = déclenchement : on ENVOIE tout de suite les contacts qu'on vient
-    # de mettre en file. Si l'envoi est interrompu (timeout gros volume), la file garde
-    # la progression → « Reprendre l'envoi » depuis la File d'attente termine le reste.
-    _flash_send_result(_run_send(campaign_id))
+    if request.form.get('send_now') == '1':
+        _flash_send_result(_run_send(campaign_id))
+    else:
+        flash(f'{len(selected)} email(s) mis en file : l\'envoi part tout seul, '
+              f'par tranches, dans la limite du débit autorisé.', 'success')
     return redirect(url_for('mailing.queue', campaign=campaign_id))
 
 
@@ -1053,15 +1057,25 @@ def queue():
     from mailer import MailQueue
     from collections import defaultdict
 
+    import sending
+
     campaign = request.args.get('campaign')
     queue = MailQueue()
     stats = queue.get_stats(campaign)
+    # Marge restante dans l'heure et dans la journée : c'est ce qui explique un envoi
+    # qui s'arrête tout seul, et quand le reste repartira.
+    quota = sending.quota_state()
+    paused = {c.id for c in MailCampaign.query.filter_by(paused=True).all()}
 
     if campaign:
         template = queue.get_campaign_template(campaign) or {}
         items = [i for i in queue.queue if i['campaign_id'] == campaign]
+        last_sent = (db.session.query(db.func.max(ContactSend.sent_at))
+                     .filter(ContactSend.campaign_id == campaign).scalar())
         return render_template('mailing_queue.html', items=items, stats=stats,
-                               campaign=campaign, template=template, queue_campaigns=None)
+                               campaign=campaign, template=template, queue_campaigns=None,
+                               quota=quota, is_paused=campaign in paused,
+                               last_sent=last_sent)
 
     # Vue globale : regrouper le non-expédié par campagne
     groups = defaultdict(lambda: {'pending': 0, 'error': 0})
@@ -1071,180 +1085,41 @@ def queue():
     queue_campaigns = []
     for cid, g in groups.items():
         tpl = queue.get_campaign_template(cid) or {}
+        sent_done = sum(1 for it in queue.queue
+                        if it['campaign_id'] == cid and it['status'] == 'sent')
         queue_campaigns.append({
             'campaign_id': cid,
             'name': tpl.get('name') or tpl.get('subject') or cid,
             'pending': g['pending'], 'error': g['error'],
+            'sent': sent_done,
+            'paused': cid in paused,
             'remaining': g['pending'] + g['error']})
     queue_campaigns.sort(key=lambda c: (-c['remaining'], c['name'].lower()))
 
     return render_template('mailing_queue.html', items=None, stats=stats,
-                           campaign=None, template={}, queue_campaigns=queue_campaigns)
+                           campaign=None, template={}, queue_campaigns=queue_campaigns,
+                           quota=quota, is_paused=False, last_sent=None)
 
 
 def _run_send(campaign):
-    """Envoie tous les emails EN ATTENTE d'une campagne (boucle synchrone, débit
-    MAIL_RATE_PER_MINUTE) + copie récapitulative à l'expéditeur. Partagé par le parcours
-    d'envoi (add_to_queue) et « Reprendre l'envoi » (process).
-    Retourne (sent, errors) ; ou (None, message) si SMTP absent / template introuvable.
-    NB : l'évolution vers l'ASYNCHRONE = confier cette fonction à un worker (déclenché
-    « maintenant » ou par un timer) — même modèle « confirmation = déclenchement »."""
-    from mailer import Mailer, EmailTemplate, MailQueue
-    from pathlib import Path
-    from helpers import get_setting
-    import time
+    """Envoi immédiat depuis l'interface (« Envoyer maintenant », « Reprendre l'envoi »).
 
-    if not Config.SMTP_HOST:
-        return (None, 'SMTP non configuré', None)
+    La boucle elle-même vit dans `sending.py`, partagée avec `tools/process_queue.py` :
+    l'interface et le timer exécutent le même code, sous le MÊME verrou — deux envois
+    simultanés doubleraient le débit vu par l'hébergeur.
+    Retourne (sent, errors, stopped) ; (None, message, None) en cas d'échec."""
+    import sending
 
-    queue = MailQueue()
-    pending = queue.get_pending(campaign)
-    if not pending:
-        return (0, 0, None)
-
-    tpl = queue.get_campaign_template(campaign)
-    if not tpl:
-        return (None, 'Template de campagne introuvable', None)
-
-    mailer = Mailer(
-        smtp_host=Config.SMTP_HOST,
-        smtp_port=Config.SMTP_PORT,
-        smtp_user=Config.SMTP_USER,
-        smtp_password=Config.SMTP_PASSWORD,
-        sender_email=Config.SMTP_SENDER_EMAIL,
-        sender_name=Config.SMTP_SENDER_NAME,
-        use_tls=Config.SMTP_USE_TLS
-    )
-
-    mail_format = tpl.get('format', 'text')
-    include_unsubscribe = tpl.get('include_unsubscribe', False)
-    attachments = tpl.get('attachments', [])
-    reply_to = tpl.get('reply_to')
-
-    if mail_format == 'html':
-        template = EmailTemplate(subject=tpl['subject'], body_text='', body_html=tpl['body'])
-    else:
-        template = EmailTemplate(subject=tpl['subject'], body_text=tpl['body'])
-
-    delay = 60.0 / Config.MAIL_RATE_PER_MINUTE
-    sent = 0
-    errors = 0
-
-    # Toggle « Gestion du bounce » (Paramètres) : OFF → pas de Return-Path bounce forcé
-    # en enveloppe (évite le rejet SMTP 553 sur les serveurs stricts).
-    bounce_on = get_setting('bounce_enabled', '1') != '0'
-    bounce_return_path = (Config.BOUNCE_RETURN_PATH or Config.BOUNCE_IMAP_USER or None) if bounce_on else None
-
-    # Plafonds glissants (1h / 24h) tous envois confondus, via le journal ContactSend
-    # (déjà envoyés lors des campagnes PRÉCÉDENTES) + le compteur `sent` de ce run.
-    from datetime import timedelta
-    _now = utcnow()
-
-    def _sent_since(delta):
-        return db.session.query(db.func.count(ContactSend.id)).filter(
-            ContactSend.sent_at >= _now - delta).scalar() or 0
-
-    prior_hour = _sent_since(timedelta(hours=1))
-    prior_day = _sent_since(timedelta(days=1))
-    max_hour, max_day = Config.MAIL_MAX_PER_HOUR, Config.MAIL_MAX_PER_DAY
-    capped = None
-    deadline = time.monotonic() + Config.MAIL_MAX_RUN_SECONDS if Config.MAIL_MAX_RUN_SECONDS else None
-
-    # UNE seule connexion SMTP pour toute la campagne (au lieu d'une par email).
     try:
-        mailer.connect()
-    except Exception as e:
-        return (None, f'Connexion SMTP impossible : {e}', None)
-
-    for item in pending:
-        # Garde-fous anti-blocage : on s'arrête AVANT de dépasser les plafonds ;
-        # les items non traités restent EN ATTENTE (repris via « Reprendre l'envoi »).
-        if max_hour and (prior_hour + sent) >= max_hour:
-            capped = f'plafond horaire atteint ({max_hour}/h)'
-            break
-        if max_day and (prior_day + sent) >= max_day:
-            capped = f'plafond journalier atteint ({max_day}/j)'
-            break
-        # Durée bornée : mieux vaut s'arrêter nous-mêmes que d'être coupés par gunicorn
-        # en pleine boucle (la suite reste en file, « Reprendre l'envoi » la traite).
-        if deadline and time.monotonic() >= deadline:
-            capped = 'durée maximale de la tranche atteinte'
-            break
-        contact = item['contact']
-
-        # Construire l'URL de désabonnement par contact
-        unsub_url = None
-        if include_unsubscribe and contact.get('uid'):
-            unsub_url = f"{Config.BASE_URL}/unsubscribe/{contact['uid']}"
-
-        try:
-            subj, body_text, body_html = template.render(contact, unsubscribe_url=unsub_url)
-            mailer.send_single(contact['email'], subj, body_text, body_html,
-                               unsubscribe_url=unsub_url, attachments=attachments,
-                               return_path=bounce_return_path, reply_to=reply_to)
-            queue.mark_sent(item['id'])
-            sent += 1
-            # Journal écrit AU FIL DES ENVOIS : il sert au calcul des plafonds, et une
-            # écriture groupée en fin de boucle disparaissait si l'envoi était
-            # interrompu — la reprise sous-comptait alors les mails déjà partis et
-            # pouvait dépasser la limite de l'hébergeur (incident L-SPAM00 du 13/08).
-            if contact.get('id'):
-                try:
-                    db.session.add(ContactSend(contact_id=contact['id'],
-                                               campaign_id=campaign, sent_at=utcnow()))
-                    db.session.commit()
-                except Exception:
-                    db.session.rollback()
-        except Exception as e:
-            queue.mark_error(item['id'], str(e))
-            errors += 1
-        time.sleep(delay)
-
-    # Copie récapitulative à l'expéditeur (best-effort)
-    try:
-        first_contact = pending[0]['contact']
-        subj, body_text, body_html = template.render(first_contact)
-        copy_subject = f"[Campagne {campaign} — {sent} envoyés, {errors} erreurs] {subj}"
-
-        recap_text = (
-            f"\n\n{'='*60}\n"
-            f"RÉCAPITULATIF CAMPAGNE : {campaign}\n"
-            f"{'='*60}\n"
-            f"  Envoyés  : {sent}\n"
-            f"  Erreurs  : {errors}\n"
-            f"  Total    : {len(pending)}\n"
-        )
-        if errors > 0:
-            failed = [i['contact']['email'] for i in pending if i['status'] == 'error']
-            recap_text += f"\nEmails en erreur :\n" + "\n".join(f"  - {e}" for e in failed) + "\n"
-        if attachments:
-            recap_text += f"\nPièces jointes : {', '.join(Path(p).name for p in attachments)}\n"
-        recap_text += f"{'='*60}\n"
-
-        recap_html = (
-            f'<hr><div style="font-family:monospace;font-size:13px;color:#555;background:#f5f5f5;padding:1rem;border-radius:4px;">'
-            f'<strong>Récapitulatif — {campaign}</strong><br><br>'
-            f'Envoyés : <strong>{sent}</strong> &nbsp;|&nbsp; '
-            f'Erreurs : <strong style="color:{"#c00" if errors else "#090"}">{errors}</strong> &nbsp;|&nbsp; '
-            f'Total : <strong>{len(pending)}</strong>'
-        )
-        if errors > 0:
-            failed = [i['contact']['email'] for i in pending if i['status'] == 'error']
-            recap_html += '<br><br>Emails en erreur :<br>' + '<br>'.join(f'&nbsp;• {e}' for e in failed)
-        if attachments:
-            recap_html += f'<br><br>Pièces jointes : {", ".join(Path(p).name for p in attachments)}'
-        recap_html += '</div>'
-
-        copy_body_text = body_text + recap_text
-        copy_body_html = (body_html + recap_html) if body_html else None
-
-        mailer.send_single(Config.SMTP_SENDER_EMAIL, copy_subject,
-                           copy_body_text, copy_body_html, attachments=attachments)
-    except Exception as e:
-        flash(f'Copie expéditeur non envoyée : {e}', 'warning')
-
-    mailer.quit()   # ferme la connexion SMTP persistante de la campagne
-    return (sent, errors, capped)
+        with sending.send_lock():
+            sent, errors, stopped, warnings = sending.run_campaign(campaign)
+    except sending.SendBusy:
+        return (None, 'Un envoi est déjà en cours (envoi automatique ou autre '
+                      'utilisateur) : le reste part tout seul, réessayez dans un moment.',
+                None)
+    for w in warnings:
+        flash(w, 'warning')
+    return (sent, errors, stopped)
 
 
 def _flash_send_result(res):
@@ -1258,10 +1133,24 @@ def _flash_send_result(res):
         return
     if capped:
         flash(f'Envoi interrompu ({capped}) : {sent} envoyés, {errors} erreurs. '
-              f'Le reste est EN FILE — reprenez plus tard (« Reprendre l\'envoi »).', 'warning')
+              f'Le reste est EN FILE et repartira automatiquement.', 'warning')
     else:
         flash(f'Envoi terminé : {sent} envoyés, {errors} erreurs.',
               'success' if errors == 0 else 'warning')
+
+
+@bp.route('/mailing/queue/pause/<campaign_id>', methods=['POST'])
+@login_required
+def queue_pause(campaign_id):
+    """Met en pause / reprend une campagne : ses mails restent en file, mais aucun envoi
+    ne les traite tant qu'elle est en pause — ni le timer, ni « Envoyer maintenant »."""
+    camp = db.session.get(MailCampaign, campaign_id)
+    if camp:
+        camp.paused = request.form.get('resume') != '1'
+        db.session.commit()
+        flash('Envoi mis en pause.' if camp.paused else 'Envoi repris : il redémarre au prochain passage.',
+              'info' if camp.paused else 'success')
+    return redirect(request.form.get('back') or url_for('mailing.queue'))
 
 
 @bp.route('/mailing/process', methods=['POST'])

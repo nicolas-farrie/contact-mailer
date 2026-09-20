@@ -21,6 +21,7 @@ import json
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ['CONTACT_MAILER_NO_AUTOSEND'] = '1'   # commande ponctuelle : pas de fil d'envoi
 
 from app import app, db                       # noqa: E402
 from models import MailCampaign, MailQueueItem  # noqa: E402

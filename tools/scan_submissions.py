@@ -12,6 +12,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ['CONTACT_MAILER_NO_AUTOSEND'] = '1'   # commande ponctuelle : pas de fil d'envoi
 
 from app import app                     # noqa: E402
 from config import Config               # noqa: E402

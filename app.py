@@ -174,5 +174,12 @@ def init_db():
 
 init_db()
 
+# Envoi automatique de la file, dans le conteneur : plus de campagne qui attend un clic.
+# Démarré ici, donc présent partout où l'application tourne (gunicorn, `flask run`),
+# sauf dans les commandes de `tools/` qui importent l'app pour son contexte.
+import sending  # noqa: E402  (après init_db : la base doit exister)
+
+sending.start_autosend(app)
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

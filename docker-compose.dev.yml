@@ -33,6 +33,7 @@ services:
       - ./helpers.py:/app/helpers.py
       - ./blueprints:/app/blueprints
       - ./mailer.py:/app/mailer.py
+      - ./sending.py:/app/sending.py
       - ./fields.py:/app/fields.py
       - ./imap_submissions.py:/app/imap_submissions.py
       - ./bounce_scanner.py:/app/bounce_scanner.py

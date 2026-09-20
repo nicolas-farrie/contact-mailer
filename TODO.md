@@ -217,6 +217,22 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [x] **Envoi asynchrone** *(17-20/09/2026)*. Livraison 1 (v2.4.5) : plafonds aux limites LWS
+      (240/h, 2500/j), journal `contact_send` écrit au fil des envois, tranche bornée.
+      Livraison 2 (v2.5.0) : confirmer ne fait que mettre en file ; `sending.py` porte la
+      boucle, partagée par l'interface, le fil interne et `tools/process_queue.py` ;
+      verrou inter-processus ; pause/reprise par campagne ; écran de file avec la marge
+      restante. Envoi automatique par **fil interne** (`MAIL_AUTOSEND_INTERVAL`, défaut
+      300 s) plutôt qu'un timer sur l'hôte : le verrou règle le problème des 2 workers
+      gunicorn qui motivait le timer, et rien n'est à poser sur les serveurs.
+      _Mettre `MAIL_AUTOSEND_INTERVAL=0` sur un poste de dev branché sur une messagerie réelle._
+- [ ] **Quotas mutualisés entre instances** *(20/09/2026, à traiter)*. adreic34, lfll et gall
+      envoient depuis le même domaine `asso34.fr` chez LWS, mais chacune compte ses envois
+      dans SA base : trois fois 240/h possibles. **Question préalable à poser à LWS** : la
+      limite est-elle par boîte d'envoi ou par compte d'hébergement ? Si par compte, il faut
+      un comptage commun (Nicolas écarte un simple fichier dans le dossier docker ; pistes à
+      étudier : emplacement système dédié, ou petit service partagé sur un réseau interne).
+      En attendant, répartir les plafonds dans les `.env`.
 - [x] **Modèles de mailing** *(17/09/2026, branche `feature/modeles-mailing`)*. Table
       `mail_template`, distincte des campagnes : « Enregistrer comme modèle » sur l'aperçu,
       « Partir d'un modèle » dans la rédaction, page Mailing → Modèles (utiliser, renommer,
