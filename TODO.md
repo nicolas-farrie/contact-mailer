@@ -352,6 +352,25 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
   - [ ] **Migrations → Alembic / Flask-Migrate** : les ~10 `tools/migrate_*.py` sont en **`sqlite3` brut + PRAGMA** → non portables. Converger vers Alembic (engine-agnostic) ; ne concerne que l'évolution in-place (pas un déploiement neuf). Cf. [[deploy-and-migrations-cleanup]].
   - [ ] **Fiabiliser les hard-deletes (contraintes FK)** : SQLite n'applique pas les FK, **Postgres oui** → `users.delete` (+ `FieldProposal`, refs `*_by_id` de Contact/PreferenceForm) lèverait une **violation FK**. Nuller les refs / `ondelete='SET NULL'` + activer `PRAGMA foreign_keys=ON` en dev pour dé-risquer tôt. **Recoupe l'item RGPD** (suppression utilisateur). Les relations en `cascade='all, delete-orphan'` sont déjà propres.
   - [ ] Ops bascule : ajouter `psycopg2`, service Postgres, ETL one-shot des données (ex. `pgloader`).
+  - **Note de décision (21/09/2026)** — Nicolas : « il est temps de passer à un vrai SGBDR ».
+    Réponse : **oui pour Postgres le jour où on le fera, non maintenant.** Ce n'est pas une
+    question de code — la couche d'accès reste saine, le seul SQL spécifique est
+    `json_extract` des champs perso, isolé et balisé `# [PG-PORT]` dans `contact_filters.py`.
+    **Chiffre actualisé : 34 scripts `tools/migrate_*.py` en `sqlite3` brut, dont 24 avec
+    `PRAGMA table_info`** (l'audit de juillet en comptait ~10). C'est l'outillage entier qu'il
+    faut reprendre, plus la sauvegarde : aujourd'hui un `cp` de fichier, demain des dumps, un
+    service de plus par hôte, un compte par instance — et c'est claude-serveur qui opère.
+    **Ce qui ne le justifie pas** : le volume (3 500 contacts) ni la concurrence — SQLite en WAL
+    encaisse le fil d'envoi, le web et le scan IMAP à cette échelle.
+    **Ce qui pourrait le justifier** : (a) la comparaison de texte avec accents — `unaccent` et
+    les collations ICU régleraient d'un coup les plages alphabétiques ET le tri ; mais ça se
+    résout sans changer de moteur ; (b) le compteur de quota commun aux trois instances — qui
+    appelle un **service partagé**, pas une base commune : les instances hébergent des
+    associations différentes et le cloisonnement des données est un choix à ne pas défaire.
+    **MariaDB écarté** : ni `jsonb` indexable ni `unaccent`, et le code est balisé pour Postgres.
+    **Critère pour trancher, à froid** : mesurer avant de décider — « database is locked » dans
+    les logs, temps de réponse des listes, taille des bases. Un symptôme chiffré ouvre le
+    chantier ; une impression, non.
 
 ## Session debug 2026-07 (régressions post-restructuration blueprints)
 - [~] Bouton « Envoyer un email de test » : câbler la route POST /mailing/test-smtp (existe déjà) dans la page **Généraux** — *renommage « Paramètres »→« Généraux » **FAIT** 26/07 ; reste à câbler le bouton*
