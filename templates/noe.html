@@ -4,9 +4,6 @@
 {% block settings_content %}
 <div class="page-header">
     <h1>NOÉ{% if project_name %} : {{ project_name }}{% endif %}</h1>
-    {% if configured and current_user.is_admin %}
-    <a href="{{ url_for('api_integrations.noe_fields') }}" class="btn btn-secondary">Réponses du formulaire</a>
-    {% endif %}
 </div>
 
 {% if not configured %}
@@ -34,6 +31,25 @@
         <li>La lecture est à <strong>sens unique</strong> : rien n'est jamais écrit dans NOÉ.</li>
     </ul>
 </div>
+
+{% if configured and current_user.is_admin %}
+<div class="card" style="margin-bottom:1rem;">
+    <strong>Réponses du formulaire d'inscription.</strong>
+    {% if synced_fields %}
+    {{ synced_fields|length }} question{{ 's' if synced_fields|length > 1 }}
+    {{ 'sont reprises' if synced_fields|length > 1 else 'est reprise' }} dans les fiches contact
+    ({{ synced_fields|join(', ') }}) — de quoi constituer des groupes sur les compétences,
+    la formation, le régime alimentaire…
+    {% else %}
+    Aucune n'est reprise pour l'instant : compétences, formation, régime alimentaire restent
+    dans NOÉ et ne peuvent pas servir à cibler un envoi.
+    {% endif %}
+    <div style="margin-top:.6rem;">
+        <a href="{{ url_for('api_integrations.noe_fields') }}" class="btn btn-secondary">
+            {{ 'Modifier les réponses reprises' if synced_fields else 'Choisir les réponses à reprendre' }}</a>
+    </div>
+</div>
+{% endif %}
 
 {% if configured and not error %}
 {# Deux découpages du même effectif : les pôles pour écrire à « la restauration », les

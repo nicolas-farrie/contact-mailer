@@ -34,19 +34,26 @@
             <tr>
                 <td><strong>{{ q.label }}</strong>
                     <input type="hidden" name="question" value="{{ q.key }}">
-                    <input type="hidden" name="label_{{ q.key }}" value="{{ q.label }}">
                     <div class="hint"><code>{{ q.key }}</code></div></td>
                 <td class="text-muted">{{ q.type }}</td>
                 <td>
-                    <select name="dest_{{ q.key }}">
+                    <select name="dest_{{ q.key }}" class="noe-dest" data-key="{{ q.key }}">
                         <option value="">— ne pas remonter —</option>
                         <option value="__new__"{% if dest and dest not in customs|map(attribute='key')|list %} selected{% endif %}>
-                            ➕ créer le champ « {{ q.label }} »</option>
+                            ➕ créer un champ…</option>
                         {% for cf in customs %}
                         <option value="{{ cf.key }}"{% if dest == cf.key %} selected{% endif %}>
                             {{ cf.display_name }}{% if cf.synced_from %} (déjà alimenté){% endif %}</option>
                         {% endfor %}
                     </select>
+                    {# Nom du champ tel qu'il apparaîtra sur la fiche : la question posée au
+                       bénévole (« As-tu des compétences en soin ? ») ferait un intitulé
+                       impossible. NOÉ porte un nom court (« Soin »), pris par défaut et
+                       modifiable. #}
+                    <input type="text" name="label_{{ q.key }}" id="label_{{ q.key }}"
+                           value="{{ q.name or q.label }}" maxlength="60"
+                           placeholder="nom du champ sur la fiche"
+                           style="margin-top:.35rem;{% if dest and dest in customs|map(attribute='key')|list %}display:none;{% endif %}">
                 </td>
             </tr>
             {% endfor %}
@@ -55,6 +62,17 @@
 </div>
 <button type="submit" class="btn btn-primary" style="margin-top:1rem;">Enregistrer la correspondance</button>
 </form>
+
+<script>
+// Le nom n'a de sens que si l'on CRÉE un champ : le masquer sinon évite de croire
+// qu'on renomme un champ existant.
+document.querySelectorAll('.noe-dest').forEach(function (sel) {
+    var input = document.getElementById('label_' + sel.dataset.key);
+    function sync() { input.style.display = (sel.value === '__new__') ? '' : 'none'; }
+    sel.addEventListener('change', sync);
+    sync();
+});
+</script>
 {% elif not error %}
 <div class="empty-state">
     <p>Le formulaire d'inscription de ce projet ne comporte aucune question.</p>

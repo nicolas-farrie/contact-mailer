@@ -146,7 +146,12 @@ class NoeClient:
                     # réponses. Sans cette table, une compétence remonterait en charabia.
                     options = {o.get('value'): o.get('label') or o.get('value')
                                for o in (c.get('options') or []) if isinstance(o, dict)}
+                    # `displayName` est le nom COURT donné à la question dans NOÉ
+                    # (« Soin »), là où `label` est la phrase posée au bénévole
+                    # (« As-tu des compétences en soin ? ») : bien meilleur point de
+                    # départ pour nommer un champ de fiche.
                     fields[key] = {'label': c.get('label') or key, 'type': ctype,
+                                   'name': (c.get('displayName') or '').strip(),
                                    'options': options}
                 walk(c.get('components'))
 

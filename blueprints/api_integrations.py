@@ -69,7 +69,10 @@ def noe():
            'configured': cfg.is_configured(), 'missing': cfg.missing_settings(),
            'project_name': '', 'groups': [], 'error': None, 'total': 0,
            'fed_refs': fed_refs, 'fed_ids': fed_ids, 'fed_sync': fed_sync,
-           'fed_source_ids': fed_source_ids, 'fed_pending': fed_pending, 'active_tab': 'noe'}
+           'fed_source_ids': fed_source_ids, 'fed_pending': fed_pending,
+           # Ce qui est déjà repris du formulaire, pour le dire sur la page plutôt que
+           # de laisser chercher un bouton.
+           'synced_fields': sorted(cfg.field_map().values()), 'active_tab': 'noe'}
 
     if ctx['configured']:
         try:

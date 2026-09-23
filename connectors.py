@@ -259,7 +259,7 @@ class NoeConnector(Connector):
         devinée.
         """
         return [{'key': k, 'label': m.get('label') or k, 'type': m.get('type') or '',
-                 'options': m.get('options') or {}}
+                 'name': m.get('name') or '', 'options': m.get('options') or {}}
                 for k, m in self._client().form_fields().items()]
 
     @staticmethod
