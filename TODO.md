@@ -348,13 +348,22 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       Deux bugs trouvés en test et corrigés : paramètres SQL homonymes (deux conditions sur
       le même champ, la seconde écrasait la première — `has_all` répondait juste par
       accident) et négation impossible sur un fragment SQL brut (`NOT EXISTS` écrit à la main).
-- [ ] **NOÉ — sort de l'opt-in email** *(23/09/2026)*. La case « J'accepte de recevoir par
-      email… » (`jaccepteDeRecevoirParEmailLesI_b4z`) peut être remontée comme un champ
-      ordinaire, mais elle mérite une règle à elle : **NOÉ peut RETIRER un consentement,
-      jamais RENDRE celui qu'une personne a retiré chez nous** (`is_unsubscribed` est un
-      droit exercé, qu'aucune synchronisation ne révoque — cf. en-tête de `list_sync.py`).
-      À décider avec l'équipe : brancher la case sur le désabonnement, ou la garder en
-      simple champ informatif. **À trancher ensuite** : type multi-valeurs
+- [x] **NOÉ — sort de l'opt-in email** *(23/09/2026, tranché)*. L'équipe considère que
+      **l'acceptation de la charte vaut acceptation d'être contacté** pour la fonction de
+      bénévole : les deux cases font doublon, et l'opt-out reste le lien de désabonnement de
+      nos mailings. Donc **pas de destination « Consentement »** — les cases restent des
+      champs informatifs si on veut en garder la trace.
+      **Mesure faite avant de décider** (64 inscriptions) : opt-in coché par 41 (64 %),
+      **absent chez 23 (35 %)** — inscrits avant l'ajout de la case — et **0 décoché**, la
+      case étant obligatoire (elle prouve un consentement, elle ne permet pas de le
+      refuser). Traiter « absent » comme un refus aurait désabonné un tiers des bénévoles.
+      Si le sujet revient : **trois états**, absent = question non posée = on ne touche à rien.
+- [x] **NOÉ — questions d'identité non mappables** *(23/09/2026)*. « Numero de tel » est déjà
+      repris par le connecteur via son TYPE (`phoneNumber`), en régime identité. La proposer
+      à la correspondance créerait un doublon, et mappée vers un champ piloté elle passerait
+      en régime reflet — un bénévole vidant sa réponse effacerait le numéro saisi chez nous.
+      Elle s'affiche donc sans être proposée (« déjà repris dans Téléphone »), avec un
+      garde-fou côté serveur. Règle générale : `IDENTITY_TYPES` du connecteur. **À trancher ensuite** : type multi-valeurs
       propre (stockage liste JSON + opérateurs « contient l'un de ») vs texte à séparateurs
       — les options venant d'une liste fermée, le type propre vaut le coup pour que les
       segments soient exacts. Mapping mémorisé (les clés NOÉ sont suffixées : `soin_3kd`) ;

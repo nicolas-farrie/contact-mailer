@@ -248,9 +248,12 @@ def noe_fields():
         except RuntimeError:
             questions = {}
         fmap = {}
+        identity_keys = {q['key'] for q in questions.values() if q.get('identity')}
         for key in request.form.getlist('question'):
             dest = (request.form.get(f'dest_{key}') or '').strip()
-            if not dest:
+            # Une question d'identité n'est pas proposée à l'écran ; si elle arrive quand
+            # même, on l'ignore plutôt que de créer un doublon du téléphone.
+            if not dest or key in identity_keys:
                 continue
             if dest == '__new__':
                 label = (request.form.get(f'label_{key}') or key).strip()

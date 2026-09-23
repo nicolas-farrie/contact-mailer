@@ -37,6 +37,14 @@
                     <div class="hint"><code>{{ q.key }}</code></div></td>
                 <td class="text-muted">{{ q.type }}</td>
                 <td>
+                    {# Une donnée d'identité est déjà reprise par le connecteur, dans le champ
+                       de la fiche prévu pour elle. La montrer sans la proposer évite à la fois
+                       le doublon et la question « où est passé le téléphone ? ». #}
+                    {% if q.identity %}
+                    <span class="badge badge-gray">déjà repris dans « {{ q.identity|capitalize }} »</span>
+                    <div class="hint">Donnée d'identité : elle reste modifiable dans la fiche,
+                        et une réponse vide n'efface jamais ce que vous avez saisi.</div>
+                    {% else %}
                     <select name="dest_{{ q.key }}" class="noe-dest" data-key="{{ q.key }}">
                         <option value="">— ne pas remonter —</option>
                         <option value="__new__"{% if dest and dest not in customs|map(attribute='key')|list %} selected{% endif %}>
@@ -54,6 +62,7 @@
                            value="{{ q.name or q.label }}" maxlength="60"
                            placeholder="nom du champ sur la fiche"
                            style="margin-top:.35rem;{% if dest and dest in customs|map(attribute='key')|list %}display:none;{% endif %}">
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

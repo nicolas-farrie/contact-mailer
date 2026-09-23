@@ -251,6 +251,13 @@ class NoeConnector(Connector):
         except ValueError:
             return {}
 
+    #: Questions qui relèvent de l'IDENTITÉ : le connecteur les reprend déjà tout seul,
+    #: par leur type et non par leur nom (le téléphone n'existe pas sur le compte NOÉ, il
+    #: vit dans les réponses). Les proposer à la correspondance créerait un doublon — et,
+    #: mappées vers un champ piloté, elles passeraient en régime reflet : un bénévole qui
+    #: vide sa réponse effacerait le numéro saisi chez nous.
+    IDENTITY_TYPES = {'phoneNumber': 'telephone', 'email': 'email'}
+
     def form_questions(self):
         """Les questions du formulaire d'inscription : [{key, label, type}].
 
@@ -259,7 +266,8 @@ class NoeConnector(Connector):
         devinée.
         """
         return [{'key': k, 'label': m.get('label') or k, 'type': m.get('type') or '',
-                 'name': m.get('name') or '', 'options': m.get('options') or {}}
+                 'name': m.get('name') or '', 'options': m.get('options') or {},
+                 'identity': self.IDENTITY_TYPES.get(m.get('type') or '', '')}
                 for k, m in self._client().form_fields().items()]
 
     @staticmethod
