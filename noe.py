@@ -141,7 +141,13 @@ class NoeClient:
                 # `content` = bloc de texte décoratif, `panel` = conteneur : ni l'un ni
                 # l'autre ne porte de réponse.
                 if key and ctype not in ('content', 'panel'):
-                    fields[key] = {'label': c.get('label') or key, 'type': ctype}
+                    # Les choix portent une valeur TECHNIQUE (`afps_osy`) distincte de leur
+                    # libellé (« AFPS ») — et ce sont les valeurs qui sont stockées dans les
+                    # réponses. Sans cette table, une compétence remonterait en charabia.
+                    options = {o.get('value'): o.get('label') or o.get('value')
+                               for o in (c.get('options') or []) if isinstance(o, dict)}
+                    fields[key] = {'label': c.get('label') or key, 'type': ctype,
+                                   'options': options}
                 walk(c.get('components'))
 
         walk(project.get('formComponents'))

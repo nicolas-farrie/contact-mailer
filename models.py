@@ -110,8 +110,12 @@ class Contact(db.Model):
             'seafile_password': self.seafile_temp_pwd,  # alias pour templates mailing
             'listes': [l.nom for l in self.listes]
         }
-        # Champs personnalisés aplatis → variables de fusion {key} (sans écraser une clé cœur)
+        # Champs personnalisés aplatis → variables de fusion {key} (sans écraser une clé cœur).
+        # Un champ à choix multiples est une LISTE : rendue « Médecin, AFPS » dans un
+        # mailing, où l'on écrit une phrase et non une structure de données.
         for key, value in (self.custom_fields or {}).items():
+            if isinstance(value, (list, tuple)):
+                value = ', '.join(str(v) for v in value if str(v).strip())
             data.setdefault(key, value)
         # Cases à cocher : « Vrai » / « Faux » plutôt que '1' / absent, pour pouvoir
         # écrire {case==Vrai:Oui:Non} (le test simple {case:…} traite « Faux » comme vide).

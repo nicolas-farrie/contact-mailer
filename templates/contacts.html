@@ -200,7 +200,9 @@ function advBuildValue(row, cond){
     var vwrap = row.querySelector('.adv-val'); vwrap.innerHTML = '';
     if (['is_empty','is_not_empty','is_true','is_false'].indexOf(op) >= 0) return; // opérateur sans valeur
     var t = fm.type;
-    if (t === 'select' || t === 'liste' || t === 'statut'){
+    // Choix multiples : on propose les options plutôt qu'une saisie libre — une faute
+    // de frappe ferait un groupe incomplet sans que rien ne le signale.
+    if (t === 'select' || t === 'liste' || t === 'statut' || t === 'multiselect'){
         var s = advMk('select'); s.name = 'af'+i+'.val';
         (fm.options || []).forEach(function(o){
             if (o && typeof o === 'object') s.appendChild(advMk('option', {value:o.value, textContent:o.label}));

@@ -8,6 +8,7 @@ Portage Postgres : le SQL spécifique SQLite est marqué `# [PG-PORT]`. En P1 il
 aucun (filtres ORM 100% portables) ; ils apparaîtront en P2 (accès JSON des champs perso).
 Moteur actif détectable via `db.engine.dialect.name` ('sqlite' | 'postgresql').
 """
+import re
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, cast, Float
@@ -24,6 +25,10 @@ OPERATORS_BY_TYPE = {
     'number': ('eq', 'ne', 'lt', 'gt', 'between', 'is_empty', 'is_not_empty'),
     'date': ('before', 'after', 'between', 'is_empty', 'is_not_empty'),
     'checkbox': ('is_true', 'is_false'),
+    # Choix multiples : la question n'est pas « que vaut ce champ ? » mais « cette
+    # réponse est-elle dans la liste ? ». `has_any` couvre l'usage courant (« les
+    # soignants » = médecin OU infirmier), `has_all` sert aux cumuls.
+    'multiselect': ('has_any', 'has_all', 'has_none', 'is_empty', 'is_not_empty'),
 }
 
 # Types pseudo-champs (filtrage dédié, cf. build_predicate).
@@ -39,6 +44,7 @@ OP_LABELS = {
     'before': 'avant le', 'after': 'à partir du',
     'is_true': 'oui', 'is_false': 'non',
     'is_member': 'membre de', 'is_not_member': 'pas membre de',
+    'has_any': "contient l'un de", 'has_all': 'contient tous', 'has_none': 'ne contient aucun',
 }
 
 
@@ -156,12 +162,59 @@ def _standard_type(field_key):
 # Valeurs considérées « vraies » pour un checkbox (tolérant aux origines d'import).
 _TRUTHY = ('1', 'true', 'True', 'TRUE', 'oui', 'Oui', 'OUI', 'on', 'x', 'X', 'vrai', 'Vrai', 'yes')
 
+# Clé de champ perso admise dans un fragment SQL construit (cf. _multi_contains).
+# `slugify_key` ne produit que cela ; la vérification protège d'une clé introduite
+# autrement (import, base éditée à la main).
+_SAFE_KEY_RE = re.compile(r'^[a-z0-9_]{1,64}$')
+
 
 def _json_value(key):
     """Accès à une valeur de champ perso.
     # [PG-PORT] SQLite `json_extract(custom_fields,'$.key')` → Postgres JSONB
     #           `custom_fields ->> 'key'` (via Contact.custom_fields[key].astext)."""
     return func.json_extract(Contact.custom_fields, '$.' + key)
+
+
+def _multi_contains(key, value, slot, negate=False):
+    """Prédicat « la liste du champ perso `key` contient (ou non) la valeur exacte `value` ».
+
+    Comparaison sur les ÉLÉMENTS de la liste, pas sur le texte du JSON : « Médecin » ne
+    doit pas attraper « Médecin du travail », et le JSON est stocké avec les accents
+    échappés (\u00e9), ce qui rendrait un LIKE faux de toute façon.
+
+    `slot` rend le paramètre unique : deux conditions sur le même champ (« médecin ET
+    AFPS ») partageaient sinon le même nom, et la seconde écrasait la première — le
+    filtre répondait alors juste par accident. La négation est écrite en SQL (NOT EXISTS)
+    plutôt que dérivée : SQLAlchemy ne sait pas inverser un fragment textuel.
+
+    # [PG-PORT] SQLite `json_each(custom_fields, '$.key')` → Postgres
+    #           `EXISTS (SELECT 1 FROM jsonb_array_elements_text(custom_fields->'key') v
+    #                    WHERE v = :val)`.
+    """
+    if not _SAFE_KEY_RE.match(key or ''):
+        return None          # clé non conforme : pas de SQL construit avec elle
+    param = f'mv_{key}_{slot}'
+    sql = ("{}EXISTS (SELECT 1 FROM json_each(contact.custom_fields, '$.{}') "
+           "WHERE json_each.value = :{})").format('NOT ' if negate else '', key, param)
+    return db.text(sql).bindparams(**{param: value})
+
+
+def _multiselect_predicate(key, op, value):
+    """Opérateurs d'un champ à choix multiples. `value` : une valeur ou une liste."""
+    values = value if isinstance(value, (list, tuple)) else [
+        v.strip() for v in str(value or '').split(',') if v.strip()]
+    if not values:
+        return None
+    if op == 'has_any':
+        conds = [_multi_contains(key, v, i) for i, v in enumerate(values)]
+        return db.or_(*conds) if all(c is not None for c in conds) else None
+    if op == 'has_all':
+        conds = [_multi_contains(key, v, i) for i, v in enumerate(values)]
+        return db.and_(*conds) if all(c is not None for c in conds) else None
+    if op == 'has_none':
+        conds = [_multi_contains(key, v, i, negate=True) for i, v in enumerate(values)]
+        return db.and_(*conds) if all(c is not None for c in conds) else None
+    return None
 
 
 def _date_text_predicate(jv, op, value):
@@ -220,6 +273,9 @@ def custom_field_predicate(key, ftype, op, value):
 
     if ftype == 'date':
         return _date_text_predicate(jv, op, value)
+
+    if ftype == 'multiselect':
+        return _multiselect_predicate(key, op, value)
 
     # text / select / autres : opérateurs texte sur json_extract
     if value in (None, ''):

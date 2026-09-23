@@ -335,10 +335,26 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       est bien un **multiSelect** — la liste fermée est confirmée, le lot 3 a donc du sens ;
       `jaccepteDeRecevoirParEmailLesI_b4z` (opt-in) et `jaiLuLaCharteEtJeMengageALaRes_lni`
       sont des cases à cocher ; régime alimentaire en texte libre.
-      **Lot 3 à faire** : type multi-valeurs (stockage liste JSON, opérateurs « contient l'un
-      de »), dont les OPTIONS sont récupérables depuis NOÉ (`formComponents` → valeurs du
-      multiSelect) plutôt que saisies à la main. Et décider du sort de l'opt-in : il ne doit
-      jamais RENDRE un consentement retiré chez nous (cf. règle `is_unsubscribed`). **À trancher ensuite** : type multi-valeurs
+      **LOT 3 FAIT (23/09)** : type de champ **« choix multiples »** — valeurs stockées en
+      LISTE JSON, opérateurs `has_any` / `has_all` / `has_none` évalués sur les ÉLÉMENTS
+      (`json_each`, balisé `[PG-PORT]`) et non sur le texte du JSON : « Médecin » n'attrape
+      pas « Médecin du travail », et l'échappement des accents (`\u00e9`) rend de toute
+      façon un LIKE faux. Saisie par cases à cocher, rendu « AFPS, medecin » en variable de
+      mailing, options proposées dans le constructeur de filtres.
+      **Découverte du 23/09** : les réponses NOÉ stockent la VALEUR TECHNIQUE (`afps_osy`),
+      pas le libellé — sans traduction la fiche affichait du charabia. `form_fields()`
+      remonte désormais la table valeur→libellé, et un champ créé depuis une question naît
+      avec son type (multiSelect → choix multiples, radioGroup → liste) et ses options.
+      Deux bugs trouvés en test et corrigés : paramètres SQL homonymes (deux conditions sur
+      le même champ, la seconde écrasait la première — `has_all` répondait juste par
+      accident) et négation impossible sur un fragment SQL brut (`NOT EXISTS` écrit à la main).
+- [ ] **NOÉ — sort de l'opt-in email** *(23/09/2026)*. La case « J'accepte de recevoir par
+      email… » (`jaccepteDeRecevoirParEmailLesI_b4z`) peut être remontée comme un champ
+      ordinaire, mais elle mérite une règle à elle : **NOÉ peut RETIRER un consentement,
+      jamais RENDRE celui qu'une personne a retiré chez nous** (`is_unsubscribed` est un
+      droit exercé, qu'aucune synchronisation ne révoque — cf. en-tête de `list_sync.py`).
+      À décider avec l'équipe : brancher la case sur le désabonnement, ou la garder en
+      simple champ informatif. **À trancher ensuite** : type multi-valeurs
       propre (stockage liste JSON + opérateurs « contient l'un de ») vs texte à séparateurs
       — les options venant d'une liste fermée, le type propre vaut le coup pour que les
       segments soient exacts. Mapping mémorisé (les clés NOÉ sont suffixées : `soin_3kd`) ;

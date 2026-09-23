@@ -237,6 +237,13 @@ def noe_fields():
         return redirect(url_for('api_integrations.noe'))
 
     if request.method == 'POST':
+        # Les questions sont relues pour connaître le TYPE et les CHOIX de chacune : un
+        # champ créé ici doit naître avec la bonne nature (choix multiples, oui/non…) et
+        # les options de NOÉ, plutôt qu'en texte libre à retyper à la main.
+        try:
+            questions = {q['key']: q for q in cfg.form_questions()}
+        except RuntimeError:
+            questions = {}
         fmap = {}
         for key in request.form.getlist('question'):
             dest = (request.form.get(f'dest_{key}') or '').strip()
@@ -250,8 +257,11 @@ def noe_fields():
                 cf = CustomFieldDefinition.query.filter_by(key=slug).first()
                 if cf is None:
                     ordre = (db.session.query(db.func.max(CustomFieldDefinition.ordre)).scalar() or 0) + 1
-                    cf = CustomFieldDefinition(key=slug, display_name=label, type='text',
-                                               ordre=ordre, synced_from='noe')
+                    q = questions.get(key, {})
+                    ftype, options = _field_type_for(q)
+                    cf = CustomFieldDefinition(key=slug, display_name=label, type=ftype,
+                                               options=options or None, ordre=ordre,
+                                               synced_from='noe')
                     db.session.add(cf)
                 dest = slug
             else:
@@ -285,6 +295,30 @@ def noe_fields():
         CustomFieldDefinition.ordre).all()
     return render_template('noe_fields.html', questions=questions, error=error,
                            field_map=fmap, customs=customs, active_tab='noe')
+
+
+#: Types de composants NOÉ → type de champ personnalisé. Ce qui n'est pas listé arrive
+#: en texte : mieux vaut un champ utilisable qu'un type deviné de travers.
+_NOE_FIELD_TYPES = {
+    'multiSelect': 'multiselect',
+    'radioGroup': 'select',
+    'select': 'select',
+    'checkbox': 'checkbox',
+    'number': 'number',
+    'datetime': 'date',
+}
+
+
+def _field_type_for(question):
+    """(type de champ, options) pour une question NOÉ.
+
+    Les options sont reprises par leur LIBELLÉ : c'est ce que voit le bénévole dans NOÉ,
+    et donc ce qui doit apparaître dans un groupe d'envoi — la valeur technique
+    (`afps_osy`) ne dit rien à personne.
+    """
+    ftype = _NOE_FIELD_TYPES.get(question.get('type'), 'text')
+    options = sorted({str(v) for v in (question.get('options') or {}).values() if str(v).strip()})
+    return ftype, (options if ftype in ('select', 'multiselect') else None)
 
 
 @bp.route('/integrations/noe/nouveaux/<int:source_id>', methods=['GET', 'POST'])

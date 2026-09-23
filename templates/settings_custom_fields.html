@@ -1,7 +1,7 @@
 {% extends "settings_layout.html" %}
 {% block title %}Champs personnalisés - Contact Mailer{% endblock %}
 
-{% set TYPES = [('text','📝 Texte court'),('textarea','📄 Texte long'),('number','🔢 Nombre'),('date','📅 Date'),('select','▾ Liste déroulante'),('checkbox','☑ Oui / Non')] %}
+{% set TYPES = [('text','📝 Texte court'),('textarea','📄 Texte long'),('number','🔢 Nombre'),('date','📅 Date'),('select','▾ Liste déroulante'),('multiselect','☑ Choix multiples'),('checkbox','☑ Oui / Non')] %}
 
 {# --- Champs du formulaire (partagés modale création / édition) --- #}
 {% macro cffields(cf, idp) %}

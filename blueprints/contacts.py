@@ -37,7 +37,11 @@ def _apply_form(contact, form):
         # écriture par ce chemin serait perdue à la remontée suivante.
         if not f.editable or f.synced_from:
             continue
-        val = (form.get(f.key) or '').strip()
+        if f.type == 'multiselect':
+            # Une case cochée = une valeur envoyée : la LISTE est la valeur du champ.
+            val = [v.strip() for v in form.getlist(f.key) if v.strip()]
+        else:
+            val = (form.get(f.key) or '').strip()
         if f.source == 'custom':
             if val:
                 custom[f.key] = val

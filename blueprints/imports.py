@@ -6,6 +6,7 @@ imports.export_contacts.
 import csv
 import io
 import os
+import re
 import time
 import uuid
 import unicodedata
@@ -422,6 +423,12 @@ def _coerce_custom(ftype, val):
         return '1' if v.lower() in _TRUTHY else None
     if ftype == 'date':
         return _norm_date(v)
+    if ftype == 'multiselect':
+        # Plusieurs réponses dans une cellule : « AFPS ; Infirmier.e ». Stockées en LISTE,
+        # pour que « qui est infirmier ? » soit une question exacte et non une recherche
+        # de sous-chaîne (« Médecin » ne doit pas attraper « Médecin du travail »).
+        vals = [x.strip() for x in re.split(r'[;,]', v) if x.strip()]
+        return vals or None
     return v
 
 
