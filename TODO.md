@@ -305,9 +305,12 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       multi-projet), écriture **à l'import** (la synchro reste inoffensive), mécanisme
       « proposer/valider » écarté (la source est pilotée par l'utilisateur, CM est
       l'esclave), qualité des données à standardiser dans NOÉ par l'équipe.
-      **En attente de réponse** (`doc-travail/questions_noe.md`) : politique de mise à jour
-      (NOÉ fait foi / compléter les vides / montrer les différences), remontée de l'opt-in,
-      maintien de la liste de choix fermée. **À trancher ensuite** : type multi-valeurs
+      **RÉPONDU le 23/09 — méthode 1 : NOÉ FAIT FOI** (les données de CM sont remplacées
+      à chaque remontée, les corrections se font dans NOÉ) → mode `overwrite` de l'import.
+      **Piège** : `_write_fields` ignore les valeurs vides, donc une compétence RETIRÉE dans
+      NOÉ ne serait pas effacée dans CM. Prévoir un `blank_wins` réservé à ce chemin — sans
+      toucher à l'import de fichiers, où ignorer le vide reste le bon défaut.
+      **Encore en attente** : remontée de l'opt-in, et maintien d'une liste de choix fermée. **À trancher ensuite** : type multi-valeurs
       propre (stockage liste JSON + opérateurs « contient l'un de ») vs texte à séparateurs
       — les options venant d'une liste fermée, le type propre vaut le coup pour que les
       segments soient exacts. Mapping mémorisé (les clés NOÉ sont suffixées : `soin_3kd`) ;
