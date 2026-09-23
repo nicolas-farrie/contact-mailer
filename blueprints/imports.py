@@ -371,6 +371,12 @@ def _apply_mapping(row, mapping):
         val = (row.get(header) or '').strip()
         if val and not mapped.get(key):
             mapped[key] = val
+        else:
+            # Colonne présente mais vide : la clé est CONSERVÉE, à vide. Pour un champ
+            # piloté par un connecteur, l'absence de réponse est une information — une
+            # compétence retirée dans NOÉ doit s'effacer ici. Les autres champs ignorent
+            # le vide à l'écriture, comme avant.
+            mapped.setdefault(key, '')
     return mapped
 
 
@@ -466,7 +472,8 @@ def _build_dedup_index():
     return idx
 
 
-def _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, source, extra_listes, index=None, conflicts=None):
+def _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, source, extra_listes,
+                   index=None, conflicts=None, synced_provider=None):
     """`mode` : 'skip' (ne pas toucher les existants), 'fill' (compléter les champs
     vides — défaut sûr), 'overwrite' (écraser avec le fichier). En mode 'fill', une
     valeur du fichier différente d'un champ DÉJÀ REMPLI est un CONFLIT : non appliquée,
@@ -517,13 +524,44 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, source, ex
                               'champ': _field_label(key), 'existant': str(cur),
                               'fichier': str(newv)})
 
+    def _synced_by(key):
+        """Le connecteur qui pilote ce champ, ou '' s'il est libre."""
+        fdef = fields_registry.field_map().get(key)
+        return getattr(fdef, 'synced_from', '') if fdef else ''
+
+    def _write_synced(contact, key, val):
+        """Écrit un champ piloté : la source remplace, y compris par du vide."""
+        val = (val or '').strip() if isinstance(val, str) else val
+        if key in custom_keys:
+            cf = dict(contact.custom_fields or {})
+            coerced = _coerce_custom(custom_types.get(key, 'text'), val) if val else None
+            if coerced is None:
+                cf.pop(key, None)
+            else:
+                cf[key] = coerced
+            contact.custom_fields = cf
+        elif key in col_keys:
+            setattr(contact, key, _coerce_column(key, val) if val else '')
+
     def _write_fields(contact, overwrite):
         # Champ VIDE → toujours rempli. Champ DÉJÀ REMPLI et différent : écrasé si
         # overwrite, sinon laissé et consigné en conflit (visibilité). Un écart PUREMENT
         # accent/casse/espaces (ex. Farrié/FARRIE, Montpellier/MONTPELLIER) n'est NI un
         # conflit NI un écrasement — sinon la clé de dédup elle-même remonterait en conflit.
         for key, val in mapped.items():
-            if not val or key in ('listes', 'uid'):
+            if key in ('listes', 'uid'):
+                continue
+            # Champ PILOTÉ par un connecteur : c'est un reflet de l'état constaté à la
+            # source. Une remontée de CE connecteur fait donc autorité, vide compris —
+            # une compétence retirée dans NOÉ doit disparaître ici. Un import de fichier,
+            # lui, n'est pas la source : il n'y touche pas du tout.
+            piloted = _synced_by(key)
+            if piloted:
+                if piloted != synced_provider:
+                    continue
+                _write_synced(contact, key, val)
+                continue
+            if not val:
                 continue
             if key in col_keys:
                 cur = getattr(contact, key, '') or ''
@@ -577,7 +615,8 @@ def _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, source, ex
     return contact, 'created'
 
 
-def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, mode, extra_listes):
+def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, mode, extra_listes,
+              synced_provider=None):
     """Compte created/updated/skipped + collecte les CONFLITS (fichier ≠ champ déjà
     rempli, non appliqué en mode 'fill') SANS écrire (rollback à la fin)."""
     counts = {'created': 0, 'updated': 0, 'skipped': 0}
@@ -586,7 +625,8 @@ def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, mode, extra_lis
     index = _build_dedup_index()
     for i, row in enumerate(rows):
         mapped = _apply_mapping(row, mapping)
-        _c, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, 'preview', extra_listes, index, conflicts)
+        _c, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, 'preview',
+                                    extra_listes, index, conflicts, synced_provider)
         counts[action] = counts.get(action, 0) + 1
         no_email = not (mapped.get('email') or '').strip()
         if no_email and action != 'skipped':
@@ -597,7 +637,8 @@ def _dry_run(rows, mapping, col_keys, custom_keys, custom_types, mode, extra_lis
     return counts, sample, conflicts
 
 
-def _run_import(rows, mapping, col_keys, custom_keys, custom_types, mode, extra_listes, user_id):
+def _run_import(rows, mapping, col_keys, custom_keys, custom_types, mode, extra_listes, user_id,
+                synced_provider=None):
     # Auto-backup AVANT toute écriture : un import (surtout création de champs perso /
     # mise à jour en masse) est difficilement réversible → snapshot cohérent pour
     # pouvoir revenir en arrière. Best-effort (ne bloque pas l'import) mais loggé.
@@ -614,7 +655,8 @@ def _run_import(rows, mapping, col_keys, custom_keys, custom_types, mode, extra_
     index = _build_dedup_index()
     for row in rows:
         mapped = _apply_mapping(row, mapping)
-        contact, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, 'Import', extra_listes, index, conflicts)
+        contact, action = _import_mapped(mapped, col_keys, custom_keys, custom_types, mode, 'Import',
+                                         extra_listes, index, conflicts, synced_provider)
         if action == 'created':
             contact.created_by_id = user_id
             db.session.add(contact)

@@ -48,7 +48,11 @@
     <tbody>
     {% for d in defs %}
     <tr{% if not d.is_active %} class="cf-inactive"{% endif %}>
-        <td><strong>{{ d.display_name }}</strong></td>
+        <td><strong>{{ d.display_name }}</strong>
+            {# Champ alimenté par un connecteur : sa valeur reflète le service, elle ne
+               se saisit pas dans la fiche. Le dire ici évite de chercher pourquoi le
+               champ est grisé sur les contacts. #}
+            {% if d.synced_from %}<span class="fed-badge" title="Valeurs alimentées par {{ d.synced_from|upper }} — non modifiables dans la fiche contact">⟳ {{ d.synced_from|upper }}</span>{% endif %}</td>
         <td><code>{{ d.key }}</code></td>
         <td>{{ (TYPES | selectattr('0','equalto',d.type) | map(attribute=1) | first) or d.type }}</td>
         <td>{{ d.options | join(', ') if d.options else '—' }}</td>

@@ -397,6 +397,16 @@ class CustomFieldDefinition(db.Model):
     required = db.Column(db.Boolean, default=False, nullable=False)  # champ obligatoire à la saisie
     ordre = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    # Connecteur qui PILOTE ce champ ('noe'…), NULL = champ libre, saisi chez nous.
+    #
+    # Deux régimes, et c'est la destination qui décide, pas la provenance : l'identité
+    # (nom, email, téléphone) reste à nous — une valeur vide côté source n'efface jamais
+    # rien — tandis qu'un champ piloté est un REFLET de l'état constaté dans le service.
+    # Un bénévole qui retire une compétence dans NOÉ doit la voir disparaître ici, donc
+    # le vide y fait autorité comme une autre valeur. Corollaire assumé : un champ piloté
+    # ne se modifie pas dans la fiche, il se corrige dans le service — même promesse que
+    # le badge ⟳ d'une liste alimentée.
+    synced_from = db.Column(db.String(30), nullable=True)
     created_at = db.Column(db.DateTime, default=utcnow)
 
 

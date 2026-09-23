@@ -310,7 +310,18 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       **Piège** : `_write_fields` ignore les valeurs vides, donc une compétence RETIRÉE dans
       NOÉ ne serait pas effacée dans CM. Prévoir un `blank_wins` réservé à ce chemin — sans
       toucher à l'import de fichiers, où ignorer le vide reste le bon défaut.
-      **Encore en attente** : remontée de l'opt-in, et maintien d'une liste de choix fermée. **À trancher ensuite** : type multi-valeurs
+      **Encore en attente** : remontée de l'opt-in, et maintien d'une liste de choix fermée.
+      **LOT 1 FAIT (23/09)** : deux régimes selon la DESTINATION, pas la provenance (le
+      téléphone vient de `formAnswers` et reste pourtant de l'identité). Identité = le vide
+      n'efface jamais, modifiable ici ; champ PILOTÉ (`custom_field_definition.synced_from`,
+      migration `migrate_add_field_synced_from`) = reflet du service, le vide efface, non
+      modifiable dans la fiche (badge ⟳, garde-fou serveur dans `_apply_form`). Un import de
+      FICHIER ne touche pas un champ piloté : il n'est pas la source. `_apply_mapping`
+      conserve désormais les clés vides — sans quoi un effacement ne parvenait jamais à
+      l'écriture ; sans effet sur l'import de fichiers, vérifié par test.
+      **Reste au lot 2** : écran de correspondance question NOÉ → champ, création des champs
+      à la volée, écriture à l'import avec `synced_provider='noe'` (le paramètre existe déjà).
+      **Lot 3** : type multi-valeurs si la liste reste fermée. **À trancher ensuite** : type multi-valeurs
       propre (stockage liste JSON + opérateurs « contient l'un de ») vs texte à séparateurs
       — les options venant d'une liste fermée, le type propre vaut le coup pour que les
       segments soient exacts. Mapping mémorisé (les clés NOÉ sont suffixées : `soin_3kd`) ;

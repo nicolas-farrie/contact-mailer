@@ -10,9 +10,13 @@
     {% set val = contact[f.key] if contact else '' %}
 {% endif %}
 {% set val = val if val is not none else '' %}
+{# Un champ piloté par un connecteur est un reflet : il se corrige à la source, sinon la
+   correction faite ici serait écrasée à la remontée suivante — et l'écran deviendrait
+   menteur. Même promesse que le badge ⟳ d'une liste alimentée. #}
+{% set readonly = readonly or f.synced_from %}
 {% if readonly %}
 <div class="field field--{{ f.width }}">
-    <label>{{ f.label }}</label>
+    <label>{{ f.label }}{% if f.synced_from %} <span class="fed-badge" title="Champ alimenté par {{ f.synced_from|upper }} — modifiable là-bas, pas ici">⟳ {{ f.synced_from|upper }}</span>{% endif %}</label>
     {% if f.type == 'checkbox' %}
     <div class="field-value">{{ 'Oui' if val else 'Non' }}</div>
     {% else %}

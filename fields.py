@@ -57,6 +57,10 @@ class FieldDef:
     mailing_var: bool = True  # exposé comme variable de fusion {key} ?
     editable: bool = True     # saisi via le formulaire ? (False = champ système, lecture seule)
     default: str = ''         # valeur par défaut (ex: select sans option vide)
+    # Connecteur qui pilote le champ ('noe'…), '' = champ libre. Distinct d'`editable` :
+    # un champ piloté reste écrit par la remontée du service (donc « éditable » au sens
+    # de l'import), mais pas par un humain dans la fiche — il se corrige à la source.
+    synced_from: str = ''
 
 
 # --- Champs « colonne » (miroir des colonnes actuelles de Contact) ---
@@ -104,7 +108,8 @@ def _custom_field_defs():
     return tuple(
         FieldDef(key=d.key, label=d.display_name, type=d.type, group=GROUP_PERSO,
                  order=d.ordre or 0, source='custom', options=tuple(d.options or ()),
-                 help=d.help_text or '', required=bool(d.required))
+                 help=d.help_text or '', required=bool(d.required),
+                 synced_from=d.synced_from or '')
         for d in defs
     )
 

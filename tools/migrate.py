@@ -89,6 +89,7 @@ MIGRATIONS = [
     ("migrate_add_campaign_paused", "safe"),
     ("migrate_add_send_backoff", "safe"),
     ("migrate_add_source_pending", "safe"),
+    ("migrate_add_field_synced_from", "safe"),
 ]
 
 

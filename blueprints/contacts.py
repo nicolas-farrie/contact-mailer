@@ -32,7 +32,10 @@ def _apply_form(contact, form):
     Les valeurs des champs perso désactivés (absents du registre) sont préservées."""
     custom = dict(contact.custom_fields or {})
     for f in fields.contact_fields():
-        if not f.editable:
+        # Un champ piloté par un connecteur n'est pas saisissable ici : le formulaire ne
+        # l'envoie pas, et on ne s'y fie pas non plus — sa valeur vient de la source, une
+        # écriture par ce chemin serait perdue à la remontée suivante.
+        if not f.editable or f.synced_from:
             continue
         val = (form.get(f.key) or '').strip()
         if f.source == 'custom':
