@@ -636,4 +636,4 @@ def _send_recap(mailer, template, tpl, campaign, pending, sent, errors, attachme
     mailer.send_single(Config.SMTP_SENDER_EMAIL, copy_subject,
                        body_text + recap_text,
                        (body_html + recap_html) if body_html else None,
-                       attachments=attachments)
+                       attachments=attachments, reply_to=tpl.get('reply_to'))

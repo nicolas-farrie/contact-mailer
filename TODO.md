@@ -217,6 +217,13 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [x] **« Répondre à » absent de l'envoi de test** *(23/09/2026, remonté d'adreic34)*. La
+      structure du message était bonne et l'envoi RÉEL portait bien `Reply-To` (vérifié en
+      inspectant le message transmis) : c'est `mailing.send_test` qui n'a jamais passé
+      `reply_to` à la construction — donc le test, seul moyen de vérifier le réglage, ne
+      ressemblait pas au mail envoyé. Corrigé, ainsi que la copie récapitulative de fin de
+      campagne qui l'oubliait aussi. Rappel d'usage : `From` reste la boîte d'envoi (SPF/DKIM),
+      et un `Reply-To` égal à l'expéditeur ne produit aucun effet visible.
 - [x] **Demandes de diffusion : images du corps sorties du HTML** *(23/09/2026, bug adreic34)*.
       Symptômes : aperçu refusé par nginx (`413 Request Entity Too Large`, d'où le passage de
       `client_max_body_size` à 40 Mo), puis retour en arrière réaffichant le mailing SANS les

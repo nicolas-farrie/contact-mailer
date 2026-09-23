@@ -697,10 +697,14 @@ def send_test():
                     Config.SMTP_PASSWORD, Config.SMTP_SENDER_EMAIL,
                     Config.SMTP_SENDER_NAME, Config.SMTP_USE_TLS)
     try:
+        # `reply_to` comme dans un envoi réel : un test sert justement à vérifier où
+        # partiront les réponses — l'oublier ici donnait un test qui ne ressemblait pas
+        # au mail envoyé, et laissait croire que le réglage ne marchait pas.
         ok = mailer.send_single(to_email, f'[TEST] {subject}',
                                 body if not is_html else '',
                                 body if is_html else None,
-                                attachments=tpl.get('attachments'))
+                                attachments=tpl.get('attachments'),
+                                reply_to=tpl.get('reply_to'))
         flash(f'Email de test envoyé à {to_email}.' if ok
               else f'Échec de l\'envoi du test à {to_email}.',
               'success' if ok else 'error')
