@@ -15,6 +15,31 @@ from werkzeug.utils import secure_filename
 from models import db, Setting, utcnow
 
 
+#: Chemin sous lequel sont servies les images du corps d'une demande de diffusion.
+#: Partagé par le blueprint (qui les sert) et l'envoi (qui doit les REMETTRE dans le
+#: message) : un mail qui pointerait vers notre application afficherait des images
+#: cassées chez le destinataire, qui n'y a pas accès.
+INLINE_URL_PREFIX = '/mailing/submission-inline/'
+_INLINE_SRC_RE = re.compile(
+    re.escape(INLINE_URL_PREFIX) + r'([A-Za-z0-9_.-]{1,64})/([A-Za-z0-9_.-]{1,64})')
+
+
+def inline_image_path(submission_id, filename):
+    """Chemin disque d'une image de corps, ou None si la demande sort des clous.
+
+    Les deux fragments sont validés par la seule expression qui les reconnaît
+    (caractères de nom de fichier, ni séparateur ni point-point) : le HTML d'où ils
+    viennent est un mail reçu, donc une entrée non fiable.
+    """
+    import os
+    if not (submission_id and filename):
+        return None
+    if any(c in submission_id + filename for c in ('/', '\\')) or '..' in submission_id + filename:
+        return None
+    path = os.path.join('data', 'attachments', f'submission_{submission_id}', 'inline', filename)
+    return path if os.path.isfile(path) else None
+
+
 def slugify_key(label):
     """Dérive une clé machine stable (fieldName) depuis un libellé.
     Partagé par la gestion des champs perso (Paramètres) et la création à l'import."""

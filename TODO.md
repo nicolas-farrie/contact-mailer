@@ -217,6 +217,24 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [x] **Demandes de diffusion : images du corps sorties du HTML** *(23/09/2026, bug adreic34)*.
+      Symptômes : aperçu refusé par nginx (`413 Request Entity Too Large`, d'où le passage de
+      `client_max_body_size` à 40 Mo), puis retour en arrière réaffichant le mailing SANS les
+      images, irrécupérables. **Cause unique** : `imap_submissions` convertissait les images
+      inline (`cid:`) en **data URI**, soit +33 % du poids des images DANS le corps — 4,2 Mo de
+      photos Gmail = 5,6 Mo de texte traversant la page, l'éditeur, le brouillon `localStorage`
+      (quota ~5 Mo) et la requête d'aperçu. Le brouillon ne pouvait plus s'écrire et une version
+      PÉRIMÉE, sans images, reprenait la main au retour.
+      **Correction** : les `cid:` restent tels quels à la lecture ; « Utiliser » écrit les images
+      dans `data/attachments/submission_<uid>/inline/` et les remplace par un lien servi par
+      `mailing.submission_inline` (types image seulement, `nosniff`, traversée de chemin
+      refusée). Mesuré : corps de **5600 Ko → 214 octets**, page de l'éditeur à 34 Ko.
+      À l'ENVOI, `mailer._extract_inline_images` reconnaît ces liens et **réincorpore** les
+      images en `cid:` — sinon le destinataire, qui n'a pas de session, verrait des images
+      cassées. Les data URI restent gérées (images collées dans l'éditeur). L'aperçu d'une
+      demande, lui, incorpore à la volée : rien ne repart en requête derrière.
+      Garde-fou : si le brouillon local dépasse le quota, l'ancien est **effacé** au lieu d'être
+      laissé en embuscade.
 - [ ] **Filtres avancés : plages alphabétiques** *(analysé le 20/09/2026, à coder — ~1/2 journée)*.
       Trois opérateurs sur les champs texte : « commence avant » (`< 'b'`), « commence après »
       (`> 'azz'`), « de … à … » (`>= 'g'` et `< 'q'`). Le moteur est prêt : `OPERATORS_BY_TYPE`

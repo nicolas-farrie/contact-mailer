@@ -16,22 +16,50 @@ from datetime import datetime
 import re
 import json
 
+import mimetypes
+
 from models import db, MailCampaign, MailQueueItem, utcnow
+from helpers import _INLINE_SRC_RE
 
 
 _DATA_URI_RE = re.compile(r'data:(image/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)')
 
 
 def _extract_inline_images(body_html):
-    """Remplace les images en data URI dans le HTML par des références cid:
-    et retourne les parts MIME image correspondantes (à attacher en multipart/related).
+    """Remplace les images du corps par des références cid: et retourne les parts MIME.
 
-    Nécessaire car un body HTML contenant une grosse data URI dépasse la taille
-    de clip de la plupart des webmails (ex: ~102 Ko sur Gmail), ce qui fait
-    disparaître tout le contenu visible du message."""
+    Deux formes sont traitées :
+    - **data URI** — un body HTML contenant une grosse data URI dépasse la taille de clip
+      de la plupart des webmails (~102 Ko sur Gmail), ce qui fait disparaître tout le
+      contenu visible du message ;
+    - **image servie par nous** (corps d'une demande de diffusion) — laissée telle quelle,
+      elle s'afficherait cassée chez le destinataire, qui n'a pas de session sur
+      l'application. Elle est relue sur disque et embarquée comme les autres.
+    """
     images = []
     if not body_html:
         return body_html, images
+
+    def _local(m):
+        """Image servie par l'application → part MIME + référence cid:."""
+        from helpers import inline_image_path
+        path = inline_image_path(m.group(1), m.group(2))
+        if not path:
+            return m.group(0)         # fichier absent : on ne casse pas l'envoi pour autant
+        try:
+            with open(path, 'rb') as f:
+                data = f.read()
+        except OSError:
+            return m.group(0)
+        subtype = (mimetypes.guess_type(path)[0] or 'image/png').split('/', 1)[1]
+        cid = make_msgid()[1:-1]
+        img = MIMEImage(data, _subtype=subtype)
+        img.add_header('Content-ID', f'<{cid}>')
+        img.add_header('Content-Disposition', 'inline')
+        images.append(img)
+        return f'cid:{cid}'
+
+    body_html = _INLINE_SRC_RE.sub(_local, body_html)
 
     def replace(m):
         content_type, data = m.group(1), m.group(2)

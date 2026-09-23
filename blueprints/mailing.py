@@ -392,6 +392,14 @@ def submission_use(uid):
         body = sub['body_html'] or sub['body_text']
         fmt = 'html' if sub['body_html'] else 'text'
 
+        # Images du corps → fichiers, et `cid:` → lien vers ces fichiers. Les incorporer
+        # au HTML (data URI) ajoutait un tiers du poids des images DANS le corps, qui
+        # traverse ensuite la page, l'éditeur, le brouillon local et la requête d'aperçu :
+        # 4 Mo de photos suffisaient à faire refuser l'aperçu par nginx (413) et à
+        # dépasser le quota du navigateur, avec un brouillon périmé qui reprenait la main.
+        if fmt == 'html' and sub.get('inline_images'):
+            body = _externalize_inline_images(body, sub['inline_images'], attach_dir, uid)
+
         # Sujet « liste1,liste2: vrai sujet » → listes cibles pré-sélectionnées + sujet nettoyé
         clean_subject, liste_ids, unknown_lists = _parse_submission_subject(sub['subject'])
 
@@ -428,6 +436,10 @@ def submission_preview(uid):
         return '<p class="text-muted">Erreur de chargement du message.</p>'
     if not sub:
         return '<p class="text-muted">Message introuvable (déjà traité ?).</p>'
+    # Coup d'œil ponctuel : les images peuvent être incorporées au HTML, rien ne repart
+    # ensuite dans une requête. C'est l'ÉDITEUR qui ne doit pas les porter (cf. submission_use).
+    sub['body_html'] = imap_submissions.inline_as_data_uris(
+        sub.get('body_html') or '', sub.get('inline_images'))
     return render_template('_submission_preview.html', s=sub)
 
 
@@ -459,6 +471,56 @@ def submission_attachment(submission_id, filename):
     mime, _ = mimetypes.guess_type(filename)
     inline_ok = mime in {'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'}
     resp = send_from_directory(attach_dir, filename, as_attachment=not inline_ok)
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    return resp
+
+
+#: Sous-dossier des images du corps d'une demande, à côté de ses pièces jointes.
+INLINE_DIR = 'inline'
+
+#: Chemin servi pour ces images. Reconnu à l'envoi pour les réincorporer au message
+#: (cf. mailer) : un mail qui pointerait vers notre application afficherait des images
+#: cassées chez le destinataire, qui n'y a pas accès.
+INLINE_URL_PREFIX = '/mailing/submission-inline/'
+
+
+def _externalize_inline_images(body_html, inline_images, attach_dir, uid):
+    """Écrit les images du corps sur disque et remplace les `cid:` par leur adresse.
+
+    Le corps redevient léger : c'est lui qui voyage dans la page, l'éditeur, le brouillon
+    local et la requête d'aperçu. Les images, elles, ne sont chargées qu'à l'affichage,
+    une par une, et réincorporées au message au moment de l'envoi.
+    """
+    import mimetypes
+    from pathlib import Path
+
+    out_dir = Path(attach_dir) / INLINE_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for i, (cid, (content_type, payload)) in enumerate(inline_images.items(), 1):
+        ext = mimetypes.guess_extension(content_type) or '.img'
+        # Nom dérivé du RANG, pas du Content-ID : celui-ci vient du message et peut
+        # contenir n'importe quoi (chemins, caractères interdits).
+        name = f'img{i}{ext}'
+        (out_dir / name).write_bytes(payload)
+        body_html = body_html.replace(f'cid:{cid}', f'{INLINE_URL_PREFIX}{uid}/{name}')
+    return body_html
+
+
+@bp.route('/mailing/submission-inline/<submission_id>/<filename>')
+@login_required
+def submission_inline(submission_id, filename):
+    """Sert une image du corps d'une demande (cf. _externalize_inline_images).
+
+    Mêmes précautions que les pièces jointes : seuls des types d'image sûrs sont servis
+    inline, et `nosniff` empêche le navigateur de deviner un type exécutable.
+    """
+    from pathlib import Path
+    import mimetypes
+    d = Path(f'data/attachments/submission_{submission_id}/{INLINE_DIR}').absolute()
+    mime, _ = mimetypes.guess_type(filename)
+    if mime not in {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}:
+        return '', 404
+    resp = send_from_directory(d, filename)
     resp.headers['X-Content-Type-Options'] = 'nosniff'
     return resp
 

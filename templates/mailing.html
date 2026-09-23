@@ -517,8 +517,11 @@ function saveDraft() {
         include_unsubscribe: document.querySelector('input[name="include_unsubscribe"]').checked
     };
     // Peut dépasser le quota si le corps contient une grosse image base64 : on
-    // n'échoue pas silencieusement l'édition pour autant.
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch (e) {}
+    // n'échoue pas silencieusement l'édition pour autant. Mais on EFFACE le brouillon
+    // précédent — sinon une version périmée, plus légère parce qu'elle n'a pas les
+    // images, reprend la main au prochain retour sur la page et écrase le travail.
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); }
+    catch (e) { try { localStorage.removeItem(DRAFT_KEY); } catch (e2) {} }
 }
 function restoreDraft() {
     const raw = localStorage.getItem(DRAFT_KEY);

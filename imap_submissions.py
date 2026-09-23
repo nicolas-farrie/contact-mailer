@@ -126,13 +126,25 @@ def _extract_body_and_attachments(msg):
         else:
             body_text = content
 
-    # Remplacer les références cid: par des data URI pour affichage direct
-    # dans l'éditeur et conservation dans le mail envoyé
-    for cid, (content_type, payload) in inline_images.items():
+    # Les références `cid:` sont LAISSÉES telles quelles : les traduire ici en data URI
+    # gonflait le corps de 33 % du poids des images (4 Mo de photos → 5,6 Mo de texte),
+    # et ce corps traversait ensuite toute la chaîne — page, éditeur, brouillon local,
+    # requête d'aperçu. D'où un refus nginx (413) et un brouillon local au-dessus du
+    # quota du navigateur. L'appelant décide : des fichiers sur disque pour l'éditeur
+    # (cf. mailing.submission_use), des data URI pour un simple coup d'œil.
+    return body_text, body_html, attachments, inline_images
+
+
+def inline_as_data_uris(body_html, inline_images):
+    """Remplace les `cid:` par des data URI — pour un affichage ponctuel, sans disque.
+
+    À réserver à ce qui ne repart pas dans une requête : c'est le poids de ces images
+    qui bloquait l'aperçu d'un mailing.
+    """
+    for cid, (content_type, payload) in (inline_images or {}).items():
         data_uri = f'data:{content_type};base64,{base64.b64encode(payload).decode("ascii")}'
         body_html = body_html.replace(f'cid:{cid}', data_uri)
-
-    return body_text, body_html, attachments
+    return body_html
 
 
 def _extract_parens(b, start):
@@ -323,7 +335,7 @@ def get_submission(config, uid, folder=None):
             return None
 
         msg = email.message_from_bytes(msg_data[0][1])
-        body_text, body_html, attachments = _extract_body_and_attachments(msg)
+        body_text, body_html, attachments, inline_images = _extract_body_and_attachments(msg)
         name, addr = parseaddr(_decode(msg.get('From', '')))
 
         return {
@@ -335,6 +347,9 @@ def get_submission(config, uid, folder=None):
             'body_text': body_text,
             'body_html': body_html,
             'attachments': attachments,
+            # Images du corps, référencées par `cid:` : à l'appelant de décider s'il les
+            # écrit sur disque (éditeur) ou les incorpore au HTML (aperçu).
+            'inline_images': inline_images,
         }
     finally:
         conn.logout()
