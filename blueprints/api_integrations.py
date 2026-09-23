@@ -167,13 +167,16 @@ def noe_feed():
         # `source` s'y ajoute pour tracer l'origine des fiches créées : _import_mapped
         # l'honore à la création (imports.py) et écrirait « Import » sinon, ce qui ferait
         # perdre de quel service elles viennent.
+        # Les champs mis en correspondance avec une question du formulaire voyagent avec
+        # l'identité : le connecteur les a déjà traduits en clés de champs (fetch_members).
         mapping = {k: k for k in ('email', 'prenom', 'nom', 'telephone', 'source')}
+        mapping.update({k: k for k in cfg.field_map().values()})
         rows_in = [dict({k: m.get(k, '') for k in mapping}, source=cfg.label)
                    for m in members]
 
         if action == 'preview':
             counts, _s, conflicts = _dry_run(rows_in, mapping, col_keys, custom_keys,
-                                             custom_types, mode, [])
+                                             custom_types, mode, [], synced_provider=cfg.name)
             ctx['counts'], ctx['conflicts'] = counts, conflicts
             return render_template('noe_feed.html', **ctx)
 
@@ -196,7 +199,7 @@ def noe_feed():
         # _run_import attend des NOMS de listes (cf. _get_or_create_listes), pas des
         # objets : la liste vient d'être créée, elle sera retrouvée par son nom.
         counts = _run_import(rows_in, mapping, col_keys, custom_keys, custom_types,
-                             mode, [liste.nom], current_user.id)
+                             mode, [liste.nom], current_user.id, synced_provider=cfg.name)
 
         # La source : à partir d'ici la liste est un reflet, non modifiable à la main.
         liste.source = ListSource(provider=cfg.name, instance=cfg.instance_key(),
@@ -213,6 +216,75 @@ def noe_feed():
         return redirect(url_for('contacts.index', liste=liste.id))
 
     return render_template('noe_feed.html', **ctx)
+
+
+@bp.route('/integrations/noe/champs', methods=['GET', 'POST'])
+@admin_required
+def noe_fields():
+    """Quelles réponses du formulaire d'inscription deviennent quels champs de contact.
+
+    La correspondance est ENREGISTRÉE et non devinée : les clés NOÉ portent un
+    identifiant généré (`soin_3kd`) qui change d'un projet à l'autre. Un champ choisi
+    ici devient piloté par NOÉ — donc reflet du service, non modifiable dans la fiche.
+    """
+    import json
+    from helpers import slugify_key, get_setting, set_setting
+    from models import CustomFieldDefinition
+
+    cfg = get_connector('noe')
+    if not cfg.is_configured():
+        flash('NOÉ non configuré.', 'error')
+        return redirect(url_for('api_integrations.noe'))
+
+    if request.method == 'POST':
+        fmap = {}
+        for key in request.form.getlist('question'):
+            dest = (request.form.get(f'dest_{key}') or '').strip()
+            if not dest:
+                continue
+            if dest == '__new__':
+                label = (request.form.get(f'label_{key}') or key).strip()
+                slug = slugify_key(label)
+                if not slug:
+                    continue
+                cf = CustomFieldDefinition.query.filter_by(key=slug).first()
+                if cf is None:
+                    ordre = (db.session.query(db.func.max(CustomFieldDefinition.ordre)).scalar() or 0) + 1
+                    cf = CustomFieldDefinition(key=slug, display_name=label, type='text',
+                                               ordre=ordre, synced_from='noe')
+                    db.session.add(cf)
+                dest = slug
+            else:
+                cf = CustomFieldDefinition.query.filter_by(key=dest).first()
+            # Choisir un champ comme destination, c'est le confier à NOÉ : il devient un
+            # reflet. Le dire ici serait insuffisant — on le marque, et la fiche le montre.
+            if cf is not None:
+                cf.synced_from = 'noe'
+            fmap[key] = dest
+
+        # Un champ retiré de la correspondance redevient libre : sans cela il resterait
+        # verrouillé dans la fiche sans que rien ne l'alimente.
+        anciens = set(cfg.field_map().values()) - set(fmap.values())
+        for key in anciens:
+            cf = CustomFieldDefinition.query.filter_by(key=key, synced_from='noe').first()
+            if cf is not None:
+                cf.synced_from = None
+        set_setting(cfg.FIELD_MAP_SETTING, json.dumps(fmap, ensure_ascii=False))
+        db.session.commit()
+        flash(f'{len(fmap)} question(s) remontée(s) dans les fiches contact.', 'success')
+        return redirect(url_for('api_integrations.noe_fields'))
+
+    questions, error = [], None
+    try:
+        questions = cfg.form_questions()
+    except RuntimeError as e:
+        error = str(e)
+
+    fmap = cfg.field_map()
+    customs = CustomFieldDefinition.query.filter_by(is_active=True).order_by(
+        CustomFieldDefinition.ordre).all()
+    return render_template('noe_fields.html', questions=questions, error=error,
+                           field_map=fmap, customs=customs, active_tab='noe')
 
 
 @bp.route('/integrations/noe/nouveaux/<int:source_id>', methods=['GET', 'POST'])
@@ -250,7 +322,8 @@ def noe_newcomers(source_id):
     newcomers = _newcomers(cfg, source, members)
     ctx = {'source': source, 'liste': source.liste, 'newcomers': newcomers,
            'total': len(members), 'known': [], 'trashed': [], 'no_email': [],
-           'active_tab': 'noe'}
+           # Les champs alimentés par ce connecteur, pour proposer de les rafraîchir.
+           'synced': sorted(cfg.field_map().values()), 'active_tab': 'noe'}
 
     # Ce qu'il faut savoir avant de créer des fiches : une adresse déjà présente chez
     # nous signale soit la même personne arrivée autrement (l'import la complétera au
@@ -263,21 +336,35 @@ def noe_newcomers(source_id):
         ctx['trashed'] = [c for c in rows if c.is_deleted]
     ctx['no_email'] = [m for m in newcomers if not (m.get('email') or '').strip()]
 
-    if request.method == 'POST' and newcomers:
+    # Deux gestes distincts : faire ENTRER ceux qui manquent, ou RAFRAÎCHIR les réponses
+    # de tout le monde. Le second est la contrepartie du choix « NOÉ fait foi » — sans
+    # lui, une compétence ajoutée ou retirée après l'import ne parviendrait jamais ici.
+    refresh = request.form.get('action') == 'refresh'
+    cibles = members if refresh else newcomers
+    if request.method == 'POST' and cibles:
         col_keys, custom_keys = _key_sets()
         mapping = {k: k for k in ('email', 'prenom', 'nom', 'telephone', 'source')}
+        mapping.update({k: k for k in cfg.field_map().values()})
         rows_in = [dict({k: m.get(k, '') for k in mapping}, source=cfg.label)
-                   for m in newcomers]
+                   for m in cibles]
+        # Mode « compléter les vides » même en rafraîchissant : l'identité reste à nous
+        # (une correction de graphie faite ici survit), tandis que les champs pilotés
+        # sont remplacés de toute façon — le régime du champ prime sur le mode d'import.
         counts = _run_import(rows_in, mapping, col_keys, custom_keys, _custom_types(),
-                             'fill', [source.liste.nom], current_user.id)
-        _link_identities(cfg, newcomers)
+                             'fill', [source.liste.nom], current_user.id,
+                             synced_provider=cfg.name)
+        _link_identities(cfg, cibles)
         db.session.flush()
         # Réaligner tout de suite : sans cela la liste n'afficherait les nouveaux qu'au
         # prochain passage du timer, et le compte « à examiner » resterait faux à l'écran.
         sync_source(source, cfg)
         db.session.commit()
-        flash(f"{counts['created']} bénévole(s) ajouté(s) à « {source.liste.nom} », "
-              f"{counts['updated']} fiche(s) complétée(s).", 'success')
+        if refresh:
+            flash(f"Réponses actualisées depuis {cfg.label} : {counts['updated']} fiche(s) "
+                  f"mise(s) à jour, {counts['created']} créée(s).", 'success')
+        else:
+            flash(f"{counts['created']} bénévole(s) ajouté(s) à « {source.liste.nom} », "
+                  f"{counts['updated']} fiche(s) complétée(s).", 'success')
         return redirect(url_for('contacts.index', liste=source.liste_id))
 
     return render_template('noe_newcomers.html', **ctx)

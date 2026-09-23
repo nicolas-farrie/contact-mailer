@@ -217,11 +217,67 @@ class NoeConnector(Connector):
                 for name, members in index.items()]
 
     def fetch_members(self, ref):
-        """Les membres d'un groupe, le niveau étant lu dans la référence elle-même."""
+        """Les membres d'un groupe, le niveau étant lu dans la référence elle-même.
+
+        Les réponses au formulaire d'inscription sont traduites en champs de contact
+        d'après la correspondance enregistrée (cf. `field_map`) : le reste de
+        l'application ne voit que des clés de champs, jamais du vocabulaire NOÉ.
+        """
         from noe import pull_contacts_from_noe
         level, name = self.parse_ref(ref)
         contacts, _stats = pull_contacts_from_noe(self._client(), name, level=level)
+        fmap = self.field_map()
+        for c in contacts:
+            answers = c.pop('answers', {})
+            for noe_key, field_key in fmap.items():
+                c[field_key] = self.format_answer(answers.get(noe_key))
         return contacts
+
+    # === RÉPONSES DU FORMULAIRE D'INSCRIPTION ===
+
+    #: Réglage portant la correspondance {clé NOÉ: clé de champ contact-mailer}. Une seule
+    #: par instance : une base contact-mailer suit un seul événement NOÉ (décision du
+    #: 23/09/2026), ce qui évite d'avoir à ranger les correspondances par projet.
+    FIELD_MAP_SETTING = 'noe.field_map'
+
+    def field_map(self):
+        """{clé NOÉ: clé de champ} — vide tant que rien n'a été mis en correspondance."""
+        import json
+        from helpers import get_setting
+        try:
+            return json.loads(get_setting(self.FIELD_MAP_SETTING, '') or '{}')
+        except ValueError:
+            return {}
+
+    def form_questions(self):
+        """Les questions du formulaire d'inscription : [{key, label, type}].
+
+        Les clés portent un identifiant généré par NOÉ (`soin_3kd`) et changent d'un
+        projet à l'autre : c'est pourquoi la correspondance est enregistrée plutôt que
+        devinée.
+        """
+        return [{'key': k, 'label': m.get('label') or k, 'type': m.get('type') or ''}
+                for k, m in self._client().form_fields().items()]
+
+    @staticmethod
+    def format_answer(value):
+        """Une réponse NOÉ rendue en texte, pour un champ de contact-mailer.
+
+        Les questions à choix multiples renvoient une liste (ou un dict de cases
+        cochées) : les valeurs sont jointes par « ; », en attendant un vrai type
+        multi-valeurs. Une absence de réponse donne une chaîne vide — et pour un champ
+        piloté, ce vide EFFACE : c'est ainsi qu'une compétence retirée dans NOÉ
+        disparaît ici.
+        """
+        if value is None or value == '':
+            return ''
+        if isinstance(value, bool):
+            return 'Oui' if value else 'Non'
+        if isinstance(value, dict):        # {option: coché}
+            value = [k for k, v in value.items() if v]
+        if isinstance(value, (list, tuple)):
+            return ' ; '.join(str(v).strip() for v in value if str(v).strip())
+        return str(value).strip()
 
 
 #: Registre parcouru par la page Intégrations. L'ordre est celui de l'affichage.

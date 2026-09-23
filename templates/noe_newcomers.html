@@ -1,6 +1,24 @@
 {% extends "settings_layout.html" %}
 {% block title %}Nouveaux venus — {{ liste.nom }} - {{ app_name }}{% endblock %}
 
+{# Rafraîchir les réponses est un geste à part : personne n'entre ni ne sort, seules
+   les valeurs alimentées par NOÉ sont remises à jour. Proposé même quand il n'y a aucun
+   nouveau venu — c'est justement là qu'on l'oublierait. #}
+{% macro refresh_form(total, synced) %}
+{% if synced %}
+<div class="card" style="margin-top:1.5rem;">
+    <p><strong>Réponses du formulaire.</strong> {{ synced|length }} champ{{ 's' if synced|length > 1 }}
+        {{ 'sont alimentés' if synced|length > 1 else 'est alimenté' }} par NOÉ
+        ({{ synced|join(', ') }}). Les actualiser reprend les réponses des
+        {{ total }} bénévole{{ 's' if total > 1 }} du groupe, y compris celles qui ont été retirées.</p>
+    <form method="POST">
+        <input type="hidden" name="action" value="refresh">
+        <button type="submit" class="btn btn-secondary">⟳ Actualiser les réponses depuis NOÉ</button>
+    </form>
+</div>
+{% endif %}
+{% endmacro %}
+
 {% block settings_content %}
 <div class="page-header">
     <h1>Nouveaux venus dans « {{ source.label or source.ref }} »</h1>
@@ -66,6 +84,7 @@
 </div>
 
 <form method="POST" style="margin-top:1rem;">
+    <input type="hidden" name="action" value="add">
     <button type="submit" class="btn btn-primary btn-cta"
             onclick="return confirm('Créer {{ newcomers|length }} fiche(s) et les ajouter à « {{ liste.nom }} » ?')">
         Ajouter ces {{ newcomers|length }} bénévole{{ 's' if newcomers|length > 1 }} à la liste
@@ -73,11 +92,15 @@
     <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-secondary">Voir la liste</a>
 </form>
 
+{{ refresh_form(total, synced) }}
+
 {% else %}
 <div class="empty-state">
     <p>✓ Personne de nouveau — les {{ total }} bénévole{{ 's' if total > 1 }} de ce groupe
         {{ 'ont' if total > 1 else 'a' }} déjà une fiche.</p>
     <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-secondary">Voir la liste</a>
 </div>
+
+{{ refresh_form(total, synced) }}
 {% endif %}
 {% endblock %}

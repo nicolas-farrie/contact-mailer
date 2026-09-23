@@ -4,6 +4,9 @@
 {% block settings_content %}
 <div class="page-header">
     <h1>NOÉ{% if project_name %} : {{ project_name }}{% endif %}</h1>
+    {% if configured and current_user.is_admin %}
+    <a href="{{ url_for('api_integrations.noe_fields') }}" class="btn btn-secondary">Réponses du formulaire</a>
+    {% endif %}
 </div>
 
 {% if not configured %}

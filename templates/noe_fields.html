@@ -1,0 +1,68 @@
+{% extends "settings_layout.html" %}
+{% block title %}Réponses du formulaire NOÉ - {{ app_name }}{% endblock %}
+
+{% block settings_content %}
+<div class="page-header">
+    <h1>Réponses du formulaire NOÉ</h1>
+    <a href="{{ url_for('api_integrations.noe') }}" class="back-link">← Retour aux pôles</a>
+</div>
+
+<div class="info-box">
+    <p>Choisissez les réponses du formulaire d'inscription à reprendre dans les fiches
+        contact. Une fois remontées, elles servent à <strong>constituer des groupes d'envoi</strong> :
+        « les bénévoles ayant une compétence en soin », « ceux qui ont suivi la formation ».</p>
+    <p class="hint">Un champ alimenté par NOÉ devient un <strong>reflet</strong> : ce que dit NOÉ
+        remplace ce qui est ici, y compris lorsqu'un bénévole retire sa réponse. Il n'est donc
+        plus modifiable dans la fiche — les corrections se font dans NOÉ.</p>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">
+    <strong>NOÉ ne répond pas :</strong> {{ error }}<br>
+    Les questions ne peuvent pas être listées ; la correspondance déjà enregistrée reste active.
+</div>
+{% endif %}
+
+{% if questions %}
+<form method="POST">
+<div class="card">
+    <table class="data-table">
+        <thead><tr><th>Question dans NOÉ</th><th>Type</th><th>Reprise dans</th></tr></thead>
+        <tbody>
+            {% for q in questions %}
+            {% set dest = field_map.get(q.key, '') %}
+            <tr>
+                <td><strong>{{ q.label }}</strong>
+                    <input type="hidden" name="question" value="{{ q.key }}">
+                    <input type="hidden" name="label_{{ q.key }}" value="{{ q.label }}">
+                    <div class="hint"><code>{{ q.key }}</code></div></td>
+                <td class="text-muted">{{ q.type }}</td>
+                <td>
+                    <select name="dest_{{ q.key }}">
+                        <option value="">— ne pas remonter —</option>
+                        <option value="__new__"{% if dest and dest not in customs|map(attribute='key')|list %} selected{% endif %}>
+                            ➕ créer le champ « {{ q.label }} »</option>
+                        {% for cf in customs %}
+                        <option value="{{ cf.key }}"{% if dest == cf.key %} selected{% endif %}>
+                            {{ cf.display_name }}{% if cf.synced_from %} (déjà alimenté){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<button type="submit" class="btn btn-primary" style="margin-top:1rem;">Enregistrer la correspondance</button>
+</form>
+{% elif not error %}
+<div class="empty-state">
+    <p>Le formulaire d'inscription de ce projet ne comporte aucune question.</p>
+</div>
+{% endif %}
+
+{% if field_map %}
+<p class="hint" style="margin-top:1rem;">Les valeurs sont reprises à chaque alimentation
+    d'une liste depuis NOÉ, et à l'ajout des nouveaux venus.</p>
+{% endif %}
+{% endblock %}

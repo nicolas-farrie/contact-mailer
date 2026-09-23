@@ -236,6 +236,11 @@ def build_group_index(client, level='category', project=None):
             'telephone': _normalize_phone(
                 (reg.get('formAnswers') or {}).get(phone_key)) if phone_key else '',
             'groupes': sorted(names),
+            # Réponses BRUTES au formulaire d'inscription, clés NOÉ comprises (suffixées
+            # d'un identifiant généré : `soin_3kd`). Le connecteur les traduit en champs
+            # de contact-mailer d'après la correspondance enregistrée — ici on ne fait que
+            # les transporter, la lib ne connaît pas nos champs.
+            'answers': reg.get('formAnswers') or {},
             # Identité NOÉ de la personne, pour l'apparier durablement côté
             # contact-mailer (cf. ExternalIdentity) : c'est elle qui rend les
             # synchronisations suivantes idempotentes, là où l'email peut changer.

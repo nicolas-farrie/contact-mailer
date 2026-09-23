@@ -319,9 +319,26 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       FICHIER ne touche pas un champ piloté : il n'est pas la source. `_apply_mapping`
       conserve désormais les clés vides — sans quoi un effacement ne parvenait jamais à
       l'écriture ; sans effet sur l'import de fichiers, vérifié par test.
-      **Reste au lot 2** : écran de correspondance question NOÉ → champ, création des champs
-      à la volée, écriture à l'import avec `synced_provider='noe'` (le paramètre existe déjà).
-      **Lot 3** : type multi-valeurs si la liste reste fermée. **À trancher ensuite** : type multi-valeurs
+      **LOT 2 FAIT (23/09)** : page « Réponses du formulaire » (`/integrations/noe/champs`,
+      admin) — chaque question du formulaire NOÉ se dirige vers un champ perso, existant ou
+      créé à la volée, et le champ choisi devient piloté (`synced_from='noe'`) ; retiré de la
+      correspondance, il redevient libre. La correspondance vit dans le réglage
+      `noe.field_map` (JSON), une seule par instance — 1 base = 1 événement. `noe.py`
+      transporte les réponses brutes, le connecteur les traduit (`format_answer` : choix
+      multiples joints par « ; », booléens en Oui/Non, absence = vide qui EFFACE).
+      **Ajouté en cours de route** : bouton « ⟳ Actualiser les réponses depuis NOÉ » sur
+      l'écran des nouveaux venus — sans lui, rien ne mettait à jour les bénévoles DÉJÀ
+      connus, et « NOÉ fait foi » restait lettre morte. Actualisation en mode « compléter
+      les vides » : l'identité corrigée chez nous survit, les champs pilotés sont remplacés
+      de toute façon (le régime du champ prime sur le mode d'import).
+      **Questions réelles du projet lfll** (lues le 23/09) : `astuDesCompetencesEnSoin_3z2`
+      est bien un **multiSelect** — la liste fermée est confirmée, le lot 3 a donc du sens ;
+      `jaccepteDeRecevoirParEmailLesI_b4z` (opt-in) et `jaiLuLaCharteEtJeMengageALaRes_lni`
+      sont des cases à cocher ; régime alimentaire en texte libre.
+      **Lot 3 à faire** : type multi-valeurs (stockage liste JSON, opérateurs « contient l'un
+      de »), dont les OPTIONS sont récupérables depuis NOÉ (`formComponents` → valeurs du
+      multiSelect) plutôt que saisies à la main. Et décider du sort de l'opt-in : il ne doit
+      jamais RENDRE un consentement retiré chez nous (cf. règle `is_unsubscribed`). **À trancher ensuite** : type multi-valeurs
       propre (stockage liste JSON + opérateurs « contient l'un de ») vs texte à séparateurs
       — les options venant d'une liste fermée, le type propre vaut le coup pour que les
       segments soient exacts. Mapping mémorisé (les clés NOÉ sont suffixées : `soin_3kd`) ;
