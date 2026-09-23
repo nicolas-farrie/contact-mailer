@@ -89,6 +89,26 @@ sélection »**.
 > 🚧 **À venir.** « Retirer *tout* le résultat d'un filtre » et « ne garder que le résultat d'un
 > filtre » (intersection) en un seul bouton. Pour l'instant, le retrait passe par les cases cochées.
 
+## Filtrer sur des réponses à choix multiples
+
+Certains champs acceptent **plusieurs valeurs** pour une même personne — les compétences d'un
+bénévole, par exemple, reprises du formulaire d'inscription NOÉ. Ils proposent trois opérateurs
+propres à eux :
+
+| Opérateur | Ce qu'il retient |
+|---|---|
+| **contient l'un de** | les personnes ayant *au moins une* des valeurs choisies |
+| **contient tous** | celles qui les ont *toutes* |
+| **ne contient aucun** | celles qui n'en ont *aucune* |
+
+La comparaison porte sur les valeurs elles-mêmes, pas sur le texte : chercher « Médecin » ne
+ramènera pas « Médecin du travail ». Et les valeurs vous sont **proposées dans une liste** plutôt
+que saisies — une faute de frappe ferait un groupe incomplet sans que rien ne le signale.
+
+!!! example "Exemple"
+    *Compétences en soin — contient l'un de — AFPS* donne tous les bénévoles formés aux premiers
+    secours, quelles que soient leurs autres compétences.
+
 ## Mailer un segment
 
 Un mailing cible des **listes** et/ou la **sélection courante**. Pour envoyer à un **segment**
