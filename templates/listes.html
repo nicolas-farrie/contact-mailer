@@ -61,7 +61,15 @@
                     {{ liste_dot(liste) }}
                     <div class="liste-ident-text">
                         <strong>{{ liste.nom }}</strong>
-                        {% if liste.source %}<span class="fed-badge" title="Contenu synchronisé, non modifiable à la main">⟳ {{ liste.source_label }}</span>{% endif %}
+                        {% if liste.source %}<span class="fed-badge" title="Contenu synchronisé, non modifiable à la main">⟳ {{ liste.source_label }}</span>
+                        {# Des bénévoles inscrits à la source depuis le dernier import : la
+                           synchronisation les compte mais ne les crée pas, c'est une décision
+                           humaine. Sans ce rappel ici, personne ne savait qu'ils existaient. #}
+                        {% if liste.source.pending_count %}
+                        <a class="avalider-pill" href="{{ url_for('api_integrations.noe_newcomers', source_id=liste.source.id) }}"
+                           title="Bénévoles présents dans la source, sans fiche chez nous">
+                            ⚠ {{ liste.source.pending_count }} à examiner</a>
+                        {% endif %}{% endif %}
                         {% if liste.description %}<div class="liste-desc">{{ liste.description }}</div>{% endif %}
                     </div>
                 </div>

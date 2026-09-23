@@ -67,8 +67,12 @@ def sync_source(source, connector=None):
                         Contact.is_deleted == False)
                 .all())
         voulus = {c.id: c for _ei, c in rows}
-    # Un membre sans contact apparié est un nouveau venu : compté ici, importé nulle part.
+    # Un membre sans contact apparié est un nouveau venu : compté ici, importé nulle part
+    # (l'import reste une décision humaine). Le compte est CONSERVÉ sur la source, sans
+    # quoi il ne sortait jamais des logs du timer — et personne ne savait qu'il y avait
+    # du monde à récupérer.
     result['pending'] = len(ext_ids) - len(voulus)
+    source.pending_count = result['pending']
 
     liste = source.liste
     presents = {c.id: c for c in liste.contacts if not c.is_deleted}

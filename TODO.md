@@ -283,6 +283,36 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - [ ] **Pied de mail — nom de la liste et nombre d'inscrits** *(17/09/2026)*. « Vous recevez ce
       mail en tant que membre de la liste X ». À retrouver par destinataire : les listes par
       lesquelles il est visé (un envoi multi-listes en a plusieurs).
+- [x] **NOÉ — voir et importer les nouveaux venus** *(23/09/2026)*. Une fois la liste
+      rattachée, un bénévole inscrit dans NOÉ après le premier import n'existait nulle part
+      pour l'utilisateur : la synchronisation le comptait (`pending`) et le compte finissait
+      dans la sortie du timer, que personne ne lit. Le compte est désormais conservé
+      (`list_source.pending_count`, migration `migrate_add_source_pending`), affiché en
+      pastille « ⚠ N à examiner » sur la liste et sur la page NOÉ, et un écran dédié
+      (`/integrations/noe/nouveaux/<source>`) les montre nommément avant de les créer.
+      Import en mode « compléter les vides » : une fiche connue est complétée, jamais
+      écrasée ni dupliquée — vérifié par test. Avertissements repris de l'écran
+      d'alimentation (adresse déjà connue, corbeille, sans email), parce que
+      l'appariement se lit sur l'identité externe : quelqu'un présent chez nous sans avoir
+      jamais été apparié apparaît comme nouveau. Synchro rejouée dans la foulée pour que
+      la liste et le compteur soient justes tout de suite.
+- [ ] **NOÉ — remonter les réponses du formulaire en champs perso** *(23/09/2026, en attente
+      de l'équipe)*. Demande des Fourmilières : segmenter sur les compétences (« As-tu des
+      compétences en soin ? », liste à choix MULTIPLES à options fermées), la formation
+      Service d'Ordre (Oui/Non), le régime alimentaire (texte libre), et l'opt-in email
+      **ajouté au formulaire NOÉ à NOTRE demande pour le RGPD** — il doit donc remonter et
+      rester attaché à la fiche. Décisions prises : 1 base = 1 événement NOÉ (pas de
+      multi-projet), écriture **à l'import** (la synchro reste inoffensive), mécanisme
+      « proposer/valider » écarté (la source est pilotée par l'utilisateur, CM est
+      l'esclave), qualité des données à standardiser dans NOÉ par l'équipe.
+      **En attente de réponse** (`doc-travail/questions_noe.md`) : politique de mise à jour
+      (NOÉ fait foi / compléter les vides / montrer les différences), remontée de l'opt-in,
+      maintien de la liste de choix fermée. **À trancher ensuite** : type multi-valeurs
+      propre (stockage liste JSON + opérateurs « contient l'un de ») vs texte à séparateurs
+      — les options venant d'une liste fermée, le type propre vaut le coup pour que les
+      segments soient exacts. Mapping mémorisé (les clés NOÉ sont suffixées : `soin_3kd`) ;
+      `ImportMapping` répond déjà à ce besoin. Précédent réutilisable : `../noe-outils/`
+      module `catering` lit déjà une réponse de formulaire (régime alimentaire), avec tests.
 - [ ] **NOÉ — avertir du risque de doublon pôle / mission** *(10/09/2026)*. Depuis que les
       deux niveaux sont alimentables, une même personne peut se retrouver dans une liste
       « pôle » ET dans une liste « mission » qui en dépend — chez lfll, « Accueil » (11) et

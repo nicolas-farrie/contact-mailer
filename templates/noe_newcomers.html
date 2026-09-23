@@ -1,0 +1,83 @@
+{% extends "settings_layout.html" %}
+{% block title %}Nouveaux venus — {{ liste.nom }} - {{ app_name }}{% endblock %}
+
+{% block settings_content %}
+<div class="page-header">
+    <h1>Nouveaux venus dans « {{ source.label or source.ref }} »</h1>
+    <a href="{{ url_for('api_integrations.noe') }}" class="back-link">← Retour aux pôles</a>
+</div>
+
+{% if newcomers %}
+<div class="info-box">
+    <p><strong>{{ newcomers|length }} bénévole{{ 's' if newcomers|length > 1 }}</strong>
+        {{ 'sont inscrits' if newcomers|length > 1 else 'est inscrit' }} dans ce groupe sans avoir de fiche chez nous,
+        sur {{ total }} au total. Les autres sont déjà connus et suivent la synchronisation.</p>
+    <p class="hint">Ils rejoindront la liste <strong>{{ liste.nom }}</strong>. Une fiche déjà
+        présente ne sera jamais écrasée : l'import ne remplit que ce qui est vide.</p>
+</div>
+
+{# Les fiches existantes portant la même adresse : ni doublon certain ni personne
+   distincte — seul l'utilisateur sait. Dit avant d'écrire, pas après. #}
+{% if known %}
+<div class="alert alert-warning">
+    <strong>{{ known|length }} de ces adresses sont déjà dans vos contacts.</strong>
+    Soit ce sont les mêmes personnes, arrivées autrement qu'en venant de NOÉ — leur fiche
+    sera complétée, pas dupliquée — soit ce sont des adresses partagées (un couple, une
+    adresse de fonction), et de nouvelles fiches seront créées. Vérifiez si le doute vous gêne.
+    <ul class="noe-detail">
+        {% for c in known %}<li>{{ c.prenom }} {{ c.nom }} — {{ c.email }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if trashed %}
+<div class="alert alert-warning">
+    <strong>{{ trashed|length }} de ces adresses sont dans la corbeille.</strong>
+    L'import ne les y cherche pas : une <strong>nouvelle fiche</strong> sera créée, en
+    double de celle mise au rebut. Restaurez-les d'abord si c'est un doublon.
+    <ul class="noe-detail">
+        {% for c in trashed %}<li>{{ c.prenom }} {{ c.nom }} — {{ c.email }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if no_email %}
+<div class="alert alert-warning">
+    <strong>{{ no_email|length }} bénévole{{ 's' if no_email|length > 1 }} sans adresse email.</strong>
+    {{ 'Ils seront créés' if no_email|length > 1 else 'Il sera créé' }} comme contact{{ 's' if no_email|length > 1 }},
+    mais ne {{ 'recevront' if no_email|length > 1 else 'recevra' }} aucun envoi tant qu'une adresse n'est pas renseignée.
+</div>
+{% endif %}
+
+<div class="card">
+    <table class="data-table">
+        <thead><tr><th>Prénom</th><th>Nom</th><th>Email</th><th>Téléphone</th></tr></thead>
+        <tbody>
+            {% for m in newcomers %}
+            <tr>
+                <td>{{ m.prenom }}</td>
+                <td>{{ m.nom }}</td>
+                <td>{{ m.email or '—' }}</td>
+                <td class="text-muted">{{ m.telephone or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<form method="POST" style="margin-top:1rem;">
+    <button type="submit" class="btn btn-primary btn-cta"
+            onclick="return confirm('Créer {{ newcomers|length }} fiche(s) et les ajouter à « {{ liste.nom }} » ?')">
+        Ajouter ces {{ newcomers|length }} bénévole{{ 's' if newcomers|length > 1 }} à la liste
+    </button>
+    <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-secondary">Voir la liste</a>
+</form>
+
+{% else %}
+<div class="empty-state">
+    <p>✓ Personne de nouveau — les {{ total }} bénévole{{ 's' if total > 1 }} de ce groupe
+        {{ 'ont' if total > 1 else 'a' }} déjà une fiche.</p>
+    <a href="{{ url_for('contacts.index', liste=liste.id) }}" class="btn btn-secondary">Voir la liste</a>
+</div>
+{% endif %}
+{% endblock %}

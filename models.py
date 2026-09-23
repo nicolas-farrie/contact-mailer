@@ -196,6 +196,11 @@ class ListSource(db.Model):
     label = db.Column(db.String(200), nullable=False, default='')  # son nom affichable
     last_sync_at = db.Column(db.DateTime, nullable=True)
     last_error = db.Column(db.String(500), nullable=True)    # dernier échec, pour le dire
+    # Membres que la source désigne mais qui n'ont AUCUNE fiche appariée : des nouveaux
+    # venus, que la synchronisation compte sans les importer (c'est une décision
+    # humaine). Le compte était calculé à chaque passage puis perdu dans la sortie du
+    # timer — personne ne lit les logs : il est désormais gardé pour être affiché.
+    pending_count = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=utcnow)
 
     liste = db.relationship('Liste', backref=db.backref('source', uselist=False,

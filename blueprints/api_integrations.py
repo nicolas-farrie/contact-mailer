@@ -61,10 +61,15 @@ def noe():
     fed_refs = {cfg.canonical_ref(s.ref): s.liste.nom for s in _sources}
     fed_ids = {cfg.canonical_ref(s.ref): s.liste_id for s in _sources}
     fed_sync = {cfg.canonical_ref(s.ref): since_label(s.last_sync_at) for s in _sources}
+    # De quoi proposer « nouveaux venus » sur un groupe déjà rattaché : son identifiant de
+    # source, et le nombre de bénévoles sans fiche relevé à la dernière synchronisation.
+    fed_source_ids = {cfg.canonical_ref(s.ref): s.id for s in _sources}
+    fed_pending = {cfg.canonical_ref(s.ref): s.pending_count for s in _sources}
     ctx = {'level': level, 'levels': cfg.LEVELS,
            'configured': cfg.is_configured(), 'missing': cfg.missing_settings(),
            'project_name': '', 'groups': [], 'error': None, 'total': 0,
-           'fed_refs': fed_refs, 'fed_ids': fed_ids, 'fed_sync': fed_sync, 'active_tab': 'noe'}
+           'fed_refs': fed_refs, 'fed_ids': fed_ids, 'fed_sync': fed_sync,
+           'fed_source_ids': fed_source_ids, 'fed_pending': fed_pending, 'active_tab': 'noe'}
 
     if ctx['configured']:
         try:
@@ -208,6 +213,93 @@ def noe_feed():
         return redirect(url_for('contacts.index', liste=liste.id))
 
     return render_template('noe_feed.html', **ctx)
+
+
+@bp.route('/integrations/noe/nouveaux/<int:source_id>', methods=['GET', 'POST'])
+@login_required
+def noe_newcomers(source_id):
+    """Les bénévoles présents dans la source mais absents de contact-mailer.
+
+    Manquait au tableau : une fois la liste rattachée, la synchronisation compte ces
+    nouveaux venus sans jamais les importer (c'est une décision humaine) et le compte
+    finissait dans les logs du timer. Un bénévole inscrit après le premier import
+    n'existait donc nulle part pour l'utilisateur.
+
+    L'import se fait en mode « compléter les vides » : une fiche déjà connue n'est jamais
+    écrasée par ce chemin, qui ne sert qu'à faire entrer ceux qui manquent.
+    """
+    from blueprints.imports import _key_sets, _custom_types, _run_import
+    from list_sync import sync_source
+
+    source = db.session.get(ListSource, source_id)
+    if source is None:
+        flash('Source introuvable.', 'error')
+        return redirect(url_for('api_integrations.noe'))
+
+    cfg = get_connector(source.provider)
+    if cfg is None or not cfg.is_configured():
+        flash(f'Connecteur « {source.provider} » indisponible ou non configuré.', 'error')
+        return redirect(url_for('api_integrations.noe'))
+
+    try:
+        members = cfg.fetch_members(source.ref)
+    except RuntimeError as e:
+        flash(f'{cfg.label} injoignable : {e}', 'error')
+        return redirect(url_for('api_integrations.noe'))
+
+    newcomers = _newcomers(cfg, source, members)
+    ctx = {'source': source, 'liste': source.liste, 'newcomers': newcomers,
+           'total': len(members), 'known': [], 'trashed': [], 'no_email': [],
+           'active_tab': 'noe'}
+
+    # Ce qu'il faut savoir avant de créer des fiches : une adresse déjà présente chez
+    # nous signale soit la même personne arrivée autrement (l'import la complétera au
+    # lieu d'en créer une seconde), soit une adresse partagée — un couple, une adresse
+    # de fonction. L'utilisateur est seul à pouvoir trancher.
+    emails = [m['email'].strip().lower() for m in newcomers if m.get('email')]
+    if emails:
+        rows = Contact.query.filter(db.func.lower(Contact.email).in_(emails)).all()
+        ctx['known'] = [c for c in rows if not c.is_deleted]
+        ctx['trashed'] = [c for c in rows if c.is_deleted]
+    ctx['no_email'] = [m for m in newcomers if not (m.get('email') or '').strip()]
+
+    if request.method == 'POST' and newcomers:
+        col_keys, custom_keys = _key_sets()
+        mapping = {k: k for k in ('email', 'prenom', 'nom', 'telephone', 'source')}
+        rows_in = [dict({k: m.get(k, '') for k in mapping}, source=cfg.label)
+                   for m in newcomers]
+        counts = _run_import(rows_in, mapping, col_keys, custom_keys, _custom_types(),
+                             'fill', [source.liste.nom], current_user.id)
+        _link_identities(cfg, newcomers)
+        db.session.flush()
+        # Réaligner tout de suite : sans cela la liste n'afficherait les nouveaux qu'au
+        # prochain passage du timer, et le compte « à examiner » resterait faux à l'écran.
+        sync_source(source, cfg)
+        db.session.commit()
+        flash(f"{counts['created']} bénévole(s) ajouté(s) à « {source.liste.nom} », "
+              f"{counts['updated']} fiche(s) complétée(s).", 'success')
+        return redirect(url_for('contacts.index', liste=source.liste_id))
+
+    return render_template('noe_newcomers.html', **ctx)
+
+
+def _newcomers(connector, source, members):
+    """Les membres de la source qui n'ont aucune fiche appariée, dans l'ordre reçu.
+
+    L'appariement se lit sur l'identité externe, jamais sur l'email : c'est lui qui
+    survit à un changement d'adresse. Corollaire à garder en tête — quelqu'un qui existe
+    chez nous sans avoir jamais été apparié apparaît ici comme un nouveau venu ; d'où
+    l'avertissement sur les adresses déjà connues, et le mode « compléter les vides ».
+    """
+    ext_ids = [(m.get('ext_id') or '').strip() for m in members if m.get('ext_id')]
+    if not ext_ids:
+        return []
+    connus = {ei.external_id for ei in ExternalIdentity.query.filter(
+        ExternalIdentity.provider == connector.name,
+        ExternalIdentity.instance == source.instance,
+        ExternalIdentity.external_id.in_(ext_ids)).all()}
+    return [m for m in members if (m.get('ext_id') or '').strip()
+            and m['ext_id'].strip() not in connus]
 
 
 def _link_identities(connector, members):
