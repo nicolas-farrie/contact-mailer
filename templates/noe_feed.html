@@ -4,11 +4,11 @@
 {% block settings_content %}
 <div class="page-header">
     <h1>Alimenter une liste depuis « {{ label }} »</h1>
-    <a href="{{ url_for('api_integrations.noe') }}" class="back-link">← Retour aux pôles</a>
+    <a href="{{ url_for('api_integrations.noe') }}" class="back-link">← Retour aux catégories</a>
 </div>
 
 <div class="info-box">
-    <p><strong>{{ members|length }} bénévole{{ 's' if members|length > 1 }}</strong> dans ce pôle.
+    <p><strong>{{ members|length }} bénévole{{ 's' if members|length > 1 }}</strong> dans cette catégorie.
         Une fois la liste rattachée, son contenu suivra NOÉ : ajouts et retraits se feront
         à la synchronisation, et plus à la main.</p>
 </div>
@@ -102,7 +102,7 @@
     </div>
 
     {# Un compteur seul n'apprend rien : ni quel champ, ni quelle différence, ni quoi
-       faire. Les volumes d'un pôle tiennent à l'écran (quelques dizaines de personnes),
+       faire. Les volumes d'une catégorie tiennent à l'écran (quelques dizaines de personnes),
        contrairement à l'import de fichiers qui renvoie vers un CSV. #}
     {% if conflicts %}
     <div class="alert alert-warning">

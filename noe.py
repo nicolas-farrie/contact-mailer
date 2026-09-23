@@ -1,6 +1,6 @@
 """Client API NOÉ et synchronisation des bénévoles d'un projet.
 
-NOÉ (https://noe-app.io, AGPLv3) gère le bénévolat d'un événement : pôles, missions,
+NOÉ (https://noe-app.io, AGPLv3) gère le bénévolat d'un événement : catégories, activités,
 créneaux. Ce module alimente les listes de contact-mailer depuis les inscrits d'un
 projet NOÉ — l'application n'ayant pas d'envoi d'emails groupés, c'est le maillon
 qu'elle délègue à des outils tiers (comme elle le fait déjà pour les SMS par webhook).
@@ -10,20 +10,20 @@ Modèle NOÉ, à connaître pour comprendre le croisement ci-dessous :
     Category « Restauration » → Activity « Service du midi » → Session « samedi 12h-15h »
         → SessionSubscription → Registration → User (email, prénom, nom)
 
-L'appartenance à un pôle n'est donc pas un champ : elle se déduit des créneaux auxquels
+L'appartenance à une catégorie n'est donc pas un champ : elle se déduit des créneaux auxquels
 le bénévole s'est inscrit. Et comme les filtres de l'API ne traversent pas les
 références (pas de `filter[activity.name]=…`), le croisement se fait ici, côté client,
 en quelques appels — cf. build_group_index().
 
 Sens unique, volontairement : NOÉ → contact-mailer. Créer une inscription rattacherait
-la personne au projet, jamais à un pôle ; pré-affecter quelqu'un supposerait de choisir
+la personne au projet, jamais à une catégorie ; pré-affecter quelqu'un supposerait de choisir
 ses créneaux à sa place, ce que NOÉ est précisément fait pour laisser au bénévole.
 """
 
 import re
 import requests
 
-# Groupe synthétique, en plus des pôles : sans lui, les inscrits n'ayant pas encore
+# Groupe synthétique, en plus des catégories : sans lui, les inscrits n'ayant pas encore
 # choisi de créneau n'appartiennent à aucune catégorie et sortent du champ du
 # connecteur — or ce sont souvent eux qu'il faut relancer. Relevé sur le festival des
 # Fourmilières : 23 inscrits sur 40 dans ce cas.
@@ -101,11 +101,11 @@ class NoeClient:
         return self._request('GET', f'projects/{self.project_id}')
 
     def list_categories(self):
-        """Les pôles : « Accueil », « Restauration », « Régie technique »…"""
+        """Les catégories : « Accueil », « Restauration », « Régie technique »…"""
         return self._list(self._project_endpoint('categories'))
 
     def list_activities(self):
-        """Les missions, chacune rattachée à une catégorie."""
+        """Les activités, chacune rattachée à une catégorie."""
         return self._list(self._project_endpoint('activities'))
 
     def list_sessions(self):
@@ -152,6 +152,7 @@ class NoeClient:
                     # départ pour nommer un champ de fiche.
                     fields[key] = {'label': c.get('label') or key, 'type': ctype,
                                    'name': (c.get('displayName') or '').strip(),
+                                   'required': bool(c.get('required')),
                                    'options': options}
                 walk(c.get('components'))
 
@@ -184,11 +185,11 @@ def _normalize_phone(value):
 
 
 def build_group_index(client, level='category', project=None):
-    """{nom du groupe: [contacts]} — les pôles, plus GROUP_ALL.
+    """{nom du groupe: [contacts]} — les catégories, plus GROUP_ALL.
 
     Args:
         client: NoeClient configuré
-        level: 'category' (les pôles, défaut) ou 'activity' (les missions, plus fin)
+        level: 'category' (les catégories, défaut) ou 'activity' (les activités, plus fin)
         project: projet déjà chargé, pour éviter de le redemander quand l'appelant en a
                  besoin par ailleurs (son nom, par exemple)
 

@@ -61,7 +61,7 @@ class Connector:
         return ''
 
     # === ALIMENTATION DE LISTES ===
-    # Un connecteur peut fournir des « groupes » (pôles NOÉ, groupes Seafile, rôles
+    # Un connecteur peut fournir des « groupes » (catégories NOÉ, groupes Seafile, rôles
     # BookStack…) dont chacun peut alimenter une liste. Le cœur de l'application ne
     # connaît que cette notion : il passe par le registre, jamais par un module de
     # service. Un connecteur qui n'alimente rien laisse can_feed_lists à False.
@@ -152,7 +152,7 @@ class NoeConnector(Connector):
     label = 'NOÉ'
     direction = PULL
     description = ("Alimente vos listes depuis les bénévoles d'un festival géré avec "
-                   "NOÉ : un pôle (accueil, restauration…) devient une liste.")
+                   "NOÉ : une catégorie (accueil, restauration…) devient une liste.")
     doc_url = DOCS_INTEGRATIONS + '#noe'
     required_settings = ('NOE_URL', 'NOE_TOKEN', 'NOE_PROJECT_ID')
 
@@ -170,10 +170,10 @@ class NoeConnector(Connector):
         from noe import NoeClient
         return NoeClient(Config.NOE_URL, Config.NOE_TOKEN, Config.NOE_PROJECT_ID)
 
-    #: Niveaux de regroupement proposés. Les pôles d'abord : c'est la maille à laquelle
-    #: on s'adresse aux bénévoles (« la restauration »), les missions servant quand un
-    #: pôle est trop large pour un message ciblé.
-    LEVELS = (('category', 'Pôles'), ('activity', 'Missions'))
+    #: Niveaux de regroupement proposés. Les catégories d'abord : c'est la maille à laquelle
+    #: on s'adresse aux bénévoles (« la restauration »), les activités servant quand un
+    #: catégorie est trop large pour un message ciblé.
+    LEVELS = (('category', 'Catégories'), ('activity', 'Activités'))
     DEFAULT_LEVEL = 'category'
 
     @classmethod
@@ -183,7 +183,7 @@ class NoeConnector(Connector):
         Le niveau voyage DANS la référence plutôt que dans une colonne dédiée : le cœur
         de l'application n'a pas à connaître une notion propre à NOÉ, et c'est au
         connecteur d'interpréter sa propre clé. Une référence sans préfixe vaut
-        `category` — les listes rattachées avant l'introduction des missions continuent
+        `category` — les listes rattachées avant l'introduction des activités continuent
         donc de fonctionner sans migration.
         """
         level, sep, name = (ref or '').partition(':')
@@ -195,7 +195,7 @@ class NoeConnector(Connector):
     def canonical_ref(cls, ref):
         """Ramène une référence à sa forme préfixée, même si elle a été stockée sans.
 
-        Les listes rattachées avant l'introduction des missions portent « Restauration »
+        Les listes rattachées avant l'introduction des activités portent « Restauration »
         et non « category:Restauration » : sans cette normalisation, elles cesseraient
         d'être reconnues comme déjà rattachées.
         """
@@ -206,7 +206,7 @@ class NoeConnector(Connector):
         """Les groupes du festival et leurs effectifs, au niveau demandé.
 
         Seuls ceux comptant au moins un bénévole, quel que soit le niveau : un festival
-        déclare ses catégories et ses missions très en amont, lister les vides noierait
+        déclare ses catégories et ses activités très en amont, lister les vides noierait
         celles où il y a quelqu'un à qui écrire (cf. build_group_index).
         """
         from noe import build_group_index
@@ -258,6 +258,26 @@ class NoeConnector(Connector):
     #: vide sa réponse effacerait le numéro saisi chez nous.
     IDENTITY_TYPES = {'phoneNumber': 'telephone', 'email': 'email'}
 
+    @classmethod
+    def skip_reason(cls, question):
+        """Pourquoi cette question n'est pas à reprendre dans une fiche, ou '' si elle l'est.
+
+        Deux familles sortent du jeu :
+        - **l'identité** (téléphone, email), déjà reprise dans le champ prévu pour elle ;
+        - **les cases à cocher OBLIGATOIRES** — charte acceptée, consentement à être
+          contacté. Ce sont les conditions de l'inscription, pas des informations sur la
+          personne : tout le monde répond oui, sans quoi l'inscription est refusée. Les
+          reprendre remplirait les fiches d'une colonne toujours vraie.
+        """
+        ident = cls.IDENTITY_TYPES.get(question.get('type') or '')
+        if ident:
+            libelles = {'telephone': 'Téléphone', 'email': 'Email'}
+            return 'déjà repris dans le champ « ' + libelles.get(ident, ident.capitalize()) + ' »'
+        if (question.get('type') or '') == 'checkbox' and question.get('required'):
+            return "condition d'inscription — acceptée par tous"
+        return ''
+
+
     def form_questions(self):
         """Les questions du formulaire d'inscription : [{key, label, type}].
 
@@ -265,10 +285,14 @@ class NoeConnector(Connector):
         projet à l'autre : c'est pourquoi la correspondance est enregistrée plutôt que
         devinée.
         """
-        return [{'key': k, 'label': m.get('label') or k, 'type': m.get('type') or '',
-                 'name': m.get('name') or '', 'options': m.get('options') or {},
-                 'identity': self.IDENTITY_TYPES.get(m.get('type') or '', '')}
-                for k, m in self._client().form_fields().items()]
+        out = []
+        for k, m in self._client().form_fields().items():
+            q = {'key': k, 'label': m.get('label') or k, 'type': m.get('type') or '',
+                 'name': m.get('name') or '', 'required': bool(m.get('required')),
+                 'options': m.get('options') or {}}
+            q['skip'] = self.skip_reason(q)
+            out.append(q)
+        return out
 
     @staticmethod
     def format_answer(value, options=None):

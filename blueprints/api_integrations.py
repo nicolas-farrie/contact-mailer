@@ -53,10 +53,10 @@ def noe():
 
     # Groupes déjà rattachés à une liste : proposer « Alimenter » pour eux induirait en
     # erreur, puisqu'une liste n'a qu'une source et qu'un groupe n'alimente qu'une liste.
-    # Les clés sont les refs COMPLÈTES (« category:Restauration ») : un pôle et une
-    # mission de même nom restent ainsi distincts.
+    # Les clés sont les refs COMPLÈTES (« category:Restauration ») : une catégorie et une
+    # activité de même nom restent ainsi distincts.
     _sources = ListSource.query.filter_by(provider=cfg.name, instance=cfg.instance_key()).all()
-    # Clés canoniques des deux côtés : les sources créées avant les missions ont une ref
+    # Clés canoniques des deux côtés : les sources créées avant les activités ont une ref
     # sans préfixe, elles doivent rester reconnues comme déjà rattachées.
     fed_refs = {cfg.canonical_ref(s.ref): s.liste.nom for s in _sources}
     fed_ids = {cfg.canonical_ref(s.ref): s.liste_id for s in _sources}
@@ -96,7 +96,7 @@ def noe():
 @bp.route('/integrations/noe/feed', methods=['GET', 'POST'])
 @login_required
 def noe_feed():
-    """Rattache un pôle NOÉ à une liste : analyse d'abord, alimentation ensuite.
+    """Rattache une catégorie NOÉ à une liste : analyse d'abord, alimentation ensuite.
 
     Réutilise l'import existant (_dry_run / _run_import de blueprints.imports) sans le
     modifier : le connecteur renvoie des dicts dont les clés sont déjà des noms de
@@ -248,11 +248,11 @@ def noe_fields():
         except RuntimeError:
             questions = {}
         fmap = {}
-        identity_keys = {q['key'] for q in questions.values() if q.get('identity')}
+        identity_keys = {q['key'] for q in questions.values() if q.get('skip')}
         for key in request.form.getlist('question'):
             dest = (request.form.get(f'dest_{key}') or '').strip()
-            # Une question d'identité n'est pas proposée à l'écran ; si elle arrive quand
-            # même, on l'ignore plutôt que de créer un doublon du téléphone.
+            # Une question mise à l'écart (identité, condition d'inscription) n'est pas
+            # proposée à l'écran ; si elle arrive quand même, on l'ignore.
             if not dest or key in identity_keys:
                 continue
             if dest == '__new__':

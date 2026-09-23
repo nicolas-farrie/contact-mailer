@@ -4,7 +4,7 @@
 {% block settings_content %}
 <div class="page-header">
     <h1>Réponses du formulaire NOÉ</h1>
-    <a href="{{ url_for('api_integrations.noe') }}" class="back-link">← Retour aux pôles</a>
+    <a href="{{ url_for('api_integrations.noe') }}" class="back-link">← Retour aux catégories</a>
 </div>
 
 <div class="info-box">
@@ -40,10 +40,8 @@
                     {# Une donnée d'identité est déjà reprise par le connecteur, dans le champ
                        de la fiche prévu pour elle. La montrer sans la proposer évite à la fois
                        le doublon et la question « où est passé le téléphone ? ». #}
-                    {% if q.identity %}
-                    <span class="badge badge-gray">déjà repris dans « {{ q.identity|capitalize }} »</span>
-                    <div class="hint">Donnée d'identité : elle reste modifiable dans la fiche,
-                        et une réponse vide n'efface jamais ce que vous avez saisi.</div>
+                    {% if q.skip %}
+                    <span class="badge badge-gray">{{ q.skip }}</span>
                     {% else %}
                     <select name="dest_{{ q.key }}" class="noe-dest" data-key="{{ q.key }}">
                         <option value="">— ne pas remonter —</option>

@@ -30,11 +30,11 @@ Le sens de circulation est indiqué sur chaque carte par une flèche, car il cha
 
 ## NOÉ — bénévoles d'un événement {#noe}
 
-[NOÉ](https://get.noe-app.io/) gère le bénévolat d'un festival : des **pôles** (accueil,
-restauration, régie…), des **missions**, et des **créneaux** auxquels chaque bénévole s'inscrit
+[NOÉ](https://get.noe-app.io/) gère le bénévolat d'un festival : des **catégories** (accueil,
+restauration, régie…), des **activités**, et des **créneaux** auxquels chaque bénévole s'inscrit
 lui-même.
 
-Le connecteur transforme **un pôle en liste de diffusion**. Vous pouvez alors écrire à « la
+Le connecteur transforme **une catégorie en liste de diffusion**. Vous pouvez alors écrire à « la
 restauration » sans ressaisir personne, et la liste suit NOÉ toute seule.
 
 ### Configurer
@@ -56,9 +56,9 @@ Une fois configuré, une entrée **Bénévoles NOÉ** apparaît dans le menu **T
 Elle est accessible à tous les utilisateurs, pas seulement aux administrateurs : alimenter une liste
 est un geste de travail, pas un réglage.
 
-### Alimenter une liste depuis un pôle
+### Alimenter une liste depuis une catégorie
 
-Sur la page **Bénévoles NOÉ**, chaque pôle affiche son effectif. Le bouton *Alimenter une liste*
+Sur la page **Bénévoles NOÉ**, chaque catégorie affiche son effectif. Le bouton *Alimenter une liste*
 ouvre un écran qui, avant d'écrire quoi que ce soit, vous dit ce qui va se passer :
 
 - combien de contacts seront **créés**, **mis à jour**, ou laissés **inchangés** ;
@@ -75,7 +75,7 @@ Le bouton *Analyser* n'écrit rien : il montre le résultat. *Alimenter la liste
 
 ### Les listes alimentées sont un reflet
 
-Une liste rattachée à un pôle porte la marque **⟳ NOÉ** et **son contenu n'est plus modifiable à la
+Une liste rattachée à une catégorie porte la marque **⟳ NOÉ** et **son contenu n'est plus modifiable à la
 main**. Ajouter ou retirer quelqu'un y est refusé, avec une explication.
 
 Ce n'est pas une restriction arbitraire : le contenu vient de NOÉ, et toute modification manuelle
@@ -85,27 +85,27 @@ laisser faire un geste qui sera annulé.
 Vous pouvez en revanche **renommer** la liste, changer sa couleur, sa description, l'archiver ou la
 supprimer — c'est son *contenu* qui est piloté, pas la liste elle-même.
 
-### Pôles ou missions
+### Catégories ou activités
 
 Deux découpages du même effectif, au choix en haut de la page :
 
-- **Pôles** — la maille habituelle : « la restauration », « l'accueil ».
-- **Missions** — plus fin : « Prépa restauration », « Accueil public - Entrée ». Utile quand un pôle
+- **Catégories** — la maille habituelle : « la restauration », « l'accueil ».
+- **Activités** — plus fin : « Prépa restauration », « Accueil public - Entrée ». Utile quand une catégorie
   est trop large pour un message ciblé.
 
-Seuls les groupes comptant **au moins un bénévole** sont proposés : un festival déclare ses pôles
+Seuls les groupes comptant **au moins un bénévole** sont proposés : un festival déclare ses catégories
 très en amont, et lister les vides noierait ceux où il y a quelqu'un à qui écrire.
 
 !!! warning "Attention aux doublons de réception"
-    Une mission appartient à un pôle. Si vous alimentez les deux, une même personne se retrouvera
+    Une activité appartient à une catégorie. Si vous alimentez les deux, une même personne se retrouvera
     dans deux listes. Un envoi qui vise les deux à la fois ne l'ennuiera pas — les destinataires
     sont dédoublonnés par adresse — mais **deux envois séparés lui arriveront bien deux fois**.
 
 ### La synchronisation
 
 Les listes se mettent à jour toutes seules, à intervalle régulier. Un bénévole qui s'inscrit à un
-créneau du pôle y entre ; celui qui s'en retire en sort — **mais il reste dans votre base**, avec son
-historique : quitter un pôle n'est pas disparaître.
+créneau de la catégorie y entre ; celui qui s'en retire en sort — **mais il reste dans votre base**, avec son
+historique : quitter une catégorie n'est pas disparaître.
 
 L'âge de la dernière synchronisation est affiché sur la page Bénévoles NOÉ et, surtout, **sur l'écran
 d'envoi**, à côté de chaque liste concernée — en orange s'il dépasse six heures. Avant un mailing,
@@ -129,7 +129,7 @@ corbeille ?
 
 Alors l'application compte ces personnes et vous le dit. Sur la page **Listes**, une liste
 alimentée affiche **⚠ N à examiner**. Le même signal figure sur la page Bénévoles NOÉ, sur la ligne
-du pôle concerné.
+de la catégorie concerné.
 
 En cliquant, vous les voyez **nommément** — prénom, nom, adresse, téléphone — avec les mêmes
 avertissements que lors de la première alimentation : adresses déjà connues, contacts en corbeille,

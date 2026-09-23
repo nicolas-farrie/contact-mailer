@@ -217,6 +217,17 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [x] **NOÉ — vocabulaire et questions écartées** *(23/09/2026, retour de Nicolas)*. Deux
+      reproches fondés. (1) L'interface disait encore **pôle** et **mission**, mots qui
+      n'existent pas dans NOÉ — demande répétée depuis le 15/09, et la doc écrite le même
+      jour les reprenait encore. Renommés partout en **Catégories** et **Activités** (UI,
+      commentaires, guide) ; les clés internes `category:`/`activity:` portaient déjà les
+      bons mots, donc aucune migration. (2) Les deux cases à cocher OBLIGATOIRES (charte,
+      consentement) restaient proposées à la correspondance alors qu'on avait convenu de les
+      sauter : elles sont désormais écartées comme le téléphone, avec leur raison affichée —
+      ce sont des **conditions d'inscription**, acceptées par tout le monde, pas des
+      informations sur la personne. Règle : `NoeConnector.skip_reason()` (identité, ou case
+      à cocher obligatoire). L'écran ne propose plus que les 3 vraies questions.
 - [x] **« Répondre à » absent de l'envoi de test** *(23/09/2026, remonté d'adreic34)*. La
       structure du message était bonne et l'envoi RÉEL portait bien `Reply-To` (vérifié en
       inspectant le message transmis) : c'est `mailing.send_test` qui n'a jamais passé
@@ -404,7 +415,7 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       alimentée : N personnes en commun ») et/ou sur le composeur quand deux listes
       sélectionnées se recouvrent fortement. Décision utilisateurs : on laisse les deux
       niveaux ouverts, on documente le risque.
-- [ ] **NOÉ — reprendre exactement les intitulés de NOÉ dans l'interface** *(15/09/2026)*.
+- [x] **NOÉ — reprendre exactement les intitulés de NOÉ dans l'interface** *(demandé le 15/09, FAIT le 23/09)*.
       L'intégration dit « pôle » et « mission », mots qui n'existent pas dans NOÉ : les
       utilisateurs ne retrouvent pas ce qu'ils voient dans NOÉ. Intitulés vérifiés dans le
       code source de NOÉ (via noe-outils) : **Catégorie** (`categories`), **Activité**

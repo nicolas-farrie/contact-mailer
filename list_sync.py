@@ -15,7 +15,7 @@ Ce que la synchronisation NE fait PAS, volontairement :
   - modifier un champ : nom, email et téléphone appartiennent à contact-mailer ;
   - toucher `is_unsubscribed` ou `has_bounced` : un désabonnement est un droit exercé
     par la personne, qu'aucune synchronisation ne révoque ;
-  - retirer un contact de la base : sortir d'un pôle, c'est quitter la liste, pas
+  - retirer un contact de la base : sortir d'une catégorie, c'est quitter la liste, pas
     disparaître.
 """
 

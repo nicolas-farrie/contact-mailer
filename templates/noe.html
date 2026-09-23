@@ -21,13 +21,13 @@
 <div class="info-box">
     <h3>Fonctionnement</h3>
     <ul>
-        <li>Un <strong>pôle</strong> NOÉ (accueil, restauration…) alimente une <strong>liste</strong>
+        <li>Un <strong>catégorie</strong> NOÉ (accueil, restauration…) alimente une <strong>liste</strong>
             de Contact&nbsp;Mailer.</li>
-        <li>L'appartenance à un pôle vient des <strong>créneaux</strong> auxquels chaque bénévole
+        <li>L'appartenance à une catégorie vient des <strong>créneaux</strong> auxquels chaque bénévole
             s'est inscrit dans NOÉ — c'est lui qui les choisit.</li>
         <li>« <strong>{{ 'Tous les inscrits' }}</strong> » rassemble tout le monde, y compris
             celles et ceux qui n'ont pas encore pris de créneau et n'apparaissent donc dans
-            aucun pôle.</li>
+            aucun catégorie.</li>
         <li>La lecture est à <strong>sens unique</strong> : rien n'est jamais écrit dans NOÉ.</li>
     </ul>
 </div>
@@ -52,8 +52,8 @@
 {% endif %}
 
 {% if configured and not error %}
-{# Deux découpages du même effectif : les pôles pour écrire à « la restauration », les
-   missions quand un pôle est trop large pour un message ciblé. #}
+{# Deux découpages du même effectif : les catégories pour écrire à « la restauration », les
+   activités quand une catégorie est trop large pour un message ciblé. #}
 <div class="noe-levels">
     {# Les niveaux viennent du connecteur : aucun nom n'est écrit ici. #}
     {% for key, libelle in levels %}
@@ -72,8 +72,8 @@
         </tr>
     </thead>
     <tbody>
-        {# `g.ref` est la clé complète (« category:Restauration ») : un pôle et une
-           mission de même nom ne se confondent pas. `g.label` est le nom affiché. #}
+        {# `g.ref` est la clé complète (« category:Restauration ») : une catégorie et une
+           activité de même nom ne se confondent pas. `g.label` est le nom affiché. #}
         {% for g in groups %}
         <tr>
             <td>{% if g.ref in fed_refs %}<a href="{{ url_for('contacts.index', liste=fed_ids[g.ref]) }}">{{ g.label }}</a>{% else %}{{ g.label }}{% endif %}</td>
