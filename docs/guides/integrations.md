@@ -4,6 +4,8 @@ Contact Mailer sait dialoguer avec d'autres outils que vous utilisez peut-être 
 fichiers, un wiki, un logiciel de gestion de bénévoles. Ce guide explique **ce que fait chaque
 connecteur**, **comment l'activer** et **ce qu'il ne fera jamais**.
 
+*Guide révisé le 23/09/2026.*
+
 ## La page Intégrations
 
 Menu **Configuration → Intégrations** (réservé aux administrateurs). Chaque connecteur y apparaît
