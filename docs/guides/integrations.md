@@ -160,19 +160,24 @@ correspondance. Chaque question y est listée, et vous choisissez pour chacune :
 Le téléphone fait exception : il est **déjà repris** dans le champ prévu pour lui, et n'apparaît donc
 pas dans les choix.
 
-**Quand les valeurs descendent-elles ?** Jamais toutes seules — c'est vous qui décidez, en
-cliquant sur l'un de ces deux boutons :
+**Quand les valeurs descendent-elles ?** Toutes seules, la plupart du temps :
+
+- **à l'ouverture d'une session**, si la dernière reprise remonte à plus de deux heures. Elle se
+  fait en arrière-plan : votre connexion n'attend pas, et les fiches sont à jour dans la foulée ;
+- **à chaque synchronisation** des listes, au même rythme minimum de deux heures.
+
+Et à la demande, quand vous ne voulez pas attendre :
 
 - **Alimenter une liste**, la première fois que vous rattachez une catégorie : les réponses
   arrivent avec les contacts ;
 - **⟳ Mettre à jour**, ensuite : sur la page Bénévoles NOÉ, à droite de chaque catégorie déjà
-  rattachée. L'écran qui s'ouvre propose deux choses — faire entrer les bénévoles qui n'ont pas
-  encore de fiche, et, plus bas, **⟳ Actualiser les réponses depuis NOÉ**, qui reprend les réponses
-  de **tout le groupe**, y compris celles qui ont été retirées.
+  rattachée. L'écran propose deux choses — faire entrer les bénévoles qui n'ont pas encore de
+  fiche, et, plus bas, **⟳ Actualiser les réponses depuis NOÉ**, qui reprend immédiatement les
+  réponses de **tout le groupe**, y compris celles qui ont été retirées.
 
-La synchronisation automatique, elle, ne remonte aucune réponse : elle ne touche qu'à
-l'appartenance aux listes. Si un bénévole complète son profil aujourd'hui, sa réponse arrivera chez
-vous au prochain clic sur *Mettre à jour*.
+!!! note "Ce qui reste manuel"
+    La reprise automatique **ne crée jamais de fiche** : elle met à jour les bénévoles que vous
+    connaissez déjà. Faire entrer un nouveau venu reste une décision qui vous appartient.
 
 ### Un champ alimenté par NOÉ est un reflet
 

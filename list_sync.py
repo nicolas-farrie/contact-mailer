@@ -123,4 +123,12 @@ def sync_all(provider=None):
         results.append(res)
 
     db.session.commit()
+
+    # Les réponses du formulaire suivent le même rythme, mais à leur propre cadence (2 h) :
+    # elles changent bien moins souvent que les créneaux, et chaque passe relit tout le
+    # projet. Le contenu des fiches n'est donc plus figé entre deux gestes humains — seule
+    # la CRÉATION d'un contact le reste (cf. l'en-tête de ce module).
+    import field_refresh
+    for provider in connectors:
+        field_refresh.refresh(provider)
     return results

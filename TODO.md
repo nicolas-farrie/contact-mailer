@@ -217,6 +217,16 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [x] **NOÉ — reprise automatique des réponses** *(24/09/2026)*. Les compétences ne descendaient
+      que sur un geste humain : « NOÉ fait foi » ne valait que si quelqu'un pensait à cliquer.
+      Deux déclencheurs ajoutés (`field_refresh.py`) — **à l'ouverture d'une session**, en tâche
+      de fond (connexion mesurée à 0,1 s même avec un service lent), et **à chaque synchronisation**
+      des listes. Intervalle minimum **2 h**, horodaté dans un réglage (donc partagé par les deux
+      workers et conservé au redémarrage) ; un seul rafraîchissement à la fois ; **aucune création
+      de contact** — seuls les bénévoles déjà appariés sont mis à jour. Une seule lecture du projet
+      par passe (« Tous les inscrits »), les réponses appartenant à la personne et non au groupe.
+      Vérifié contre le vrai NOÉ : 65 bénévoles lus, 8 compétences et 63 formations remontées,
+      le filtre « contient AFPS » renvoie les 6 attendus.
 - [x] **NOÉ — vocabulaire et questions écartées** *(23/09/2026, retour de Nicolas)*. Deux
       reproches fondés. (1) L'interface disait encore **pôle** et **mission**, mots qui
       n'existent pas dans NOÉ — demande répétée depuis le 15/09, et la doc écrite le même

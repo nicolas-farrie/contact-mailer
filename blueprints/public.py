@@ -100,6 +100,15 @@ def login():
                 flash('Ce compte a été désactivé. Contactez un administrateur.', 'error')
                 return render_template('login.html')
             login_user(user)
+            # Réponses du service externe rafraîchies en fond : la session s'ouvre sans
+            # attendre un appel réseau, et les fiches sont à jour peu après. Sort tout
+            # seul si ce n'est pas l'heure (intervalle de 2 h) ou si rien n'est mappé.
+            try:
+                import field_refresh
+                from flask import current_app
+                field_refresh.refresh_async(current_app._get_current_object())
+            except Exception:
+                pass          # une session ne doit jamais échouer pour cette raison
             audit('login', user=user)
             next_page = request.args.get('next')
             return redirect(next_page or url_for('contacts.index'))
