@@ -83,9 +83,11 @@
                 <span class="hint">⟳ <a href="{{ url_for('contacts.index', liste=fed_ids[g.ref]) }}">{{ fed_refs[g.ref] }}</a>{% if fed_sync[g.ref] %} · {{ fed_sync[g.ref] }}{% endif %}</span>
                 {# Le rattachement ne crée jamais de fiche par lui-même : les bénévoles
                    inscrits depuis restent à importer, et c'est le seul endroit où le dire. #}
+                {# « Nouveaux venus » ne disait rien de l'autre geste qu'ouvre cet écran —
+                   actualiser les réponses du formulaire. On les nomme tous les deux. #}
                 <a href="{{ url_for('api_integrations.noe_newcomers', source_id=fed_source_ids[g.ref]) }}"
                    class="btn btn-small {{ 'btn-warning' if fed_pending.get(g.ref) else 'btn-secondary' }}">
-                    {% if fed_pending.get(g.ref) %}⚠ {{ fed_pending[g.ref] }} nouveau{{ 'x' if fed_pending[g.ref] > 1 }}{% else %}Nouveaux venus{% endif %}
+                    {% if fed_pending.get(g.ref) %}⚠ {{ fed_pending[g.ref] }} nouveau{{ 'x' if fed_pending[g.ref] > 1 }}{% else %}⟳ Mettre à jour{% endif %}
                 </a>
                 {% else %}
                 <a href="{{ url_for('api_integrations.noe_feed', ref=g.ref) }}"

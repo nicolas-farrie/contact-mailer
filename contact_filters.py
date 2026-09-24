@@ -56,7 +56,10 @@ def filter_ui_metadata():
     fmeta = []
     for f in fields.contact_fields(include_custom=True):   # inclut les champs perso (P2)
         e = {'key': f.key, 'label': f.label, 'type': f.type, 'group': f.group}
-        if f.type == 'select':
+        # `multiselect` aussi : ses valeurs viennent d'une liste fermée, et c'est même là
+        # que la proposer compte le plus — une compétence mal orthographiée dans un filtre
+        # fait un groupe incomplet sans que rien ne le signale.
+        if f.type in ('select', 'multiselect'):
             e['options'] = list(fields.field_options(f))
         fmeta.append(e)
     # Pseudo-champs (groupe « Ciblage »)

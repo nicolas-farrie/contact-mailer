@@ -1,5 +1,5 @@
 {% extends "settings_layout.html" %}
-{% block title %}Nouveaux venus — {{ liste.nom }} - {{ app_name }}{% endblock %}
+{% block title %}Mise à jour depuis NOÉ — {{ liste.nom }} - {{ app_name }}{% endblock %}
 
 {# Rafraîchir les réponses est un geste à part : personne n'entre ni ne sort, seules
    les valeurs alimentées par NOÉ sont remises à jour. Proposé même quand il n'y a aucun
@@ -21,9 +21,15 @@
 
 {% block settings_content %}
 <div class="page-header">
-    <h1>Nouveaux venus dans « {{ source.label or source.ref }} »</h1>
+    <h1>Mise à jour depuis « {{ source.label or source.ref }} »</h1>
     <a href="{{ url_for('api_integrations.noe') }}" class="back-link">← Retour aux catégories</a>
 </div>
+
+{# Deux gestes distincts sur le même écran, annoncés d'emblée : faire entrer ceux qui
+   manquent, et rafraîchir les réponses du formulaire de tout le monde. #}
+<p class="settings-hint" style="margin-top:-0.4rem;">Deux choses ici : <strong>faire entrer</strong>
+    les bénévoles qui n'ont pas encore de fiche{% if synced %}, et <strong>actualiser les réponses</strong>
+    du formulaire NOÉ ({{ synced|join(', ') }}) pour tout le groupe{% endif %}.</p>
 
 {% if newcomers %}
 <div class="info-box">
