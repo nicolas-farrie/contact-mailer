@@ -828,7 +828,7 @@ if __name__ == '__main__':
         print(f"Test de connexion à {args.host}:{args.port}...")
         try:
             context = ssl.create_default_context()
-            with smtplib.SMTP(args.host, args.port) as server:
+            with smtplib.SMTP(args.host, args.port, timeout=30) as server:
                 server.starttls(context=context)
                 server.login(args.user, args.password)
             print("✓ Connexion SMTP réussie !")

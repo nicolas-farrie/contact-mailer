@@ -33,10 +33,10 @@ def main():
     try:
         context = ssl.create_default_context()
         if Config.SMTP_USE_TLS:
-            server = smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT)
+            server = smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT, timeout=30)
             server.starttls(context=context)
         else:
-            server = smtplib.SMTP_SSL(Config.SMTP_HOST, Config.SMTP_PORT, context=context)
+            server = smtplib.SMTP_SSL(Config.SMTP_HOST, Config.SMTP_PORT, context=context, timeout=30)
 
         server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
         print('Connexion SMTP OK')

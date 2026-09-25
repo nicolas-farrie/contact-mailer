@@ -152,7 +152,8 @@ def scan_bounces(config):
     if not config.BOUNCE_IMAP_HOST:
         return []
 
-    conn = imaplib.IMAP4_SSL(config.BOUNCE_IMAP_HOST, config.BOUNCE_IMAP_PORT)
+    conn = imaplib.IMAP4_SSL(config.BOUNCE_IMAP_HOST, config.BOUNCE_IMAP_PORT,
+                             timeout=getattr(config, 'IMAP_TIMEOUT', 10))
     conn.login(config.BOUNCE_IMAP_USER, config.BOUNCE_IMAP_PASSWORD)
 
     results = []
@@ -186,7 +187,8 @@ def scan_bounces(config):
 
 def mark_processed(config, imap_uid):
     """Déplace le message vers le dossier Traité."""
-    conn = imaplib.IMAP4_SSL(config.BOUNCE_IMAP_HOST, config.BOUNCE_IMAP_PORT)
+    conn = imaplib.IMAP4_SSL(config.BOUNCE_IMAP_HOST, config.BOUNCE_IMAP_PORT,
+                             timeout=getattr(config, 'IMAP_TIMEOUT', 10))
     conn.login(config.BOUNCE_IMAP_USER, config.BOUNCE_IMAP_PASSWORD)
     try:
         conn.select(config.BOUNCE_IMAP_FOLDER)

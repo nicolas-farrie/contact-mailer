@@ -54,7 +54,8 @@ def split_subject_lists(raw):
 
 
 def _connect(config):
-    conn = imaplib.IMAP4_SSL(config.IMAP_HOST, config.IMAP_PORT)
+    conn = imaplib.IMAP4_SSL(config.IMAP_HOST, config.IMAP_PORT,
+                             timeout=getattr(config, 'IMAP_TIMEOUT', 10))
     conn.login(config.IMAP_USER, config.IMAP_PASSWORD)
     return conn
 

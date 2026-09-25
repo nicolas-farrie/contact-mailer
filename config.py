@@ -121,6 +121,13 @@ class Config:
     # 300 s (--timeout), ce qui tuerait la boucle en plein vol. On s'arrête avant, le
     # reste attend en file. La commande hors-web n'a pas cette contrainte.
     MAIL_MAX_RUN_SECONDS = int(os.environ.get('MAIL_MAX_RUN_SECONDS', 240))
+
+    # Délai d'attente des connexions IMAP (secondes). SANS lui, une boîte qui ne répond
+    # pas gèle le worker qui l'interroge jusqu'à l'expiration TCP du système — plusieurs
+    # minutes. La page des demandes de diffusion interroge IMAP DANS la requête, et
+    # gunicorn tourne à deux workers : deux visiteurs sur cette page et l'instance ne
+    # répond plus. Dix secondes : une boîte saine répond en moins d'une seconde.
+    IMAP_TIMEOUT = int(os.environ.get('IMAP_TIMEOUT', 10))
     # Envoi automatique : intervalle en secondes entre deux tranches, 0 = désactivé.
     # Un fil d'exécution interne réveille la file tout seul — une campagne de plusieurs
     # centaines de mails part ainsi sans intervention, au rythme autorisé. Le verrou de

@@ -1274,7 +1274,10 @@ def test_connection():
         if kind == 'imap':
             if not Config.IMAP_HOST:
                 return jsonify({'success': False, 'error': 'Boîte des demandes (IMAP) non configurée'})
-            conn = imaplib.IMAP4_SSL(Config.IMAP_HOST, Config.IMAP_PORT)
+            # Un test de connexion interroge par nature des serveurs qui peuvent ne pas
+            # répondre : c'est le chemin qui a le PLUS besoin d'un délai d'attente.
+            conn = imaplib.IMAP4_SSL(Config.IMAP_HOST, Config.IMAP_PORT,
+                                     timeout=Config.IMAP_TIMEOUT)
             conn.login(Config.IMAP_USER, Config.IMAP_PASSWORD)
             conn.select(Config.IMAP_FOLDER)
             conn.logout()
@@ -1283,7 +1286,8 @@ def test_connection():
         if kind == 'bounce':
             if not Config.BOUNCE_IMAP_HOST:
                 return jsonify({'success': False, 'error': 'Boîte bounce (IMAP) non configurée'})
-            conn = imaplib.IMAP4_SSL(Config.BOUNCE_IMAP_HOST, Config.BOUNCE_IMAP_PORT)
+            conn = imaplib.IMAP4_SSL(Config.BOUNCE_IMAP_HOST, Config.BOUNCE_IMAP_PORT,
+                                     timeout=Config.IMAP_TIMEOUT)
             conn.login(Config.BOUNCE_IMAP_USER, Config.BOUNCE_IMAP_PASSWORD)
             conn.select(Config.BOUNCE_IMAP_FOLDER)
             conn.logout()
@@ -1294,11 +1298,13 @@ def test_connection():
             return jsonify({'success': False, 'error': 'SMTP non configuré'})
         context = ssl.create_default_context()
         if Config.SMTP_USE_TLS:
-            with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT) as server:
+            with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT,
+                              timeout=Config.IMAP_TIMEOUT) as server:
                 server.starttls(context=context)
                 server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
         else:
-            with smtplib.SMTP_SSL(Config.SMTP_HOST, Config.SMTP_PORT, context=context) as server:
+            with smtplib.SMTP_SSL(Config.SMTP_HOST, Config.SMTP_PORT, context=context,
+                                  timeout=Config.IMAP_TIMEOUT) as server:
                 server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
         return jsonify({'success': True})
     except Exception as e:

@@ -181,12 +181,16 @@ def forgot_password():
 
                     context = ssl.create_default_context()
                     if Config.SMTP_USE_TLS:
-                        with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT) as server:
+                        # Page PUBLIQUE : un serveur mail muet y gèlerait un worker sans
+                        # qu'aucune authentification ne limite qui peut déclencher l'appel.
+                        with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT,
+                                          timeout=Config.IMAP_TIMEOUT) as server:
                             server.starttls(context=context)
                             server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
                             server.sendmail(Config.SMTP_SENDER_EMAIL, Config.SMTP_SENDER_EMAIL, msg.as_string())
                     else:
-                        with smtplib.SMTP_SSL(Config.SMTP_HOST, Config.SMTP_PORT, context=context) as server:
+                        with smtplib.SMTP_SSL(Config.SMTP_HOST, Config.SMTP_PORT, context=context,
+                                              timeout=Config.IMAP_TIMEOUT) as server:
                             server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
                             server.sendmail(Config.SMTP_SENDER_EMAIL, Config.SMTP_SENDER_EMAIL, msg.as_string())
                 except Exception:

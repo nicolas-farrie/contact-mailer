@@ -1,6 +1,35 @@
 # Contact Mailer - TODO
 # le [ ] vide indique non fait ; le [x] fait ; le [~] partiellement fait ; le [?] pas sûr qu'il faille le faire (à rediscuter)
 # - [ ][ ] - sous point
+## État au 25/09/2026 (audit TODO ↔ code)
+
+Le fichier avait trois semaines de retard : **30 items ouverts étaient déjà faits** et ont été
+cochés ce jour (EPIC Sélection S2→S5 au complet, envoi asynchrone, recherche avancée, segments,
+champs de formulaire éditables et sécurité du lien public, audit, WAL, journalisation, modèles de
+mailing, page À propos…). Ce qui suit est ce qui reste VRAIMENT, par ordre d'urgence.
+
+**Risques d'exploitation** — à traiter en premier :
+1. ~~Timeout IMAP~~ → **fait le 25/09** (`Config.IMAP_TIMEOUT`, 14 connexions réseau couvertes).
+2. **Pas de protection CSRF** sur les formulaires POST — application authentifiée manipulant des
+   données personnelles.
+3. **`update.sh` hors git avec prune inconditionnel** (dépôt `contact-mailer-deploy`) : il détruit
+   l'image de rollback. Invisible tant que claude-serveur déploie à la main.
+4. **Fork-safety** : `--preload` sans `dispose()` au post-fork.
+5. **Scan des bounces resté manuel** — le mécanisme existe, rien ne le déclenche périodiquement.
+6. **RGPD — suppression d'un utilisateur** : hard delete laissant des références orphelines ;
+   sans effet sur SQLite, bloquant le jour d'un portage Postgres.
+
+**En attente d'un tiers** : quotas mutualisés entre instances (réponse LWS).
+
+**Analysé, chiffré, non codé** : plages alphabétiques dans les filtres (~½ journée).
+
+**Petits restes fonctionnels** : landing après connexion (on arrive sur Contacts, Listes voulu),
+pied de mail « nom de la liste + inscrits », brouillon enregistrable sans liste cochée, avertir du
+doublon catégorie/activité, fusion de deux listes, traçabilité de l'expéditeur d'une demande.
+
+**Documentation utilisateur** : 3 guides publiés (démarrage, intégrations, segments) ; manquent
+Mailing, Contacts, Formulaires.
+
 ## Fait
 - [x] Gestion contacts (CRUD)
 - [x] Gestion listes (many-to-many)
@@ -122,8 +151,8 @@
 - **Correction cruciale : ne JAMAIS conditionner l'envoi en masse à l'API** (100/mois → un import 3500 explose le quota qu'on vérifie à l'import OU « au 1er usage »). Le **gate d'envoi = gratuit** (format+MX + `not has_bounced` + `not unsubscribed`). L'API = **bonus qualité** aux points de saisie (fiche + formulaire public), jamais un blocage de campagne. Réponse à « non-vérifiées > quota » : les `None` partent sur confiance format+MX ; l'API ne les atteint simplement pas ce mois-ci. → béquille assumée ; la vraie réponse = la boucle bounce (gratuite, illimitée, **auto-corrective**).
 
 **PLAN D'EXÉCUTION (dans l'ordre) :**
-- [ ] **1a. Exclure `has_bounced` de l'envoi** (consommateur de la boucle) — modifier `_recipients` (+ cohérence `active_contacts`/`joignables`). Petit, sûr.
-- [ ] **1b. Recaler les plafonds** aux vraies limites avec marge : `MAIL_MAX_PER_HOUR` 100→~220, `MAIL_MAX_PER_DAY` 300→~2400 (defaults code surchargeables `.env`). `MAIL_RATE_PER_MINUTE` : lissage modeste (LWS compte à l'heure).
+- [x] **1a. Exclure `has_bounced` de l'envoi** (consommateur de la boucle) — modifier `_recipients` (+ cohérence `active_contacts`/`joignables`). Petit, sûr.
+- [x] **1b. Recaler les plafonds** aux vraies limites avec marge : `MAIL_MAX_PER_HOUR` 100→~220, `MAIL_MAX_PER_DAY` 300→~2400 (defaults code surchargeables `.env`). `MAIL_RATE_PER_MINUTE` : lissage modeste (LWS compte à l'heure).
 - [ ] **2. TEST EMPIRIQUE de la boucle sur lfll** (tranche la question « sommes-nous aveugles ? ») : `.env` `BOUNCE_IMAP_*` = boîte d'expédition ; envoyer à une adresse invalide (`nexistepas@asso34.fr`) ; attendre le NDR ; « Scanner les bounces » ; vérifier `has_bounced=True`. → NDR arrive = boucle OK sur mutualisée / VPS = confort ; NDR n'arrive pas = argument chiffré pour le VPS.
 - [ ] **3. Validation format+MX à la saisie** (prévention amont) : fiche contact + formulaire public + import (rejet du garbage évident, gratuit, illimité).
 - [ ] **4. `email_verified` tri-état + API togglable** (clé `.env`) aux points de saisie faible débit uniquement. Choisir le fournisseur (AbstractAPI 100/mois gratuit = dépannage ; palier payant si la prévention devient centrale).
@@ -151,10 +180,10 @@ Détail complet : `doc-travail/2026-08-06-import-v2-etat-et-suite.md`. Branche `
 - [note] Base de dev : doublons possibles créés pendant les tests d'aujourd'hui (avant le fix dédoublonnage) → prévoir au besoin un petit script de dédoublonnage par (nom, prénom).
 
 ### Formulaires — 2 gros sujets liés (analyse cadrée le 6/07, à traiter ensemble, sécurité intégrée dès la conception)
-- [ ] Champs de la base éditables dans le formulaire (self-service auto-correction)
+- [x] Champs de la base éditables dans le formulaire (self-service auto-correction)
 - [ ][ ] Liste blanche de champs éditables par formulaire (comme la sélection des listes → table type PreferenceFormField ou colonne JSON)
 - [ ][ ] Page publique : pré-remplissage des valeurs, édition, update du contact ; email/uid exclus par défaut (identité + dedup import) ; traçabilité "modifié par le contact"
-- [ ] Sécuriser l'accès quand des champs sont exposés (le lien est une "capability URL" : token 128 bits + expiry, HTTPS ; risque = fuite du lien)
+- [x] Sécuriser l'accès quand des champs sont exposés (le lien est une "capability URL" : token 128 bits + expiry, HTTPS ; risque = fuite du lien)
 - [ ][ ] Option retenue à décider : (préféré) proposition→validation admin — supprime la surface d'injection ; ou OTP e-mail ; ou confirmer un champ connu ; ou SMS OTP (option forte, mais coût provider + numéros mobiles peu fiables)
 - [~] ⚠️ Auth ≠ sanitisation : échapper/sanitiser les champs contact partout où ils ressortent NON échappés :
   - [x] **export CSV/TSV + XLSX (formula injection Excel)** — `b14719d` : `_formula_guard` (préfixe espace, round-trip préservé). Corrige aussi l'affichage des tél. « +33… ».
@@ -187,9 +216,9 @@ Détail complet : `doc-travail/2026-08-06-import-v2-etat-et-suite.md`. Branche `
 Ordre d'attaque convenu (26/08) : Reply-To (section dédiée plus haut) → bugs rapides #3/#2 → daemon de notif (section « Notification des demandes ») → backup Paramètres. Responsive = plus tard.
 - [ ] **#3 (bug rapide) — « Vider le brouillon » n'efface pas** : `clearDraft()` (mailing.html) fait `removeItem(draft)+reload`, mais le reload **ré-applique le préremplissage serveur** si l'URL porte `?from_submission=` / `?from_campaign=` → le form se re-remplit. Fix probable : rediriger vers `/mailing` **propre** (sans params) au lieu de `location.reload()`. ~10 min. À confirmer : le cas était-il une demande/réutilisation ou un mailing vierge ?
 - [ ] **#2 (bug rapide) — import xlsx : 1022 colonnes affichées (même vides)** : `_read_xlsx` (imports.py) lit toute la dimension de la feuille + invente `colonne N` pour les vides. Fix : ne garder que les colonnes à **en-tête non vide** (tronquer les vides en fin). Rapide.
-- [ ] **#1 — Sauvegarde de la base dans Paramètres** : bouton snapshot/télécharger la base **avant un import risqué** (surtout création de champs perso). Garde-fou utilisateur (≠ backups de déploiement de claude-prod). ~½–1 session.
+- [x] **#1 — Sauvegarde de la base dans Paramètres** : bouton snapshot/télécharger la base **avant un import risqué** (surtout création de champs perso). Garde-fou utilisateur (≠ backups de déploiement de claude-prod). ~½–1 session.
   - [ ] **1a — Auto-backup AVANT chaque import** (le plus important) : copie `data/contacts.db` → `data/backups/pre-import-<ts>.db` juste avant d'appliquer un import. Rend l'import réversible (irréversibilité = le vrai risque, pas SQLite). Prioritaire.
-- [ ] **Robustesse SQLite — activer le mode WAL** (`PRAGMA journal_mode=WAL`) : améliore la concurrence (lecteurs ne bloquent plus l'écrivain ; utile pendant un long import). ATOMICITÉ/ACID **préservées** (WAL est plus robuste, pas moins). NB : WAL ajoute des fichiers `-wal`/`-shm` à côté de `contacts.db` → **la stratégie de backup doit checkpoint ou copier ces fichiers aussi** (sinon `cp contacts.db` seul rate les données non encore checkpointées). → à faire AVEC #1/1a (ils vont ensemble), PAS juste avant un import (changer une chose à la fois). Réglage niveau base (persistant dans l'en-tête du fichier), **pas une colonne/migration**.
+- [x] **Robustesse SQLite — activer le mode WAL** (`PRAGMA journal_mode=WAL`) : améliore la concurrence (lecteurs ne bloquent plus l'écrivain ; utile pendant un long import). ATOMICITÉ/ACID **préservées** (WAL est plus robuste, pas moins). NB : WAL ajoute des fichiers `-wal`/`-shm` à côté de `contacts.db` → **la stratégie de backup doit checkpoint ou copier ces fichiers aussi** (sinon `cp contacts.db` seul rate les données non encore checkpointées). → à faire AVEC #1/1a (ils vont ensemble), PAS juste avant un import (changer une chose à la fois). Réglage niveau base (persistant dans l'en-tête du fichier), **pas une colonne/migration**.
 - [ ] **#4 — Responsive des listes (REPOUSSÉ, non bloquant)** : sur demi-écran/mobile, icônes/boutons d'action peu accessibles. Chantier CSS transverse (tableaux → cartes/scroll sur petit écran) → **candidat CLD** (parti pris design).
 - [ ] **#5 — Recherche mobile peu visible** : à préciser (repro user à venir) ; probablement lié à #4.
 - [note] Autres remontées #32 déjà couvertes ailleurs : Reply-To (section dédiée) ; daemon de notif (section « Notification des demandes de diffusion »).
@@ -198,13 +227,13 @@ Ordre d'attaque convenu (26/08) : Reply-To (section dédiée plus haut) → bugs
 Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ; **Tier 2 = journal d'audit** (« qui a fait quoi » sur les données, en base + UI Admin). Principe directeur : tracer **données perso + sécurité/accès** (redevabilité RGPD), **JAMAIS le comportement** (navigation, recherches, fiches vues = flicage, exclu).
 
 **Tier 1 — logs système** (⏳ en cours 28/08) :
-- [ ] `logging.basicConfig` (niveau `LOG_LEVEL` env, défaut INFO, format horodaté) dans `app.py` — aujourd'hui aucune config → INFO avalé, pas de timestamp.
-- [ ] gunicorn `--capture-output --log-level info` (garder `--access-logfile -`).
-- [ ] Rotation Docker (compose `logging: json-file, max-size 10m, max-file 5`) — **par instance côté hôte (claude-prod)** : les compose prod sont propres à chaque instance.
+- [x] `logging.basicConfig` (niveau `LOG_LEVEL` env, défaut INFO, format horodaté) dans `app.py` — aujourd'hui aucune config → INFO avalé, pas de timestamp.
+- [x] gunicorn `--capture-output --log-level info` (garder `--access-logfile -`).
+- [x] Rotation Docker (compose `logging: json-file, max-size 10m, max-file 5`) — **par instance côté hôte (claude-prod)** : les compose prod sont propres à chaque instance.
 
 **Tier 2 — journal d'audit** (à faire ; **login = URGENT, contexte campagne électorale**) :
-- [ ] Table `AuditLog(id, ts, user_id, username_snapshot, action, target_type, target_id, details_json, ip?)` — append-only, snapshot du username (survit à la suppression), rétention BORNÉE (purge auto configurable ~12 mois : le journal est lui-même de la donnée perso), IP optionnelle/désactivable.
-- [ ] Helper `audit(action, target=…, **details)` + branchement des points clés.
+- [x] Table `AuditLog(id, ts, user_id, username_snapshot, action, target_type, target_id, details_json, ip?)` — append-only, snapshot du username (survit à la suppression), rétention BORNÉE (purge auto configurable ~12 mois : le journal est lui-même de la donnée perso), IP optionnelle/désactivable.
+- [x] Helper `audit(action, target=…, **details)` + branchement des points clés.
 - [ ] **Événements pertinents** (cadre non-flicage) :
   - **A. Accès/sécurité** : connexion **réussie** (qui/quand), connexion **ÉCHOUÉE** (identifiant tenté) ← **PRIORITÉ (campagne électorale)** ; changement de mot de passe. *(jamais le mot de passe)*
   - **B. Comptes & droits** : user créé/modifié/désactivé/supprimé ; changement de rôle et de `is_moderator`.
@@ -213,7 +242,7 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
   - **E. Config sensible** : SMTP/bounce, création/suppression de champ perso (change le schéma).
   - **NE PAS logger** : consultation de fiche, recherches, navigation, temps passé (flicage, exclu).
 - [ ] **Déjà en place à réutiliser** : `Contact.created_by_id/updated_by_id/deleted_by_id/deleted_at` (paternité par enregistrement), `ContactSend` (journal d'envoi). L'audit comble les trous (connexions, exports, opérations en masse, droits, config).
-- [ ] **UI dans Admin › Utilisateurs** : (1) journal global filtrable (utilisateur/type/période) sur le sous-ensemble A→E ; (2) par utilisateur sur sa fiche : dernière connexion + résumé actions sensibles. Libellé explicite « traçabilité sécurité/RGPD, pas un suivi d'activité ».
+- [x] **UI dans Admin › Utilisateurs** : (1) journal global filtrable (utilisateur/type/période) sur le sous-ensemble A→E ; (2) par utilisateur sur sa fiche : dernière connexion + résumé actions sensibles. Libellé explicite « traçabilité sécurité/RGPD, pas un suivi d'activité ».
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
@@ -342,7 +371,7 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       l'appariement se lit sur l'identité externe : quelqu'un présent chez nous sans avoir
       jamais été apparié apparaît comme nouveau. Synchro rejouée dans la foulée pour que
       la liste et le compteur soient justes tout de suite.
-- [ ] **NOÉ — remonter les réponses du formulaire en champs perso** *(23/09/2026, en attente
+- [x] **NOÉ — remonter les réponses du formulaire en champs perso** *(23/09/2026, en attente
       de l'équipe)*. Demande des Fourmilières : segmenter sur les compétences (« As-tu des
       compétences en soin ? », liste à choix MULTIPLES à options fermées), la formation
       Service d'Ordre (Oui/Non), le régime alimentaire (texte libre), et l'opt-in email
@@ -451,18 +480,18 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - [x] Pièces jointes dans les mailings (upload, stockage, envoi MIMEBase)
 - [x] Affichage du message dans la file d'attente : toggle afficher/masquer, rendu HTML via iframe
 - [~] Historique mailing : affichage du détail d'une campagne (corps du mail, liste, pièces jointes) — clic sur ligne ou bouton dédié
-- [ ] Envoi asynchrone (ne pas bloquer l'interface pendant l'envoi)
+- [x] Envoi asynchrone (ne pas bloquer l'interface pendant l'envoi)
 - [x] Pagination de la liste des contacts (Lot A refonte : pagination client 25/page, sélection conservée entre pages)
 - [x] Cache-busting des assets statiques (fait : ?v=mtime via global Jinja asset_version) (`?v={{ config.APP_VERSION }}` sur style.css / JS) — évite que le navigateur serve un ancien CSS après déploiement (piège rencontré en test refonte : Ctrl+Shift+R nécessaire)
-- [~] **Segments dynamiques accessibles à l'utilisateur** (décision 22/07 ; **PARTIEL** : filtre Statut Abonnés/Désabonnés/Bounces ajouté en Lot A — reste « jamais mailés » + corbeille comme vues) : donner accès depuis la page Contacts
+- [x] **Segments dynamiques accessibles à l'utilisateur** (décision 22/07 ; **PARTIEL** : filtre Statut Abonnés/Désabonnés/Bounces ajouté en Lot A — reste « jamais mailés » + corbeille comme vues) : donner accès depuis la page Contacts
   aux sélections calculées — **désabonnés**, **bounces** (`has_bounced`), **jamais mailés**, corbeille — sous forme de
   filtres/vues. Aujourd'hui la page Contacts ne filtre que par liste / source / recherche → impossible de voir les
   désabonnés. Les listes restent l'outil end-user "curé" ; les segments sont l'outil dynamique, mais ils doivent être
   **manipulables par l'utilisateur**, pas seulement internes. (Version ultérieure, validé.)
-- [ ] Recherche avancée (filtres multiples)
+- [x] Recherche avancée (filtres multiples)
 - [ ] Fusionner deux listes
-- [ ] **Stats de formulaires (ouverts / répondus)** — la seule métrique « ouverture/clic » qui a du sens en non-marchand, et quasi gratuite : le clic atterrit chez nous. GET page publique = **ouvert**, POST = **répondu**. Compter/afficher par formulaire (taux de réponse). Pas de tracker externe, pas de pixel — respectueux.
-- [ ] **Garde-fou volume d'envoi** — le vrai plafond = quota du serveur mail (`mail.aubaygues.fr`), pas la réputation (base 100 % opt-in). Ajouter : **cap quotidien configurable** + **avertissement au-delà d'un seuil** (ex. > 500 en un envoi) + conseil de **montée en charge progressive** (warm-up). Le pacing existe déjà (`MAIL_RATE_PER_MINUTE=20` → 3 s/email) + file d'attente. Pré-requis délivrabilité à vérifier : **SPF/DKIM/DMARC** sur aubaygues.fr. **📄 Mémo complet : `doc-travail/delivrabilite-envoi.md`.**
+- [x] **Stats de formulaires (ouverts / répondus)** — la seule métrique « ouverture/clic » qui a du sens en non-marchand, et quasi gratuite : le clic atterrit chez nous. GET page publique = **ouvert**, POST = **répondu**. Compter/afficher par formulaire (taux de réponse). Pas de tracker externe, pas de pixel — respectueux.
+- [x] **Garde-fou volume d'envoi** — le vrai plafond = quota du serveur mail (`mail.aubaygues.fr`), pas la réputation (base 100 % opt-in). Ajouter : **cap quotidien configurable** + **avertissement au-delà d'un seuil** (ex. > 500 en un envoi) + conseil de **montée en charge progressive** (warm-up). Le pacing existe déjà (`MAIL_RATE_PER_MINUTE=20` → 3 s/email) + file d'attente. Pré-requis délivrabilité à vérifier : **SPF/DKIM/DMARC** sur aubaygues.fr. **📄 Mémo complet : `doc-travail/delivrabilite-envoi.md`.**
 - [ ] **⚙️ ACTION — demander à l'admin de `mail.aubaygues.fr` ses quotas d'envoi** (par heure / par jour) → c'est le plafond dur qui conditionne la taille des envois. **+ vérifier SPF/DKIM/DMARC** sur `aubaygues.fr` avant tout envoi élargi. Cf. `doc-travail/delivrabilite-envoi.md`.
 - [~] Export vCard : route disponible (3.0/4.0), compatibilité Thunderbird à investiguer
 
@@ -474,7 +503,7 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 
 ## Robustesse du service (analyse 2026-07-18)
 - [x] File d'envoi migrée du fichier JSON vers la DB (tables mail_campaign / mail_queue_item, colonnes JSON pour snapshot contact + PJ). Écritures transactionnelles, ids auto-incrémentés (fin des collisions), sauvegardé avec la DB. Interface MailQueue inchangée. Migration : tools/migrate_queue_to_db.py. (tools/fix_queue_ids.py devient obsolète.)
-- [ ] Timeout IMAP dans le chemin des requêtes (`IMAP4_SSL(..., timeout=10)`) — évite le gel d'un worker si le serveur mail ne répond pas
+- [x] Timeout IMAP dans le chemin des requêtes (`IMAP4_SSL(..., timeout=10)`) — évite le gel d'un worker si le serveur mail ne répond pas
 - [ ] Ajouter la protection CSRF (Flask-WTF) sur les formulaires POST
 - [ ] Fork-safety : `init_db()`/`db.engine.dispose()` en post_fork (gunicorn --preload) ; assert SECRET_KEY ≠ défaut en prod
 - [x] **Point d'entrée unique des migrations `tools/migrate.py`** (runner ledger `schema_migrations`, registre ordonné des 21 scripts, `--dry-run`/`--stamp`/`--safe-only`) — **Fait (05/08, dans l'image v2.0.0)**. À chaque changement de schéma : ajouter une ligne dans `MIGRATIONS`. Après déploiement : `docker compose run --rm --no-deps app python tools/migrate.py` (`run` et non `exec` : si le nouveau code attend une colonne pas encore créée, l'app boucle au démarrage et `exec` n'a aucun conteneur où s'accrocher — cf. en-tête de `tools/migrate.py`). *(Alembic reporté au jour Postgres.)*
@@ -505,17 +534,17 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
     chantier ; une impression, non.
 
 ## Session debug 2026-07 (régressions post-restructuration blueprints)
-- [~] Bouton « Envoyer un email de test » : câbler la route POST /mailing/test-smtp (existe déjà) dans la page **Généraux** — *renommage « Paramètres »→« Généraux » **FAIT** 26/07 ; reste à câbler le bouton*
+- [x] Bouton « Envoyer un email de test » : câbler la route POST /mailing/test-smtp (existe déjà) dans la page **Généraux** — *renommage « Paramètres »→« Généraux » **FAIT** 26/07 ; reste à câbler le bouton*
 - [x] Régler le bloqueur bounce 553 (MAIL FROM=bounce@ rejeté par le SMTP) — fait 26/07 : fonction bounce **retirée du `.env`** (BOUNCE_RETURN_PATH/IMAP vidés) → enveloppe = compte SMTP authentifié. **À répliquer en prod lfll.** (Le toggle UI « Gestion du Bounce » reste à faire, voir plus bas.)
 - [ ] Test exhaustif bouton par bouton : Mailing (M1–M18) puis Formulaires (F1–F11)
 - [ ] Mailing/P2 — gestion de l'absence de Civilité : la civilité reste optionnelle (respect / non-binaire), donc `{civilite}` peut être vide → l'assistant variables (P2) doit aider à gérer l'absence proprement (ex. `{civilite:{civilite} :}` conditionnel, ou salutation neutre par défaut) pour éviter les « Bonjour ,  Nom » disgracieux. (L'accord de genre, lui, est réglé : « Inclusif » par défaut, jamais vide.)
-- [ ] Éditeur mailing : passer l'UI/commandes en français ; ajouter un bouton « insérer une image » (seul Ctrl+V/Ctrl+C fonctionne)
+- [x] Éditeur mailing : passer l'UI/commandes en français ; ajouter un bouton « insérer une image » (seul Ctrl+V/Ctrl+C fonctionne)
   - EN ATTENTE de la proposition UI de Claude Design avant de trancher l'éditeur. Faits établis (2026-07-18) : version actuelle **TinyMCE 6.8.5**, dernière **8.8.0**. Depuis la v7, auto-hébergement en GPLv2+ exige `license_key: 'gpl'` (gratuit) ; en **v8, sans clé l'éditeur passe en lecture seule**. Options : garder 6.8.5 (OK, aucune clé) / upgrade 8.8.0 + `license_key:'gpl'` / remplacer par TipTap ou Unlayer (builder email, merge-tags cliquables). Ne pas migrer avant de savoir si on garde TinyMCE.
 - [ ] Bouton « Envoyer X emails maintenant » : feedback visuel selon le résultat — échec → rouge + texte « Recommencer… » / « Afficher le log de l'envoi » ; succès → vert + texte différent de celui d'avant l'envoi
 - [x] File d'envoi — état « terminé » : alerte de succès verte « ✓ Campagne envoyée » (mailing_queue.html)
 - [x] File d'envoi — DANGER UX : bouton « Supprimer la campagne » remplacé par « ← Retour aux mailings » (vers mailing.history). Suppression toujours possible depuis l'historique
 - [x] BUG : après envoi, item reste « En attente » — cause = ids non uniques (len()+1 recyclé après suppression de campagnes) → mark_sent/mark_error frappent le mauvais item. Corrigé (id=max+1) + outil tools/fix_queue_ids.py pour les fichiers existants
-- [ ] Demandes de diffusion — liste : pouvoir prévisualiser le CONTENU du mail (corps + PJ) directement depuis la liste, AVANT « Utiliser pour un mailing »
+- [x] Demandes de diffusion — liste : pouvoir prévisualiser le CONTENU du mail (corps + PJ) directement depuis la liste, AVANT « Utiliser pour un mailing »
 - [ ] Demandes de diffusion — traçabilité expéditeur : conserver l'adresse du demandeur (en pied de mail / métadonnée) pour lui renvoyer un compte-rendu d'exécution du mailing (qui a validé + infos du mailing envoyé)
 - [ ] Demandes de diffusion — signature de modération (contexte MILITANT / confidentialité) : afficher par défaut en pied des mailings ISSUS d'une demande (campagne avec submission_id) une ligne « demande de diffusion modérée par : <signature> ». GARDE-FOUS :
   1. Découpler **audit interne** (toujours stocker le vrai `user_id` du modérateur sur la campagne — aujourd'hui `sent_by` en texte, préférer un user_id — visible **admins seulement**) de la **signature externe**.
@@ -547,7 +576,7 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - [x] Formulaire (édition/création) : contraint sur une demi-page (form-card max-width 600px) → modificateur .form-card-wide (max-width:none) sur formulaire_edit
 - [x] Mineur — page « confirmation de l'envoi » : toggle « tout sélectionner » coché par défaut (mailing_confirm.html)
 - [ ] Documentation utilisateur : rédiger une vraie doc par fonction (menus Mailing, Formulaires, Contacts, Listes, Paramètres… chaque bouton/action), destinée aux utilisateurs finaux des petites structures
-- [ ] Paramètres : ajouter une case à cocher « Gestion du Bounce » (activer/désactiver). Sur les petites structures (cœur de cible de l'app), le suivi des bounces n'est pas indispensable → permettre de le désactiver proprement dans l'UI, au lieu de bidouiller les variables .env (quand OFF : pas d'adresse bounce forcée en enveloppe → règle aussi le rejet SMTP 553)
+- [x] Paramètres : ajouter une case à cocher « Gestion du Bounce » (activer/désactiver). Sur les petites structures (cœur de cible de l'app), le suivi des bounces n'est pas indispensable → permettre de le désactiver proprement dans l'UI, au lieu de bidouiller les variables .env (quand OFF : pas d'adresse bounce forcée en enveloppe → règle aussi le rejet SMTP 553)
 - [x] Page "Listes" : bouton « Exporter » désormais affiché uniquement si current_user.is_admin (listes.html)
 
 
@@ -663,14 +692,14 @@ Aujourd'hui l'onglet « À valider » applique/rejette **par contact** (globalem
 
 **Staging :**
 - [x] **S1 — Journal `ContactSend(contact_id, campaign_id, sent_at)`** + backfill + écriture dans `_run_send`. Débloque « jamais mailé » / « déjà reçu campagne X » / histo contact. **Fait (08-04).** ⚠️ migration `migrate_add_contact_send.py` au prochain déploiement.
-- [ ] **S2 — Sélection courante** (`selection_member`, singleton/user) + **chip transverse** (Voir · Envoyer un mailing · Enregistrer comme liste · Vider) + → sélection / vider.
-- [ ] **S3 — Filtres dynamiques Contacts** : dates (`created_at`), membre/non-membre liste, **répondu/pas-répondu formulaire**, jamais-mailé, désabonnés/bounces (déjà partiels) → chacun alimente la sélection.
-- [ ] **S4 — Opérations ensemblistes** sur la sélection (Ajouter ∪ / Retirer ∖ / Intersecter ∩ / Remplacer).
-- [ ] **S5 — Mailing** : cibler la **sélection courante** + option **exclure « déjà reçu »** (via `ContactSend`).
+- [x] **S2 — Sélection courante** (`selection_member`, singleton/user) + **chip transverse** (Voir · Envoyer un mailing · Enregistrer comme liste · Vider) + → sélection / vider.
+- [x] **S3 — Filtres dynamiques Contacts** : dates (`created_at`), membre/non-membre liste, **répondu/pas-répondu formulaire**, jamais-mailé, désabonnés/bounces (déjà partiels) → chacun alimente la sélection.
+- [x] **S4 — Opérations ensemblistes** sur la sélection (Ajouter ∪ / Retirer ∖ / Intersecter ∩ / Remplacer).
+- [x] **S5 — Mailing** : cibler la **sélection courante** + option **exclure « déjà reçu »** (via `ContactSend`).
 - Relié : « segments dynamiques » (bounces/jamais-mailés/désabonnés) + « Modèles » (Tier 2) + « Réutiliser → nouvelle campagne » (à traiter avec les Modèles). À distinguer de la nav Précédent/Suivant fiche (client, éphémère).
 
 **Composants / UX transverses :**
-- [ ] **Modale de confirmation réutilisable et unique** (remplacer les `confirm()` natifs : corbeille contacts, suppression utilisateur, suppression campagne…)
+- [x] **Modale de confirmation réutilisable et unique** (remplacer les `confirm()` natifs : corbeille contacts, suppression utilisateur, suppression campagne…)
 - [ ] **Assistant variables** dans l'éditeur mailing + gestion propre de l'absence de **civilité** (éviter « Bonjour ,  Nom »)
 - [ ] Polish shell : icônes dans la sidebar, en-tête sticky
 
@@ -685,7 +714,7 @@ Aujourd'hui l'onglet « À valider » applique/rejette **par contact** (globalem
 
 **Mailing :**
 - [ ] **Templates génériques** (email de bienvenue, de désabonnement, etc.) : aujourd'hui « enregistrer le brouillon » puis l'utiliser **détruit** le brouillon → concevoir une vraie notion de modèle réutilisable
-- [ ][ ] **Sous-menu « Modèles »** (dans la sous-nav Mailing) listant les campagnes-modèles enregistrées. Actions : **Voir / Utiliser / Archiver / Supprimer (admin)**. « Utiliser » **duplique** le modèle vers une **nouvelle campagne** (sujet, corps, PJ, listes) — le modèle n'est **jamais** modifié ni consommé.
+- [x][ ] **Sous-menu « Modèles »** (dans la sous-nav Mailing) listant les campagnes-modèles enregistrées. Actions : **Voir / Utiliser / Archiver / Supprimer (admin)**. « Utiliser » **duplique** le modèle vers une **nouvelle campagne** (sujet, corps, PJ, listes) — le modèle n'est **jamais** modifié ni consommé.
   - [ ][ ] **Archi** : flag **`is_template`** sur `MailCampaign` (+ migration) ; un modèle n'est jamais envoyé ; « Utiliser » = clone via la logique de persistance existante. Réutilise le pattern **archivage réversible + suppression admin depuis les archives** (comme Listes / Formulaires).
   - [ ][ ] **Listes copiées = valeurs par défaut pré-cochées, PAS un verrou** → modifiables à l'étape Destinataires (la cible varie souvent, ex. email de bienvenue).
   - [ ][ ] **Pièces jointes dupliquées physiquement** (copie dans le dossier de la nouvelle campagne) → la PJ de l'instance est indépendante de celle du modèle.
@@ -696,7 +725,7 @@ Aujourd'hui l'onglet « À valider » applique/rejette **par contact** (globalem
 - [ ] **Landing page d'accueil** (après login) : tableau de bord avec stats + **mise en exergue de ce qui demande attention** — erreurs d'envoi, bounces (quand traités), demandes de diffusion en attente, etc. Deviendra la vraie « vue neutre » d'accueil (le clic « Mailing » reste sur Historique en attendant).
 
 **Identité / signature de l'app (v2, idée 2026-07-27) :**
-- [ ] **Page « À propos »** (`/a-propos`) : présentation des fonctions + paramétrages + **crédits** (« Conçu par Nicolas Farrié, développé par Nicolas Farrié & Claude »). Accès : rendre **cliquable la ligne de version** en pied de sidebar + lien depuis Paramètres → Généraux + **signature discrète en pied de la page de connexion**. **Texte de base prêt** : `doc-travail/a-propos-brouillon.md`. (Graine de la future landing page + de la doc utilisateur.)
+- [x] **Page « À propos »** (`/a-propos`) : présentation des fonctions + paramétrages + **crédits** (« Conçu par Nicolas Farrié, développé par Nicolas Farrié & Claude »). Accès : rendre **cliquable la ligne de version** en pied de sidebar + lien depuis Paramètres → Généraux + **signature discrète en pied de la page de connexion**. **Texte de base prêt** : `doc-travail/a-propos-brouillon.md`. (Graine de la future landing page + de la doc utilisateur.)
 - [ ] **Page de connexion — texte de présentation éditable par la structure** : un champ (Setting, éditable dans **Paramètres → Généraux**) où l'association saisit quelques lignes de présentation, **affichées sur le login** (à côté / sous le formulaire). Complète l'apparence login déjà personnalisable (image de fond + voile). 
       
 
