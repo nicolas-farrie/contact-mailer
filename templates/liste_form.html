@@ -7,6 +7,7 @@
 </div>
 
 <form method="POST" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="nom">Nom de la liste *</label>
         <input type="text" id="nom" name="nom" value="{{ liste.nom if liste else '' }}" required>

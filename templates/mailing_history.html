@@ -34,6 +34,7 @@
                 <a href="{{ url_for('mailing.compose', from_campaign=d.id) }}" class="btn btn-small btn-primary">Reprendre</a>
                 <form method="POST" action="{{ url_for('mailing.discard') }}" style="display:inline"
                       onsubmit="return confirm('Supprimer ce brouillon et ses pièces jointes ?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="campaign_id" value="{{ d.id }}">
                     <button type="submit" class="btn btn-small btn-danger">Supprimer</button>
                 </form>
@@ -97,6 +98,7 @@
                 <a href="{{ url_for('mailing.queue', campaign=c.id) }}" class="icon-btn"
                    title="Voir les destinataires / le détail des envois">{{ ico.eye() }}</a>
                 <form method="POST" action="{{ url_for('mailing.history_archive', campaign_id=c.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="icon-btn" title="Archiver (retirer de l'historique — réversible)"
                             onclick="return confirm('Archiver cette campagne ? Elle disparaîtra de l\'historique (récupérable dans les archivées).')">{{ ico.archive() }}</button>
                 </form>
@@ -158,10 +160,12 @@
                 </td>
                 <td class="actions-cell">
                     <form method="POST" action="{{ url_for('mailing.history_unarchive', campaign_id=c.id) }}" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="icon-btn" title="Restaurer dans l'historique">{{ ico.unarchive() }}</button>
                     </form>
                     {% if current_user.is_admin %}
                     <form method="POST" action="{{ url_for('mailing.history_delete', campaign_id=c.id) }}" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="icon-btn icon-danger"
                                 onclick="return confirm('Supprimer DÉFINITIVEMENT cette campagne et tout son historique ? Action irréversible.')">{{ ico.trash() }}</button>
                     </form>

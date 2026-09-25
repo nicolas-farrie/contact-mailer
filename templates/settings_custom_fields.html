@@ -60,11 +60,15 @@
         <td>{% if d.is_active %}<span class="badge badge-green">Actif</span>{% else %}<span class="badge badge-gray">Inactif</span>{% endif %}</td>
         <td>
             <div class="table-actions">
-                <form method="POST" action="{{ url_for('settings.custom_field_move', id=d.id) }}"><input type="hidden" name="dir" value="up"><button class="btn btn-small" title="Monter">&uarr;</button></form>
-                <form method="POST" action="{{ url_for('settings.custom_field_move', id=d.id) }}"><input type="hidden" name="dir" value="down"><button class="btn btn-small" title="Descendre">&darr;</button></form>
+                <form method="POST" action="{{ url_for('settings.custom_field_move', id=d.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="dir" value="up"><button class="btn btn-small" title="Monter">&uarr;</button></form>
+                <form method="POST" action="{{ url_for('settings.custom_field_move', id=d.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="dir" value="down"><button class="btn btn-small" title="Descendre">&darr;</button></form>
                 <button type="button" class="btn btn-small" onclick="openModal('modal-cf-edit-{{ d.id }}')">Modifier</button>
-                <form method="POST" action="{{ url_for('settings.custom_field_toggle', id=d.id) }}"><button class="btn btn-small">{{ 'Désactiver' if d.is_active else 'Activer' }}</button></form>
-                <form method="POST" action="{{ url_for('settings.custom_field_delete', id=d.id) }}" onsubmit="return confirm('Supprimer le champ « {{ d.display_name }} » ? Les valeurs déjà saisies dans les contacts seront conservées mais masquées.')"><button class="btn btn-small btn-danger">Suppr.</button></form>
+                <form method="POST" action="{{ url_for('settings.custom_field_toggle', id=d.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-small">{{ 'Désactiver' if d.is_active else 'Activer' }}</button></form>
+                <form method="POST" action="{{ url_for('settings.custom_field_delete', id=d.id) }}" onsubmit="return confirm('Supprimer le champ « {{ d.display_name }} » ? Les valeurs déjà saisies dans les contacts seront conservées mais masquées.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-small btn-danger">Suppr.</button></form>
             </div>
         </td>
     </tr>
@@ -81,6 +85,7 @@
         <div class="modal-header"><h2>Nouveau champ personnalisé</h2><button type="button" class="modal-close" onclick="closeModal('modal-cf-new')" aria-label="Fermer">&times;</button></div>
         <div class="modal-body">
             <form method="POST" action="{{ url_for('settings.custom_field_new') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 {{ cffields(None, 'nu_') }}
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Créer le champ</button>
@@ -98,6 +103,7 @@
         <div class="modal-header"><h2>Modifier « {{ d.display_name }} »</h2><button type="button" class="modal-close" onclick="closeModal('modal-cf-edit-{{ d.id }}')" aria-label="Fermer">&times;</button></div>
         <div class="modal-body">
             <form method="POST" action="{{ url_for('settings.custom_field_edit', id=d.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 {{ cffields(d, 'e' ~ d.id ~ '_') }}
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Enregistrer</button>

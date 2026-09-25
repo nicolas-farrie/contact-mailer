@@ -10,8 +10,7 @@ mailing, page À propos…). Ce qui suit est ce qui reste VRAIMENT, par ordre d'
 
 **Risques d'exploitation** — à traiter en premier :
 1. ~~Timeout IMAP~~ → **fait le 25/09** (`Config.IMAP_TIMEOUT`, 14 connexions réseau couvertes).
-2. **Pas de protection CSRF** sur les formulaires POST — application authentifiée manipulant des
-   données personnelles.
+2. ~~Protection CSRF~~ → **faite le 25/09** (Flask-WTF, 80 formulaires + les appels fetch).
 3. **`update.sh` hors git avec prune inconditionnel** (dépôt `contact-mailer-deploy`) : il détruit
    l'image de rollback. Invisible tant que claude-serveur déploie à la main.
 4. **Fork-safety** : `--preload` sans `dispose()` au post-fork.
@@ -504,7 +503,7 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 ## Robustesse du service (analyse 2026-07-18)
 - [x] File d'envoi migrée du fichier JSON vers la DB (tables mail_campaign / mail_queue_item, colonnes JSON pour snapshot contact + PJ). Écritures transactionnelles, ids auto-incrémentés (fin des collisions), sauvegardé avec la DB. Interface MailQueue inchangée. Migration : tools/migrate_queue_to_db.py. (tools/fix_queue_ids.py devient obsolète.)
 - [x] Timeout IMAP dans le chemin des requêtes (`IMAP4_SSL(..., timeout=10)`) — évite le gel d'un worker si le serveur mail ne répond pas
-- [ ] Ajouter la protection CSRF (Flask-WTF) sur les formulaires POST
+- [x] Ajouter la protection CSRF (Flask-WTF) sur les formulaires POST — *25/09/2026* : `CSRFProtect`, jeton dans les 80 formulaires, en-tête `X-CSRFToken` ajouté automatiquement aux appels `fetch`, et message compréhensible quand la page a expiré (différent selon qu'on est connecté ou visiteur d'un formulaire public).
 - [ ] Fork-safety : `init_db()`/`db.engine.dispose()` en post_fork (gunicorn --preload) ; assert SECRET_KEY ≠ défaut en prod
 - [x] **Point d'entrée unique des migrations `tools/migrate.py`** (runner ledger `schema_migrations`, registre ordonné des 21 scripts, `--dry-run`/`--stamp`/`--safe-only`) — **Fait (05/08, dans l'image v2.0.0)**. À chaque changement de schéma : ajouter une ligne dans `MIGRATIONS`. Après déploiement : `docker compose run --rm --no-deps app python tools/migrate.py` (`run` et non `exec` : si le nouveau code attend une colonne pas encore créée, l'app boucle au démarrage et `exec` n'a aucun conteneur où s'accrocher — cf. en-tête de `tools/migrate.py`). *(Alembic reporté au jour Postgres.)*
 - [ ] **🧹 Assainir `update.sh` (dépôt `contact-mailer-deploy`), à froid** : la version qui tourne sur lfll/adreic34 est **hors git** (modifiée à la main depuis ~17/07), **prune inconditionnel** (tue le rollback), **backup `data/` seulement**, **n'appelle pas `migrate.py`**. → committer la vraie version, retirer/optionnaliser le prune, backup db+.env+compose, **câbler `migrate.py` après le restart**. En attendant = **déploiement MANUEL**. Cf. [[deploy-and-migrations-cleanup]].

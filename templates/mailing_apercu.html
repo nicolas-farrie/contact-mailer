@@ -75,6 +75,7 @@
             <div class="card-title">Envoyer un test</div>
             <p class="hint">Recevez l'email sur votre adresse avant l'envoi réel.</p>
             <form method="POST" action="{{ url_for('mailing.send_test') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
                 <input type="hidden" name="i" value="{{ index }}">
                 <div class="form-group">
@@ -88,6 +89,7 @@
             <div class="card-title">Enregistrer comme modèle</div>
             <p class="hint">Réutilisez ce contenu (objet, message, réponse, pied de mail, pièces jointes) pour un prochain mailing. Les listes ne sont pas conservées.</p>
             <form method="POST" action="{{ url_for('mailing.template_save') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
                 <div class="form-group">
                     <input type="text" name="name" value="{{ template.name or template.subject }}" required maxlength="200" placeholder="Nom du modèle">

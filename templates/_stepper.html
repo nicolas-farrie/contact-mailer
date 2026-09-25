@@ -34,6 +34,7 @@
                              var i=document.getElementById('band-rename-input'); i.focus(); i.select();">✎</button>
         </div>
         <form class="band-rename" id="band-rename" method="POST" action="{{ url_for('mailing.rename') }}" style="display:none;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
             <input type="hidden" name="back" value="{{ request.full_path }}">
             <input type="text" id="band-rename-input" name="name" value="{{ title }}"

@@ -72,6 +72,7 @@
 {% endif %}
 
 <form method="POST" action="{{ url_for('imports.import_mapping') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="token" value="{{ token }}">
     <input type="hidden" name="ext" value="{{ ext }}">
     <input type="hidden" name="filename" value="{{ filename }}">

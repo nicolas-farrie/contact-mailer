@@ -94,12 +94,14 @@
                 <button type="button" class="icon-btn" title="Modifier" onclick="openModal('modal-edit-{{ u.id }}')">{{ ico.edit() }}</button>
                 {% if u.id != current_user.id %}
                 <form method="POST" action="{{ url_for('users.toggle_active', id=u.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="icon-btn" title="{{ 'Désactiver le compte' if u.is_active else 'Réactiver le compte' }}">
                         {% if u.is_active %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>
                         {% else %}<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{% endif %}
                     </button>
                 </form>
                 <form method="POST" action="{{ url_for('users.delete', id=u.id) }}" onsubmit="return confirm('Supprimer l’utilisateur « {{ u.username }} » ?')" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="icon-btn icon-danger" title="Supprimer">{{ ico.trash() }}</button>
                 </form>
                 {% else %}
@@ -119,6 +121,7 @@
         <div class="modal-header"><h2>Nouvel utilisateur</h2><button type="button" class="modal-close" onclick="closeModal('modal-new')" aria-label="Fermer">&times;</button></div>
         <div class="modal-body">
             <form method="POST" action="{{ url_for('users.new') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 {{ userfields(None, contacts, 'nu_') }}
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Créer l'utilisateur</button>
@@ -136,6 +139,7 @@
         <div class="modal-header"><h2>Modifier « {{ u.username }} »</h2><button type="button" class="modal-close" onclick="closeModal('modal-edit-{{ u.id }}')" aria-label="Fermer">&times;</button></div>
         <div class="modal-body">
             <form method="POST" action="{{ url_for('users.edit', id=u.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 {{ userfields(u, contacts, 'e' ~ u.id ~ '_') }}
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Enregistrer</button>

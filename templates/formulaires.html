@@ -45,11 +45,13 @@
     <div class="form-card-actions">
         {% if archived %}
         <form method="POST" action="{{ url_for('formulaires.unarchive', id=f.id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-small btn-secondary">Désarchiver</button>
         </form>
         {% if current_user.is_admin %}
         <form method="POST" action="{{ url_for('formulaires.delete', id=f.id) }}" style="display:inline"
               onsubmit="return confirm('Supprimer DÉFINITIVEMENT « {{ f.nom }} » et ses {{ f.real_responses|length }} réponse(s) ?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="icon-btn icon-danger" title="Supprimer définitivement">{{ ico.trash() }}</button>
         </form>
         {% endif %}
@@ -66,6 +68,7 @@
             {% if status in ['clos', 'inactif'] %}
             <form method="POST" action="{{ url_for('formulaires.archive', id=f.id) }}" style="display:inline"
                   onsubmit="return confirm('Archiver « {{ f.nom }} » ? (réversible, réponses conservées)');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="icon-btn" title="Archiver (formulaire clos/inactif)">{{ ico.archive() }}</button>
             </form>
             {% endif %}

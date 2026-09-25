@@ -94,11 +94,13 @@
     <div class="proposal-actions">
         <form method="POST" action="{{ url_for('formulaires.proposal_reject', id=form.id) }}" style="display:inline"
               onsubmit="return confirm('Rejeter les modifications proposées par {{ g.contact.prenom }} {{ g.contact.nom }} ?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="contact_id" value="{{ g.contact.id }}">
             <button type="submit" class="btn btn-small btn-danger-outline">Rejeter</button>
         </form>
         <form method="POST" action="{{ url_for('formulaires.proposal_apply', id=form.id) }}" style="display:inline"
               onsubmit="return confirm('Appliquer ces modifications à la fiche de {{ g.contact.prenom }} {{ g.contact.nom }} ?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="contact_id" value="{{ g.contact.id }}">
             <button type="submit" class="btn btn-small btn-action">Appliquer à la fiche</button>
         </form>

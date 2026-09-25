@@ -59,6 +59,7 @@
 {% endif %}
 
 <form method="POST" id="pref-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <!-- Réglages -->
     <section class="card settings-section">

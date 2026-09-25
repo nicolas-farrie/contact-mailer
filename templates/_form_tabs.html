@@ -18,6 +18,7 @@
         {% if expired and not form.is_archived %}
         <form method="POST" action="{{ url_for('formulaires.archive', id=form.id) }}" style="display:inline"
               onsubmit="return confirm('Archiver « {{ form.nom }} » ? (réversible, réponses conservées)');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-danger-outline">Archiver</button>
         </form>
         {% endif %}

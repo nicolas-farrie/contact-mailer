@@ -26,6 +26,7 @@
 {% endif %}
 
 <form method="POST" action="{{ url_for('mailing.send') }}" class="mailing-form" id="mailing-form" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {# Campagne en cours d'édition : on la MET À JOUR au lieu d'en créer une nouvelle
        à chaque aller-retour (sinon, campagnes orphelines). #}
     {% if from_campaign_id %}<input type="hidden" name="from_campaign_id" value="{{ from_campaign_id }}">{% endif %}

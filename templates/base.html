@@ -8,6 +8,9 @@
     <link rel="manifest" href="{{ url_for('public.pwa_manifest') }}">
     {# Icône d'onglet colorée par instance (couleur choisie dans Paramètres › Général).
        Le ?c=<hex> force le navigateur à recharger l'icône quand la couleur change. #}
+    {# Jeton CSRF à disposition du JavaScript : les appels fetch POST le reprennent
+       automatiquement (voir le script en fin de page). #}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="{{ instance_color }}">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('public.pwa_icon', size=192) }}?c={{ instance_color|replace('#','') }}">
     <link rel="apple-touch-icon" href="{{ url_for('public.pwa_icon', size=192) }}?c={{ instance_color|replace('#','') }}">
@@ -179,5 +182,27 @@
                  border-radius:999px; background:var(--primary,#2563eb); color:#fff;
                  font-size:0.72rem; font-weight:700; text-align:center; line-height:1.35rem; }
     </style>
+<script>
+// Toute écriture envoyée en fetch porte le jeton, sans avoir à modifier chaque appel —
+// et les suivants en hériteront sans qu'on y pense. Uniquement pour NOTRE origine : le
+// jeton n'a rien à faire dans une requête vers un tiers.
+(function () {
+    var jeton = document.querySelector('meta[name="csrf-token"]');
+    if (!jeton || !window.fetch) return;
+    var natif = window.fetch;
+    window.fetch = function (entree, options) {
+        options = options || {};
+        var methode = (options.method || (entree && entree.method) || 'GET').toUpperCase();
+        var url = (typeof entree === 'string') ? entree : (entree && entree.url) || '';
+        var interne = !/^https?:\/\//i.test(url) || url.indexOf(window.location.origin) === 0;
+        if (interne && ['POST', 'PUT', 'PATCH', 'DELETE'].indexOf(methode) >= 0) {
+            var h = new Headers(options.headers || {});
+            if (!h.has('X-CSRFToken')) h.set('X-CSRFToken', jeton.content);
+            options.headers = h;
+        }
+        return natif(entree, options);
+    };
+})();
+</script>
 </body>
 </html>

@@ -71,6 +71,7 @@ function downloadPasswords() {
     <p>{{ pending_count }} contact(s) ont un mot de passe Seafile temporaire stocké en attente d'envoi.</p>
 
     <form method="POST" action="{{ url_for('api_integrations.seafile_send_invitations') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="inv_subject">Sujet du mail</label>
             <input type="text" id="inv_subject" name="subject" required
@@ -121,6 +122,7 @@ function downloadPasswords() {
     <h2>Régénérer les mots de passe</h2>
     <p>Pour les contacts d'une liste déjà présents dans Seafile, génère de nouveaux mots de passe temporaires via l'API.</p>
     <form method="POST" action="{{ url_for('api_integrations.seafile_reset_passwords') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="reset_liste_id">Liste de contacts</label>
             <select id="reset_liste_id" name="liste_id" required {% if not sf_configured %}disabled{% endif %}>
@@ -200,6 +202,7 @@ function toggleAll(checked) {
     <h2>Groupes Seafile</h2>
 
     <form method="POST" action="{{ url_for('api_integrations.seafile_sync_groups') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <p>Sélectionnez les listes à créer comme groupes dans Seafile (les groupes déjà existants seront ignorés) :</p>
 
         {% set group_names = groups | map(attribute='name') | list %}
@@ -248,6 +251,7 @@ function toggleAll(checked) {
     <h2>Pousser une liste vers Seafile</h2>
 
     <form method="POST" action="{{ url_for('api_integrations.seafile_push') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="liste_id">Liste de contacts</label>
             <select id="liste_id" name="liste_id" required>

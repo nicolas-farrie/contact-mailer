@@ -101,6 +101,7 @@
     {% set sendable = stats.pending - stats.deferred %}
     {% if sendable > 0 and not is_paused %}
     <form method="POST" action="{{ url_for('mailing.process') }}" id="process-form" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="campaign" value="{{ campaign }}">
         <button type="button" class="btn btn-primary btn-cta" id="send-btn" onclick="confirmAndSend()">
             Envoyer {{ sendable }} email{{ 's' if sendable > 1 }} maintenant
@@ -114,6 +115,7 @@
 
     {% if stats.pending > 0 %}
     <form method="POST" action="{{ url_for('mailing.queue_pause', campaign_id=campaign) }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="back" value="{{ request.full_path }}">
         {% if is_paused %}<input type="hidden" name="resume" value="1">{% endif %}
         <button type="submit" class="btn btn-secondary">{{ '▶ Reprendre l\'envoi' if is_paused else '⏸ Mettre en pause' }}</button>
@@ -122,6 +124,7 @@
 
     {% if stats.error > 0 %}
     <form method="POST" action="{{ url_for('mailing.queue_retry', campaign_id=campaign) }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-warning"
                 onclick="return confirm('Remettre {{ stats.error }} email(s) en erreur en attente pour réessayer ?')">
             ↺ Réessayer {{ stats.error }} erreur{{ 's' if stats.error > 1 }}
@@ -209,6 +212,7 @@
             <td class="actions-cell">
                 <a href="{{ url_for('mailing.queue', campaign=c.campaign_id) }}" class="btn btn-small btn-primary">Détail</a>
                 <form method="POST" action="{{ url_for('mailing.queue_pause', campaign_id=c.campaign_id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="back" value="{{ request.full_path }}">
                     {% if c.paused %}<input type="hidden" name="resume" value="1">{% endif %}
                     <button type="submit" class="btn btn-small btn-secondary">{{ '▶ Reprendre' if c.paused else '⏸ Pause' }}</button>

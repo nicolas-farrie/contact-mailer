@@ -18,9 +18,11 @@
         <button type="button" class="icon-btn" title="Aperçu du message" onclick="toggleSub('{{ idp }}')">{{ ico.eye() }}</button>
         {% if actions %}
         <form method="POST" action="{{ url_for('mailing.submission_use', uid=s.uid) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-small btn-primary">Utiliser</button>
         </form>
         <form method="POST" action="{{ url_for('mailing.submission_archive', uid=s.uid) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="icon-btn" title="Archiver (traiter sans créer de mailing)"
                     onclick="return confirm('Archiver cette demande sans créer de mailing ?')">{{ ico.archive() }}</button>
         </form>

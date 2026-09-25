@@ -70,6 +70,7 @@
             <div class="icon">&#9993;</div>
             <p class="message">Souhaitez-vous vous désabonner de nos communications ?</p>
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-unsub">Confirmer le désabonnement</button>
             </form>
             <p class="note">Si vous ne souhaitez pas vous désabonner,<br>fermez tout simplement cette page.</p>

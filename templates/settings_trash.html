@@ -15,6 +15,7 @@
 
         {% if deleted_contacts %}
         <form id="trash-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" id="trash-action" value="">
 
             <div class="trash-toolbar">

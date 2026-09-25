@@ -13,6 +13,7 @@
         <h2>Général</h2>
         <p class="settings-hint">Paramètres globaux de l'application.</p>
         <form method="POST" action="{{ url_for('settings.index') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="section" value="general">
             <div class="form-group">
                 <label for="app_name">Nom de l'application</label>
@@ -52,6 +53,7 @@
         <h2>Coordonnées de l'association</h2>
         <p class="settings-hint">Ajoutées en pied des mailings quand l'option « Coordonnées asso » est cochée. Une adresse postale de l'expéditeur est attendue dans un envoi groupé, et les filtres anti-spam en tiennent compte.</p>
         <form method="POST" action="{{ url_for('settings.index') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="section" value="org_contact">
             <div class="form-group">
                 <label for="org_contact">Coordonnées <span class="field-help" style="font-weight:normal;">(une information par ligne)</span></label>
@@ -68,6 +70,7 @@
         <h2>Sauvegarde de la base</h2>
         <p class="settings-hint">Télécharge une copie complète et cohérente de la base (contacts, listes, utilisateurs, journal…). À faire notamment <strong>avant un gros import</strong>. Un backup automatique est aussi créé côté serveur avant chaque import.</p>
         <form method="POST" action="{{ url_for('settings.backup_now') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-secondary">⤓ Sauvegarder et télécharger la base</button>
         </form>
     </section>
@@ -105,6 +108,7 @@
         <h2>Valeurs par défaut</h2>
         <p class="settings-hint">Listes de choix proposées dans les fiches contact.</p>
         <form method="POST" action="{{ url_for('settings.index') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="section" value="defaults">
             <div class="form-group">
                 <label for="civilite_options">Civilités <span class="text-muted">(une par ligne)</span></label>
@@ -124,6 +128,7 @@
             <strong>{{ max_per_day or '∞' }}</strong> par jour, <strong>{{ max_mb_per_hour or '∞' }} Mo</strong> par heure
             (pièces jointes comprises). Ces valeurs sont réglées côté serveur, dans la configuration de l'instance.</p>
         <form method="POST" action="{{ url_for('settings.index') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="section" value="sending">
             <label class="checkbox-inline">
                 <input type="checkbox" name="alert_on_errors" value="on"{% if alert_on_errors %} checked{% endif %}>
@@ -139,6 +144,7 @@
         <h2>Gestion du bounce</h2>
         <p class="settings-hint">Le suivi des retours d'erreur marque automatiquement les adresses invalides.{% if not bounce_configured %} <strong>Aucune adresse de retour n'est configurée côté serveur</strong> — le suivi restera inopérant tant qu'elle n'est pas définie.{% endif %}</p>
         <form method="POST" action="{{ url_for('settings.index') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="section" value="bounce">
             <label class="checkbox-inline">
                 <input type="checkbox" name="bounce_enabled" value="on"{% if bounce_enabled %} checked{% endif %}>
@@ -179,6 +185,7 @@
             <!-- Contrôles -->
             <div>
                 <form method="POST" action="{{ url_for('settings.index') }}" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="section" value="login_appearance">
                     <div class="form-group">
                         <label for="login_bg">Image de fond</label>
@@ -202,6 +209,7 @@
                 {% if login_bg_url %}
                 <form method="POST" action="{{ url_for('settings.clear_login_bg') }}" style="margin-top: 0.75rem;"
                       onsubmit="return confirm('Supprimer l\'image de fond de la page de connexion ?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-small btn-danger">Supprimer l'image</button>
                 </form>
                 {% endif %}

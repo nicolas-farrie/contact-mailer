@@ -25,6 +25,7 @@
 
 {% if questions %}
 <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="card">
     <table class="data-table">
         <thead><tr><th>Question dans NOÉ</th><th>Type</th><th>Reprise dans</th></tr></thead>

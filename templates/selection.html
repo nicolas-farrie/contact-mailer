@@ -29,6 +29,7 @@
         <button type="button" class="btn btn-secondary btn-small" onclick="document.getElementById('save-as-list').hidden = !document.getElementById('save-as-list').hidden">Enregistrer comme liste…</button>
 
         <form method="POST" action="{{ url_for('selection.to_list') }}" style="display:inline-flex;gap:0.35rem;align-items:center;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <select name="liste_id" required class="form-control" style="max-width:220px;">
                 <option value="">— liste —</option>
                 {% for l in listes %}<option value="{{ l.id }}">{{ l.nom }}</option>{% endfor %}
@@ -37,6 +38,7 @@
         </form>
 
         <form method="POST" action="{{ url_for('selection.from_list') }}" style="display:inline-flex;gap:0.35rem;align-items:center;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <select name="liste_id" required class="form-control" style="max-width:220px;">
                 <option value="">— liste —</option>
                 {% for l in listes %}<option value="{{ l.id }}">{{ l.nom }}</option>{% endfor %}
@@ -46,12 +48,14 @@
 
         <form method="POST" action="{{ url_for('selection.clear') }}" style="display:inline;margin-left:auto;"
               onsubmit="return confirm('Vider la sélection courante ? (les contacts ne sont pas supprimés)')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-danger-outline btn-small">Vider la sélection</button>
         </form>
     </div>
 
     <div id="save-as-list" hidden style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);">
         <form method="POST" action="{{ url_for('selection.save_as_list') }}" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" name="nom" placeholder="Nom de la nouvelle liste" required class="form-control" style="max-width:280px;">
             <input type="text" name="description" placeholder="Description (facultatif)" class="form-control" style="max-width:280px;">
             <button type="submit" class="btn btn-primary btn-small">Créer la liste ({{ selection_count }} contact·s)</button>
@@ -80,6 +84,7 @@
                 <td style="text-align:right;">
                     <a href="{{ url_for('contacts.view', id=c.id) }}" class="icon-edit" title="Voir">Voir</a>
                     <form method="POST" action="{{ url_for('selection.remove') }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="contact_ids" value="{{ c.id }}">
                         <input type="hidden" name="back" value="{{ request.url }}">
                         <button type="submit" class="btn btn-small btn-danger-outline" title="Retirer de la sélection">Retirer</button>

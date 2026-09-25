@@ -9,6 +9,7 @@
 
 <div class="form-card">
     <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="file">Fichier contacts</label>
             <input type="file" id="file" name="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt,.vcf,.vcard" required>

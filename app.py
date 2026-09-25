@@ -129,6 +129,30 @@ def create_app(config_object=Config):
     db.init_app(app)
     login_manager.init_app(app)
 
+    # Protection CSRF sur toutes les écritures. Sans elle, un site tiers pouvait faire
+    # exécuter une action au navigateur d'un utilisateur connecté — supprimer des
+    # contacts, lancer un envoi — à son insu et avec ses droits.
+    from flask_wtf.csrf import CSRFProtect, CSRFError
+    CSRFProtect(app)
+
+    @app.errorhandler(CSRFError)
+    def _csrf_expire(e):
+        # Cas réel le plus fréquent : un onglet resté ouvert la nuit. Un « 400 Bad
+        # Request » n'apprend rien à personne — on dit quoi faire, et on renvoie à
+        # l'endroit qui a du sens pour celui qui lit.
+        from flask import flash, redirect, url_for, request
+        from flask_login import current_user
+        if current_user.is_authenticated:
+            flash("Session expirée : reconnectez-vous, puis recommencez — "
+                  "rien n'a été enregistré.", 'error')
+            return redirect(url_for('public.login', next=request.path)), 303
+        # Visiteur SANS compte (formulaire public, désabonnement) : l'envoyer vers une
+        # page de connexion n'aurait aucun sens. On le ramène sur sa propre page, qu'il
+        # lui suffit de renvoyer.
+        flash("Cette page est restée ouverte trop longtemps : vos réponses n'ont pas été "
+              "enregistrées. Renvoyez le formulaire, tout est encore là.", 'error')
+        return redirect(request.path), 303
+
     register_blueprints(app)
     register_context_processors(app)
 

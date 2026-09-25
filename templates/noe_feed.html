@@ -54,6 +54,7 @@
 {% endif %}
 
 <form method="post" action="{{ url_for('api_integrations.noe_feed') }}" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="ref" value="{{ ref }}">
 
     <h2>Liste de destination</h2>
