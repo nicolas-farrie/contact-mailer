@@ -277,11 +277,18 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
       du module — le fil d'envoi tourne donc **dans le maître**, pas dans les workers (un fil ne
       survit pas au fork). Ça fonctionne, et ça garantit un seul fil, mais le maître n'a pas à
       faire de travail applicatif.
-      **Piste retenue avec Nicolas (26/09)** : un **service Docker dédié** à l'envoi, dans le même
-      `docker-compose.yml`, lançant `tools/process_queue.py` en boucle. Rien à installer sur les
-      hôtes (c'est ce qui avait fait écarter le timer systemd), isolation réelle, logs et
-      redémarrage séparés, et le verrou inter-processus garantit déjà qu'un seul envoi tourne.
-      Contrepartie : un conteneur de plus par instance, à déployer par claude-serveur.
+      **DEUX options, à trancher à froid — Nicolas réserve son avis sur le conteneur dédié (26/09)** :
+      - **(A) garder le fil DANS le conteneur, mais le démarrer au bon endroit** : hook
+        `post_worker_init` du `gunicorn.conf.py` plutôt qu'au niveau du module. Le fil naît alors
+        dans un worker, pas dans le maître ; le verrou inter-processus empêche déjà deux envois
+        simultanés, donc en avoir un par worker est sans danger. **Rien de nouveau à déployer**, et
+        le même fichier de configuration porte le `dispose()` du post-fork : les deux défauts se
+        corrigent d'un seul geste. C'est le moins cher et le plus proche de l'existant.
+      - **(B) un service Docker dédié** lançant `tools/process_queue.py` en boucle : isolation
+        réelle, logs et redémarrage séparés, mais un conteneur de plus par instance à déployer et
+        à surveiller — pour une association, c'est une pièce mobile supplémentaire.
+      Pencher vers (A) tant que l'envoi reste de cet ordre de grandeur ; (B) se justifierait si
+      l'envoi devenait lourd au point de gêner les requêtes web.
 - [ ] **Lenteur de l'interface — MESURÉE le 26/09/2026, ce n'est ni la base ni gunicorn**. Sur la
       base de dev (1511 contacts, 21 listes) : `/contacts` = 85 ms dont **2,2 ms de SQL**,
       `/listes` = 86 ms dont **2,5 ms de SQL**. Autrement dit **97 % du temps serveur est du rendu
