@@ -245,6 +245,58 @@ Deux tiroirs distincts : **Tier 1 = logs système** (dev/ops, stdout→docker) ;
 - Priorité conseillée : **login (ok/ko) + export** d'abord, puis le reste + l'UI.
 
 ## A faire - Améliorations
+- [ ] **Bounces — lire les retours dans la boîte d'ENVOI** *(décidé le 26/09/2026, après le
+      festival ; prochaine étape fonctionnelle majeure)*. Aujourd'hui **rien d'opérationnel** : la
+      boîte bounce dédiée reste vide, parce que la gestion du bounce est désactivée (rejet 553 de
+      LWS sur le Return-Path forcé) — donc l'enveloppe vaut l'adresse d'envoi et **les retours
+      s'accumulent dans la boîte d'envoi**. Ce n'est pas un pis-aller : c'est le mécanisme normal,
+      à la bonne boîte. Les NDR sont normalisés (RFC 3464, partie `message/delivery-status`), et
+      `bounce_scanner._parse_delivery_status()` sait déjà les lire — il n'a jamais eu de boîte
+      alimentée.
+      **À construire** : un réglage à trois positions (boîte dédiée / boîte d'envoi / désactivé),
+      un scan périodique porté par le fil interne (comme `field_refresh`), et la même distinction
+      que pour l'envoi — `5.x.x` = définitif, on brûle l'adresse ; `4.x.x` = temporaire, on ne
+      touche à rien.
+      **Pièges** : on lit une boîte qui sert à autre chose — ne traiter que ce qui a la FORME d'un
+      retour (expéditeur `MAILER-DAEMON`, ou partie `delivery-status`), ne toucher ni aux réponses
+      de vraies personnes (le Reply-To y ramène du monde) ni aux copies récapitulatives ; déplacer
+      les retours traités dans un dossier pour l'idempotence.
+      **Cas restant à DISCUTER avec Nicolas** : (a) utiliser une boîte d'envoi spécifique avec le
+      Reply-To pointant sur la boîte principale — les retours arriveraient alors seuls dans une
+      boîte propre, sans mélange ; (b) **nettoyage automatique des messages de retour** (demandé
+      par l'utilisateur) : les supprimer après traitement, ou les archiver, et avec quelle
+      rétention. Compter ~1 journée une fois ces deux points tranchés.
+- [ ] **gunicorn — sûreté au dédoublement et worker dédié à l'envoi** *(constaté le 26/09/2026)*.
+      `--preload` charge l'application dans le processus maître AVANT le fork : `init_db()` étant
+      appelé au niveau du module, une connexion SQLite est ouverte dans le maître puis **héritée
+      par les deux workers**, qui croient chacun en être seuls propriétaires (« database is
+      locked », transactions mêlées — sporadique et difficile à relier à sa cause). Remède : un
+      `gunicorn.conf.py` avec un hook `post_fork` appelant `db.engine.dispose()`, pour que chaque
+      worker ouvre ses propres connexions.
+      **Corollaire vu au passage** : `sending.start_autosend(app)` est lui aussi appelé au niveau
+      du module — le fil d'envoi tourne donc **dans le maître**, pas dans les workers (un fil ne
+      survit pas au fork). Ça fonctionne, et ça garantit un seul fil, mais le maître n'a pas à
+      faire de travail applicatif.
+      **Piste retenue avec Nicolas (26/09)** : un **service Docker dédié** à l'envoi, dans le même
+      `docker-compose.yml`, lançant `tools/process_queue.py` en boucle. Rien à installer sur les
+      hôtes (c'est ce qui avait fait écarter le timer systemd), isolation réelle, logs et
+      redémarrage séparés, et le verrou inter-processus garantit déjà qu'un seul envoi tourne.
+      Contrepartie : un conteneur de plus par instance, à déployer par claude-serveur.
+- [ ] **Lenteur de l'interface — MESURÉE le 26/09/2026, ce n'est ni la base ni gunicorn**. Sur la
+      base de dev (1511 contacts, 21 listes) : `/contacts` = 85 ms dont **2,2 ms de SQL**,
+      `/listes` = 86 ms dont **2,5 ms de SQL**. Autrement dit **97 % du temps serveur est du rendu
+      Python/Jinja**, et la base ne coûte rien.
+      Le vrai facteur est le **poids de la page** : `/contacts` envoie **519 Ko pour 100 lignes**,
+      soit ~5,3 Ko par contact — le tableau produit **deux lignes par contact** (~2,5 Ko chacune),
+      vraisemblablement la vue tableau ET la vue carte du responsive, toutes deux rendues côté
+      serveur. Les 5-6 s ressenties viennent donc du navigateur (analyse + rendu) et du réseau,
+      pas du serveur.
+      **À faire pour trancher en prod** : ajouter `%(D)s` au format des logs d'accès gunicorn pour
+      connaître la durée réelle côté serveur, et comparer avec l'onglet Réseau du navigateur. Si
+      le serveur répond en 100 ms, le chantier est le poids du HTML (ne pas rendre deux fois
+      chaque contact, pagination plus courte, colonnes à la demande).
+      **Postgres n'y changerait RIEN** : l'indexation JSON accélère le FILTRAGE sur des champs
+      JSON à grande échelle, or ici le SQL représente 2 ms. Cf. la note de décision Postgres.
 - [x] **NOÉ — reprise automatique des réponses** *(24/09/2026)*. Les compétences ne descendaient
       que sur un geste humain : « NOÉ fait foi » ne valait que si quelqu'un pensait à cliquer.
       Deux déclencheurs ajoutés (`field_refresh.py`) — **à l'ouverture d'une session**, en tâche
